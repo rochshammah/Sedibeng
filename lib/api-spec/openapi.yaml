@@ -3,13 +3,17 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Public assistance catalogue and demonstration dashboards for Sedibeng Phase 1
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: assistance
+    description: Public, anonymous school-essential requests
+  - name: demo
+    description: Sample-only dashboard previews
 paths:
   /healthz:
     get:
@@ -24,6 +28,96 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /requests:
+    get:
+      operationId: getRequests
+      tags: [assistance]
+      summary: Browse demonstration assistance requests
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: priority
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching demonstration requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssistanceRequest"
+  /requests/{id}:
+    get:
+      operationId: getRequest
+      tags: [assistance]
+      summary: Get a demonstration request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Demonstration request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistanceRequest"
+        "404":
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /demo/donor-dashboard:
+    get:
+      operationId: getDonorDashboard
+      tags: [demo]
+      summary: Get sample donor dashboard content
+      responses:
+        "200":
+          description: Sample donor dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonorDashboard"
+  /demo/teacher-dashboard:
+    get:
+      operationId: getTeacherDashboard
+      tags: [demo]
+      summary: Get sample teacher dashboard content
+      responses:
+        "200":
+          description: Sample teacher dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherDashboard"
+  /demo/admin-dashboard:
+    get:
+      operationId: getAdminDashboard
+      tags: [demo]
+      summary: Get sample administration dashboard content
+      responses:
+        "200":
+          description: Sample administration dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboard"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +127,132 @@ components:
           type: string
       required:
         - status
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    AssistanceRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        category:
+          type: string
+        item:
+          type: string
+        description:
+          type: string
+        specifications:
+          type: string
+        quantity:
+          type: integer
+        unit:
+          type: string
+        location:
+          type: string
+        schoolContext:
+          type: string
+        priority:
+          type: string
+          enum: [Essential, High, Standard]
+        status:
+          type: string
+          enum: [Open, Partially matched, Matched]
+        imageUrl:
+          type: string
+        imageAlt:
+          type: string
+        updatedLabel:
+          type: string
+        demonstration:
+          type: boolean
+      required:
+        - id
+        - title
+        - category
+        - item
+        - description
+        - specifications
+        - quantity
+        - unit
+        - location
+        - schoolContext
+        - priority
+        - status
+        - imageUrl
+        - imageAlt
+        - updatedLabel
+        - demonstration
+    DashboardCount:
+      type: object
+      properties:
+        label:
+          type: string
+        value:
+          type: integer
+        detail:
+          type: string
+      required: [label, value, detail]
+    DemoRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        detail:
+          type: string
+        status:
+          type: string
+        imageUrl:
+          type: string
+      required: [id, title, detail, status, imageUrl]
+    DashboardModule:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        detail:
+          type: string
+        status:
+          type: string
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/DemoRecord"
+      required: [id, title, detail, status, records]
+    DemoDashboard:
+      type: object
+      properties:
+        demonstration:
+          type: boolean
+        counts:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardCount"
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/DemoRecord"
+        modules:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardModule"
+      required: [demonstration, counts, records, modules]
+    DonorDashboard:
+      allOf:
+        - $ref: "#/components/schemas/DemoDashboard"
+    TeacherDashboard:
+      allOf:
+        - $ref: "#/components/schemas/DemoDashboard"
+    AdminDashboard:
+      allOf:
+        - $ref: "#/components/schemas/DemoDashboard"
 

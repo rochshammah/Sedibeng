@@ -1,15 +1,17 @@
-# [Project name]
+# Sedibeng
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Sedibeng connects teachers with donors providing physical school essentials while protecting learner privacy and dignity.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/sedibeng run dev` — run the Sedibeng web app
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- Phase 1 uses demonstration data and does not require a database connection.
+- Configure Neon credentials in Replit Secrets when database integration is approved; never commit them.
 
 ## Stack
 
@@ -22,23 +24,35 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/sedibeng` — public app, catalogue, authentication previews, dashboards, PWA shell and visual assets
+- `artifacts/api-server` — shared Express API and read-only demonstration endpoints
+- `lib/api-spec/openapi.yaml` — API contract source of truth
+- `lib/api-client-react` and `lib/api-zod` — generated client hooks and validation schemas
+- `lib/db` — existing Drizzle foundation; not connected by Sedibeng Phase 1
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Phase 1 catalogue and dashboard APIs return explicitly labeled sample data; there is no persistence or real verification.
+- Learner identities and private circumstances are excluded from public request data.
+- Authentication screens are previews only. Do not implement local authentication; use a supported identity integration in a later phase.
+- Donors provide physical goods only. No cash transfer or learner-to-donor contact flow.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- The public catalogue lets donors search demonstration requests for school shoes, uniforms, bags, books and stationery in Gaborone.
+- Donor, teacher and admin areas preview future workflows and are not operational systems.
+- Official slogan: “Sedibeng go iwa ka tsela”.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Keep Phase 1 focused on a premium identity, responsive UI and a clean foundation; stop for review before Phase 2.
+- Do not use public photographs of children or expose learner-identifying information.
+- Clearly label demonstration data and never imply live verification, fulfilment or saved actions.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Regenerate API hooks and schemas after changing `lib/api-spec/openapi.yaml`.
+- The PWA service worker caches only the public shell and static assets; never add API or private-response caching.
 
 ## Pointers
 

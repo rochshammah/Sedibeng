@@ -1,0 +1,326 @@
+# PHASE 1: BUILD SEDIBENG FROM SCRATCH — COMPLETE FOUNDATION AND PREMIUM UI
+
+You are building a completely NEW application. This is a fresh Replit project. There is NO existing codebase, no existing database, no existing design, and no existing functionality to preserve. Do not waste time searching for or expecting existing project files. Create everything from scratch.
+
+## 1. Product identity
+
+Application name: **Sedibeng**
+
+Official slogan: **“Sedibeng go iwa ka tsela”**
+
+Sedibeng is a digital platform that connects verified teachers with donors who want to provide physical school essentials to underprivileged learners in Gaborone, Botswana.
+
+Teachers submit assistance requests on behalf of learners. Donors can browse approved requests, list items they already have available to donate, or offer to provide specific items. Sedibeng helps match available donations with genuine needs.
+
+The platform must protect learners' identities and dignity. Learners must never need to create accounts.
+
+The initial pilot will operate in Gaborone, Botswana, but the architecture must allow expansion across Botswana in the future.
+
+## 2. Technology stack
+
+Build the application using:
+
+- Frontend: React, TypeScript and Vite.
+- Styling: Tailwind CSS.
+- Components: shadcn/ui where appropriate, customised to match the Sedibeng design.
+- Backend: Node.js, Express and TypeScript.
+- Database: PostgreSQL hosted on Neon.
+- ORM: Drizzle ORM.
+- Frontend deployment: Vercel.
+- Backend deployment: Render.
+- PWA: installable Progressive Web App.
+- Icons: Lucide icons, used sparingly.
+- Forms: React Hook Form and Zod where appropriate.
+
+Use a clean modular architecture, preferably:
+
+- `/client` — frontend.
+- `/server` — backend.
+- `/shared` — shared types, schemas and validation.
+
+Keep the application organised, scalable and maintainable. Do not place the entire application in one giant file.
+
+## 3. Visual identity and design direction
+
+This is extremely important. I want Sedibeng to look like a premium, professionally designed 2026 application, not an ordinary outdated administration dashboard.
+
+The visual direction should combine:
+
+- The refined visual quality of modern iOS interfaces.
+- Premium fintech application design.
+- Contemporary editorial website design.
+- Human-centred education and social-impact photography.
+- Subtle Liquid Glass-inspired surfaces and transitions.
+
+Do not copy Apple's logo, branding or proprietary interface designs. Create an original Sedibeng identity.
+
+### Colour palette
+
+Use a sophisticated palette consisting of:
+
+- Deep midnight navy as the primary dark colour.
+- Teal/turquoise as the main accent.
+- Warm off-white backgrounds.
+- White surfaces.
+- Soft neutral greys.
+- Restrained gradients and subtle highlights.
+
+The result should feel trustworthy, welcoming, elegant and modern.
+
+### Typography
+
+Use a refined heading font and a highly readable sans-serif body font. Establish a consistent hierarchy between page headings, section headings, descriptions, labels and supporting information.
+
+Avoid oversized typography everywhere. Make the interface editorial and balanced.
+
+### Photography — very important
+
+I want the application to use high-quality, relevant photographs prominently.
+
+Use photographs representing:
+
+- School shoes.
+- School uniforms.
+- School backpacks.
+- Stationery and textbooks.
+- Classrooms.
+- Teachers helping learners.
+- School supplies being prepared or donated.
+- Education activities.
+
+Use reliable image assets or properly generated assets. Do not use random images that have nothing to do with the content. Do not leave broken image URLs or empty image placeholders.
+
+Use suitable aspect ratios, attractive image cropping, responsive image sizing and graceful fallbacks.
+
+**Do not replace photographs with emojis or generic icons.** Icons should only support navigation, actions, statuses and small interface details.
+
+### Interface styling
+
+Use:
+
+- Layered surfaces.
+- Carefully controlled transparency and blur.
+- Subtle shadows and depth.
+- Refined rounded corners.
+- Elegant cards.
+- Smooth transitions.
+- Premium hover and pressed states.
+- Beautiful form controls.
+- Well-designed dialogs and responsive sheets.
+- Consistent spacing.
+
+Do not make every component glass-like. Glass effects should be restrained and purposeful.
+
+Avoid excessive icons, excessive gradients, unnecessary borders, cluttered layouts and generic dashboard templates.
+
+## 4. Pages and screens to create
+
+Build the following screens with realistic demonstration content clearly labelled as sample data where appropriate.
+
+### A. Public landing page
+
+Create a stunning, professional homepage.
+
+It should contain:
+
+1. A refined navigation bar with Sedibeng branding.
+2. A photographic hero section.
+3. The exact slogan: “Sedibeng go iwa ka tsela”.
+4. A compelling headline explaining how Sedibeng connects teachers, donors and learners' needs.
+5. A short, dignified description of the mission.
+6. Two prominent calls to action:
+   - Find a way to help.
+   - Register as a teacher.
+7. An introduction to how Sedibeng works.
+8. A preview of assistance requests.
+9. An introduction to the Smart Match system.
+10. A trust and safeguarding section.
+11. Separate sections explaining how teachers and donors participate.
+12. Frequently asked questions.
+13. A professional footer with navigation, contact placeholder and policy links.
+
+The homepage must feel like a real organisation's professional product, not a student project.
+
+Do not invent testimonials, impact statistics, government partnerships, school partnerships or endorsements.
+
+### B. Public assistance catalogue
+
+Create a catalogue where donors can browse approved assistance requests.
+
+Include:
+
+- Search.
+- Category filters.
+- General location.
+- Item description.
+- Quantity needed.
+- Priority indicator.
+- Request status.
+- Attractive item photography.
+- Clear request details pages.
+
+Use sample requests, but label them as demonstration data.
+
+Never display learner names, photographs, exact home addresses, private teacher notes or sensitive personal circumstances.
+
+### C. Request details page
+
+Show the public information a donor needs to understand the request and offer assistance.
+
+Include the requested item, specifications, quantity, general location, urgency and appropriate teacher/school context without exposing private learner information.
+
+Provide a clear action to offer assistance.
+
+### D. Authentication pages
+
+Create:
+
+- Sign in.
+- Donor registration.
+- Teacher registration.
+- Password recovery.
+- Password reset screen.
+
+Use polished, accessible forms with validation and helpful error states.
+
+Do not create learner registration.
+
+### E. Donor dashboard preview
+
+Design a professional donor dashboard with:
+
+- Overview.
+- Available inventory.
+- My offers.
+- Suggested matches.
+- Active fulfilments.
+- Completed donations.
+- Notifications.
+- Account and verification status.
+
+### F. Teacher dashboard preview
+
+Design a professional teacher dashboard with:
+
+- Overview.
+- My assistance requests.
+- Create request.
+- Request statuses.
+- Suggested donor matches.
+- Match approvals.
+- Fulfilment tracking.
+- Notifications.
+- Verification status.
+- Account settings.
+
+### G. Admin dashboard preview
+
+Create a professional administrative dashboard with:
+
+- Overview.
+- Teacher verification.
+- Donor verification.
+- Assistance request moderation.
+- Inventory moderation.
+- Match oversight.
+- Fulfilment oversight.
+- Reports and audit activity.
+
+For Phase 1, these dashboards can use sample data and demonstration interactions. Do not pretend that real verification, database operations or real fulfilment processing already work.
+
+## 5. Navigation and responsive experience
+
+The application must be mobile-first and work beautifully on:
+
+- iPhones.
+- Android phones.
+- Tablets.
+- Desktop computers.
+
+Use a modern mobile navigation experience inspired by contemporary iOS applications, with appropriate bottom navigation for authenticated users.
+
+Ensure:
+
+- Safe-area support.
+- Comfortable touch targets.
+- No horizontal overflow.
+- Readable typography.
+- Smooth scrolling.
+- Responsive layouts.
+- Useful mobile sheets and dialogs.
+- Proper loading, empty and error states.
+
+Use subtle animations and transitions. Avoid excessive movement that slows the interface.
+
+## 6. PWA foundation
+
+Set up the initial Progressive Web App foundation:
+
+- Web app manifest.
+- Sedibeng application name and theme.
+- App icons or properly designed temporary placeholders.
+- Installability.
+- Service worker foundation.
+- Appropriate offline fallback.
+
+Only public static assets and the public application shell may be cached. Never cache private user records, authentication responses, verification documents or sensitive data.
+
+## 7. Architecture and code quality
+
+Create a clean foundation for the future backend and database integration.
+
+Separate:
+
+- Pages.
+- Reusable components.
+- Layouts.
+- Hooks.
+- Services.
+- API clients.
+- Types.
+- Validation schemas.
+- Styling.
+- Server routes.
+- Server middleware.
+
+Create environment variable examples without placing real secrets in source code.
+
+Do not expose database credentials or API secrets to frontend code.
+
+The Neon database connection will be configured in a later phase. Do not invent database credentials.
+
+## 8. Important product rules
+
+These rules must guide the architecture and interface from the beginning:
+
+- Donors provide physical school goods, not money.
+- Sedibeng does not transfer money to teachers.
+- No learner accounts.
+- No direct donor-to-learner communication.
+- Learners remain anonymous.
+- Teachers must eventually be verified before publishing requests.
+- Requests must eventually be moderated before public listing.
+- Donors can offer existing inventory or provide requested items.
+- Teachers must approve proposed matches before allocation.
+- No public child photographs.
+- No fabricated verification badges or fake trust indicators.
+
+## 9. Completion requirements
+
+Before declaring Phase 1 complete:
+
+1. Make sure the project installs and runs successfully.
+2. Resolve TypeScript and build errors.
+3. Ensure all navigation links work.
+4. Ensure all main pages are accessible.
+5. Test the layout on mobile and desktop.
+6. Verify that images load and fallbacks work.
+7. Ensure reusable components and consistent styling.
+8. Make the homepage visually impressive.
+9. Make the catalogue genuinely image-led.
+10. Make the dashboards polished and coherent.
+11. Provide a concise summary of what was created and what is still demonstration-only.
+
+Do not proceed to Phase 2 automatically. Stop and wait for my review.
+
+**My priority for this phase is to establish an excellent visual identity and a clean technical foundation. Do not sacrifice the design quality for speed.**

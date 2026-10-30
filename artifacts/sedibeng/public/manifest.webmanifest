@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "Sedibeng",
+  "short_name": "Sedibeng",
+  "description": "School essentials, shared with care.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f7f6f1",
+  "theme_color": "#10292d",
+  "categories": ["education", "social"],
+  "icons": [
+    {
+      "src": "/sedibeng-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
