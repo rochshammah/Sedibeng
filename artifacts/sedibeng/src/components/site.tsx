@@ -1,5 +1,27 @@
+import { type ImgHTMLAttributes, type SyntheticEvent } from 'react';
 import { Link } from 'wouter';
 import { ArrowUpRight, BookOpen, HeartHandshake, Shield } from 'lucide-react';
+
+const fallbackPhoto = '/images/sedibeng-community-preparation.jpg';
+
+export function PhotoImage(props: ImgHTMLAttributes<HTMLImageElement>) {
+  const handleError = (event: SyntheticEvent<HTMLImageElement>) => {
+    props.onError?.(event);
+    if (event.defaultPrevented) return;
+
+    const image = event.currentTarget;
+    if (image.dataset.fallbackApplied) {
+      image.removeAttribute('src');
+      image.classList.add('photo-image-failed');
+      return;
+    }
+
+    image.dataset.fallbackApplied = 'true';
+    image.src = fallbackPhoto;
+  };
+
+  return <img {...props} onError={handleError}/>;
+}
 
 export function Brand() {
   return <Link href="/" className="brand" data-testid="link-brand"><span className="brand-mark">s</span><span>Sedibeng</span></Link>;

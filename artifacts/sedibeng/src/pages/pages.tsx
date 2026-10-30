@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'wouter';
 import { useGetRequests, useGetRequest, getGetRequestQueryKey, useGetDonorDashboard, useGetTeacherDashboard, useGetAdminDashboard } from '@workspace/api-client-react';
-import type { AssistanceRequest, DemoDashboard } from '@workspace/api-client-react';
+import type { AssistanceRequest, DemoDashboard, DemoRecord, DashboardModule } from '@workspace/api-client-react';
 import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Heart, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { DemoTag, ErrorState, LoadingState, PrivacyNote } from '../components/site';
+import { DemoTag, ErrorState, LoadingState, PhotoImage, PrivacyNote } from '../components/site';
 const schoolSupplies = '/images/sedibeng-stationery-kit.jpg';
 const learningKit = '/images/sedibeng-backpack-books.jpg';
 const classroomReady = '/images/sedibeng-community-preparation.jpg';
@@ -26,7 +26,7 @@ export function HomePage() {
         <div className="hero-note"><span/>Physical goods only <span style={{marginLeft:10}}/>No money transfers <span style={{marginLeft:10}}/>Learners stay private</div>
       </div>
       <div className="hero-visual">
-        <img className="hero-image" src={classroomReady} alt="A quiet classroom prepared with school supplies on empty desks" data-testid="img-home-hero"/>
+        <PhotoImage className="hero-image" src={classroomReady} alt="A quiet classroom prepared with school supplies on empty desks" data-testid="img-home-hero"/>
         <div className="hero-stamp">Made for<br/>the next<br/>school day</div>
         <div className="image-caption">Small essentials can make a classroom feel ready.</div>
       </div>
@@ -61,7 +61,7 @@ export function HomePage() {
       <div className="section-inner">
         <div className="section-heading"><div><span className="eyebrow">A future matching concept</span><h2>Smart Match begins with a teacher’s approval.</h2></div><p>In a later phase, available goods could be compared with school-level requests. No matching or allocation runs in this demonstration.</p></div>
         <div className="match-preview" data-testid="preview-smart-match">
-          <div className="match-photo"><img src={learningKit} alt="School backpack and exercise books arranged on a desk" loading="lazy" data-testid="img-smart-match"/></div>
+          <div className="match-photo"><PhotoImage src={learningKit} alt="School backpack and exercise books arranged on a desk" loading="lazy" data-testid="img-smart-match"/></div>
           <div className="match-copy"><DemoTag label="Concept only"/><h3>Available goods meet a clearly described need.</h3><p>A future suggestion would show the item, quantity and general area. A teacher would decide whether it is appropriate before any allocation.</p><div className="match-flow"><span>Goods offered</span><ArrowRight size={16}/><span>Teacher review</span><ArrowRight size={16}/><span>Allocation only after approval</span></div></div>
         </div>
       </div>
@@ -70,7 +70,7 @@ export function HomePage() {
       <div className="section-inner">
         <div className="section-heading"><div><span className="eyebrow">A tangible kind of support</span><h2>Books, pencils, bags—things a classroom can use.</h2></div><p>Browse sample requests from the Phase 1 catalogue. Every item shown here is demonstration content.</p></div>
         <div style={{display:'grid',gridTemplateColumns:'1.2fr .8fr',gap:20,alignItems:'stretch'}}>
-          <img src={schoolSupplies} alt="Notebooks, pencils and a school bag arranged on a desk" style={{height:340,width:'100%',objectFit:'cover',borderRadius:'4px 60px 4px 4px'}} data-testid="img-feature-supplies"/>
+          <PhotoImage src={schoolSupplies} alt="Notebooks, pencils and a school bag arranged on a desk" style={{height:340,width:'100%',objectFit:'cover',borderRadius:'4px 60px 4px 4px'}} data-testid="img-feature-supplies"/>
           <div style={{background:'#e9eee8',padding:'clamp(26px,4vw,48px)',borderRadius:4,display:'flex',flexDirection:'column',justifyContent:'center'}}>
             <span className="eyebrow">Browse with intention</span><h3 style={{font:"500 36px/1.08 'Newsreader',serif",margin:'18px 0 12px'}}>Find one useful thing to bring along.</h3><p style={{fontSize:13,lineHeight:1.75,color:'#66737b',margin:'0 0 25px'}}>No donation amounts. No payment flow. Just physical essentials and a clear explanation of what the example request is for.</p><Link href="/requests" className="button button-dark" style={{alignSelf:'flex-start'}} data-testid="link-view-catalogue">View the catalogue <ArrowRight size={15}/></Link>
           </div>
@@ -124,8 +124,8 @@ function FeaturedRequests() {
 
 function RequestCard({ item, index }: { item: AssistanceRequest; index: number }) {
   return <article className="request-card" data-testid={`card-request-${item.id}`}>
-    <Link href={`/requests/${item.id}`} data-testid={`link-request-image-${item.id}`} aria-label={`View ${item.title}`}>
-      <div className="request-image-wrap"><img className="request-image" src={item.imageUrl} alt={item.imageAlt || 'School goods arranged for a demonstration request'} loading={index < 3 ? 'eager' : 'lazy'} data-testid={`img-request-${item.id}`}/><span className="image-pill">{item.category}</span></div>
+      <Link href={`/requests/${item.id}`} data-testid={`link-request-image-${item.id}`} aria-label={`View ${item.title}`}>
+      <div className="request-image-wrap"><PhotoImage className="request-image" src={item.imageUrl} alt={item.imageAlt || 'School goods arranged for a demonstration request'} loading={index < 3 ? 'eager' : 'lazy'} data-testid={`img-request-${item.id}`}/><span className="image-pill">{item.category}</span><span className="image-pill request-status-pill" data-testid={`status-request-card-${item.id}`}>{item.status} · sample</span></div>
     </Link>
     <div className="request-content">
       <div className="request-meta"><span>{item.location}</span><span>{item.priority}</span></div>
@@ -170,7 +170,7 @@ export function RequestDetailPage() {
   return <main>
     <div className="page-head" style={{paddingBottom:18}}><Link href="/requests" className="text-link" data-testid="link-back-requests"><ArrowLeft size={14}/>Back to requests</Link></div>
     <div className="detail-layout">
-       <div className="detail-main"><img className="detail-photo" src={request.imageUrl} alt={request.imageAlt || 'School goods for a demonstration request'} data-testid="img-request-detail"/><div style={{display:'flex',gap:10,marginTop:22,alignItems:'center',flexWrap:'wrap'}}><DemoTag/><span className="image-pill" style={{position:'static'}}>{request.category}</span></div><h1 data-testid="text-detail-title">{request.title}</h1><p>{request.description}</p><h3 style={{font:"500 25px 'Newsreader',serif",marginTop:30}}>What would be useful</h3><p>{request.specifications}</p><PrivacyNote/></div>
+       <div className="detail-main"><PhotoImage className="detail-photo" src={request.imageUrl} alt={request.imageAlt || 'School goods for a demonstration request'} data-testid="img-request-detail"/><div style={{display:'flex',gap:10,marginTop:22,alignItems:'center',flexWrap:'wrap'}}><DemoTag/><span className="image-pill" style={{position:'static'}}>{request.category}</span></div><p className="detail-context" data-testid="text-request-school-context"><span className="eyebrow">School-level context</span>{request.schoolContext}</p><h1 data-testid="text-detail-title">{request.title}</h1><p>{request.description}</p><h3 style={{font:"500 25px 'Newsreader',serif",marginTop:30}}>What would be useful</h3><p>{request.specifications}</p><PrivacyNote/></div>
       <aside className="detail-box"><h3>Request overview</h3><div className="detail-row"><span>Item</span><span>{request.item}</span></div><div className="detail-row"><span>Quantity</span><span>{request.quantity} {request.unit}</span></div><div className="detail-row"><span>School area</span><span>{request.location}</span></div><div className="detail-row"><span>Priority</span><span>{request.priority}</span></div><div className="detail-row"><span>Example status</span><span>{request.status}</span></div><div className="detail-row"><span>Last updated</span><span>{request.updatedLabel}</span></div>
         <button className="button button-primary" style={{width:'100%',marginTop:20}} onClick={()=>setNotice(true)} data-testid="button-offer-assistance"><Heart size={15}/>Offer physical goods</button>
         {notice && <div className="preview-alert" role="status" data-testid="notice-offer-not-saved">This is a demonstration action only. Your offer has not been sent, recorded, or matched.</div>}
@@ -246,7 +246,7 @@ export function AuthPage({kind}:{kind:AuthKind}) {
     defaultValues:{name:'',email:'',password:'',schoolName:'',newPassword:'',confirmPassword:''},
   });
   return <main className="auth-page">
-    <div className="auth-visual"><img src={copy.photo} alt="School preparations shown as a non-identifying editorial photograph" data-testid="img-auth-context"/><div className="auth-visual-copy"><span className="eyebrow" style={{color:'#b7dacb'}}>Sedibeng Phase 1</span><h2>Every act of care, with dignity.</h2><p>“Sedibeng go iwa ka tsela” — a thoughtful way to give.</p></div></div>
+    <div className="auth-visual"><PhotoImage src={copy.photo} alt="School preparations shown as a non-identifying editorial photograph" data-testid="img-auth-context"/><div className="auth-visual-copy"><span className="eyebrow" style={{color:'#b7dacb'}}>Sedibeng Phase 1</span><h2>Every act of care, with dignity.</h2><p>“Sedibeng go iwa ka tsela” — a thoughtful way to give.</p></div></div>
     <div className="auth-form-wrap"><div className="auth-card"><span className="eyebrow">A safe preview</span><h1 data-testid="text-auth-title">{copy.title}</h1><p>{copy.lead}</p><div className="preview-alert" data-testid="notice-auth-preview"><ShieldCheck size={15} style={{display:'inline',verticalAlign:'middle',marginRight:7}}/>Preview only. Authentication is not active. Do not enter real credentials; nothing is sent or persisted.</div>
       <Form {...form}>
       <form noValidate onSubmit={form.handleSubmit(()=>setSubmitted(true))} data-testid="form-preview-auth">
@@ -271,19 +271,51 @@ type Role = keyof typeof roleData;
 function DashboardContent({role,data}:{role:Role;data:DemoDashboard}) {
   const config=roleData[role];
   const Icon=config.icon;
-  return <main className="dash-layout">
-    <aside className="dash-nav"><Link href="/" className="brand" data-testid="dash-brand"><span className="brand-mark">s</span><span>Sedibeng</span></Link><div className="dash-nav-title">Preview workspace</div>{config.nav.map(([label,href])=><Link key={href} href={href} className={href===`/dashboard/${role}`?'active':''} data-testid={`dash-link-${role}-${label.toLowerCase().replaceAll(' ','-')}`}><Icon size={15}/>{label}</Link>)}<div className="dash-nav-title">Public</div><Link href="/requests" data-testid="dash-link-catalogue"><Search size={15}/>Request catalogue</Link><Link href="/sign-in" data-testid="dash-link-signout"><ArrowLeft size={15}/>Exit preview</Link></aside>
+  return <main className={`dash-layout dash-layout-${role}`}>
+    <aside className="dash-nav" aria-label={`${config.title} navigation`}>
+      <Link href="/" className="brand" data-testid="dash-brand"><span className="brand-mark">s</span><span>Sedibeng</span></Link>
+      <div className="dash-nav-title">Preview workspace</div>
+      {config.nav.map(([label,href])=><Link key={href} href={href} className={href===`/dashboard/${role}`?'active':''} aria-current={href===`/dashboard/${role}`?'page':undefined} data-testid={`dash-link-${role}-${label.toLowerCase().replaceAll(' ','-')}`}><Icon size={15} aria-hidden="true"/>{label}</Link>)}
+      <div className="dash-nav-title">Public</div>
+      <Link href="/requests" data-testid="dash-link-catalogue"><Search size={15} aria-hidden="true"/>Request catalogue</Link>
+      <Link href="/sign-in" data-testid="dash-link-signout"><ArrowLeft size={15} aria-hidden="true"/>Exit preview</Link>
+    </aside>
     <div className="dash-main">
-      <div className="dash-head"><div><h1 data-testid="text-dashboard-title">{config.title}</h1><p>{config.description}</p></div><Link href="/requests" className="button button-primary" data-testid="button-dash-browse">Browse requests <ArrowUpRight size={15}/></Link></div>
-      <div className="dash-warning" data-testid="notice-dashboard-demo"><Sparkles size={16}/>Demonstration data — not live. No verification, fulfilment, matching, authentication, or persistence is represented.</div>
-      {!data.demonstration && <div className="dash-warning" role="status">This response was not marked as demonstration content. It is shown only as an unverified preview.</div>}
-      {data.counts.length ? <section className="stats-grid" aria-label="Demonstration overview">{data.counts.map((count,index)=><article className="stat-card" key={`${count.label}-${index}`} data-testid={`stat-${role}-${index}`}><span>{count.label}</span><strong>{count.value}</strong><small>{count.detail}</small></article>)}</section>:<div className="state-panel" data-testid="state-empty-dashboard-counts"><h3>No preview counts yet</h3><p>This demonstration response does not include any overview values.</p></div>}
-      <section className="dash-section"><div className="dash-section-head"><h2>Recent sample activity</h2><DemoTag label="Example records"/></div>
-        {data.records.length ? data.records.map((record,index)=><article className="dash-record" key={record.id} data-testid={`record-${role}-${record.id}`}><img src={[schoolSupplies,learningKit,classroomReady,schoolShoes][index%4]} alt="School essentials demonstration record"/><div><h3>{record.title}</h3><p>{record.detail}</p></div><span className="record-status">{record.status}</span></article>) : <div className="dash-empty" data-testid="state-empty-dashboard-records">There are no example records in this response. Nothing is pending or awaiting real action.</div>}
+      <header className="dash-head">
+        <div><span className="dash-kicker">Gaborone · Sedibeng Phase 1</span><h1 data-testid="text-dashboard-title">{config.title}</h1><p>{config.description}</p></div>
+        <Link href="/requests" className="button button-primary" data-testid="button-dash-browse">Browse requests <ArrowUpRight size={15} aria-hidden="true"/></Link>
+      </header>
+      <div className="dash-warning" role="note" data-testid="notice-dashboard-demo"><Sparkles size={16} aria-hidden="true"/><span><strong>Demonstration only.</strong> Nothing here is verified, matched, fulfilled, authenticated, saved, or changed. Statuses describe sample records only.</span></div>
+      {!data.demonstration && <div className="dash-warning" role="status" data-testid="notice-dashboard-unmarked">This response is not marked as demonstration content. It is shown only as an unverified preview.</div>}
+      {data.counts.length ? <section className="stats-grid" aria-label="Demonstration overview" data-testid={`dashboard-counts-${role}`}>{data.counts.map((count,index)=><article className="stat-card" key={`${count.label}-${index}`} data-testid={`stat-${role}-${index}`}><span>{count.label}</span><strong>{count.value}</strong><small>{count.detail}</small></article>)}</section>:<div className="state-panel" data-testid="state-empty-dashboard-counts"><h3>No preview counts yet</h3><p>This demonstration response does not include any overview values.</p></div>}
+      <section className="dash-section dash-activity" aria-labelledby={`activity-title-${role}`}>
+        <div className="dash-section-head"><div><span className="dash-section-kicker">Response records</span><h2 id={`activity-title-${role}`}>Sample activity</h2></div><DemoTag label="Example records"/></div>
+        {data.records.length ? <div className="dash-record-list">{data.records.map(record=><DashboardRecordRow key={record.id} role={role} scope="activity" record={record}/>)}</div> : <div className="dash-empty" data-testid="state-empty-dashboard-records">There are no example records in this response. No action is waiting to be taken.</div>}
+      </section>
+      <section className="dash-modules" aria-labelledby={`modules-title-${role}`} data-testid={`dashboard-modules-${role}`}>
+        <div className="dash-section-head dash-modules-heading"><div><span className="dash-section-kicker">From this response</span><h2 id={`modules-title-${role}`}>Workspace modules</h2></div><span className="module-total" data-testid={`module-count-${role}`}>{data.modules.length} {data.modules.length===1?'module':'modules'}</span></div>
+        {data.modules.length ? <div className="dash-module-list">{data.modules.map((module,index)=><DashboardModuleCard key={module.id} module={module} role={role} index={index}/>)}</div> : <div className="dash-empty dash-module-empty" data-testid="state-empty-dashboard-modules">No modules are included in this demonstration response.</div>}
       </section>
       <PrivacyNote/>
     </div>
   </main>;
+}
+
+function DashboardRecordRow({role,scope,record}:{role:Role;scope:string;record:DemoRecord}) {
+  return <article className="dash-record" data-testid={`record-${role}-${scope}-${record.id}`}>
+    {record.imageUrl ? <PhotoImage src={record.imageUrl} alt="School goods shown for a demonstration record" loading="lazy" data-testid={`img-dashboard-record-${scope}-${record.id}`}/> : <div className="record-image-placeholder" aria-hidden="true"><span/></div>}
+    <div className="dash-record-copy"><h3>{record.title}</h3><p>{record.detail}</p></div>
+    <span className="record-status" data-testid={`status-${role}-${scope}-${record.id}`}>{record.status}</span>
+  </article>;
+}
+
+function DashboardModuleCard({module,role,index}:{module:DashboardModule;role:Role;index:number}) {
+  return <article className="dash-module" data-testid={`module-${role}-${module.id}`}>
+    <div className="dash-module-top"><span className="module-index">{String(index+1).padStart(2,'0')}</span><span className="module-status" data-testid={`status-${role}-module-${module.id}`}>{module.status}</span></div>
+    <h3 data-testid={`text-${role}-module-title-${module.id}`}>{module.title}</h3>
+    <p className="dash-module-detail">{module.detail}</p>
+    {module.records.length ? <div className="dash-module-records" aria-label={`${module.title} example records`}>{module.records.map(record=><DashboardRecordRow key={record.id} role={role} scope={`module-${module.id}`} record={record}/>)}</div> : <p className="module-no-records" data-testid={`state-empty-module-${module.id}`}>No example records are included in this module.</p>}
+  </article>;
 }
 
 export function DashboardPage({role}:{role:Role}) {

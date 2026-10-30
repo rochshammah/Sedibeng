@@ -1,4 +1,4 @@
-const CACHE_NAME = "sedibeng-public-shell-v1";
+const CACHE_NAME = "sedibeng-public-shell-v2";
 const APP_SCOPE = self.registration.scope;
 const OFFLINE_URL = new URL("offline.html", APP_SCOPE).toString();
 const PUBLIC_STATIC_FILE = /\.(?:avif|css|gif|ico|jpe?g|js|png|svg|webmanifest|webp|woff2)$/i;
