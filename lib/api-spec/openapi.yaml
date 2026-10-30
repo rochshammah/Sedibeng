@@ -3,7 +3,7 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: Public assistance catalogue and demonstration dashboards for Sedibeng Phase 1
+  description: Secure, role-based school assistance API for Sedibeng
 servers:
   - url: /api
     description: Base API path
@@ -11,9 +11,17 @@ tags:
   - name: health
     description: Health operations
   - name: assistance
-    description: Public, anonymous school-essential requests
-  - name: demo
-    description: Sample-only dashboard previews
+    description: School-essential requests and matching
+  - name: authentication
+    description: Account registration, sessions, and recovery
+  - name: accounts
+    description: Profiles, schools, and verification
+  - name: giving
+    description: Donor inventory, sponsorship, and fulfilment
+  - name: notifications
+    description: Personal notifications and reports
+  - name: administration
+    description: Restricted administration operations
 paths:
   /healthz:
     get:
@@ -28,11 +36,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
-  /requests:
+  /v1/requests:
     get:
       operationId: getRequests
       tags: [assistance]
-      summary: Browse demonstration assistance requests
+      summary: Browse approved assistance requests
       parameters:
         - name: search
           in: query
@@ -51,18 +59,18 @@ paths:
             type: string
       responses:
         "200":
-          description: Matching demonstration requests
+          description: Matching published requests
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: "#/components/schemas/AssistanceRequest"
-  /requests/{id}:
+  /v1/requests/{id}:
     get:
       operationId: getRequest
       tags: [assistance]
-      summary: Get a demonstration request
+      summary: Get a published assistance request
       parameters:
         - name: id
           in: path
@@ -71,7 +79,7 @@ paths:
             type: string
       responses:
         "200":
-          description: Demonstration request
+          description: Published request
           content:
             application/json:
               schema:
@@ -82,43 +90,833 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
-  /demo/donor-dashboard:
+  /v1/dashboard/donor:
     get:
       operationId: getDonorDashboard
-      tags: [demo]
-      summary: Get sample donor dashboard content
+      tags: [accounts]
+      summary: Get the signed-in donor dashboard
       responses:
         "200":
-          description: Sample donor dashboard
+          description: Donor dashboard
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/DonorDashboard"
-  /demo/teacher-dashboard:
+  /v1/dashboard/teacher:
     get:
       operationId: getTeacherDashboard
-      tags: [demo]
-      summary: Get sample teacher dashboard content
+      tags: [accounts]
+      summary: Get the signed-in teacher dashboard
       responses:
         "200":
-          description: Sample teacher dashboard
+          description: Teacher dashboard
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/TeacherDashboard"
-  /demo/admin-dashboard:
+  /v1/dashboard/admin:
     get:
       operationId: getAdminDashboard
-      tags: [demo]
-      summary: Get sample administration dashboard content
+      tags: [administration]
+      summary: Get the administrator dashboard
       responses:
         "200":
-          description: Sample administration dashboard
+          description: Administrator dashboard
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/AdminDashboard"
+  /v1/auth/csrf:
+    get:
+      operationId: getCsrfToken
+      tags: [authentication]
+      summary: Get a CSRF token for browser requests
+      responses:
+        "200":
+          description: CSRF token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CsrfToken"
+  /v1/auth/session:
+    get:
+      operationId: getAuthSession
+      tags: [authentication]
+      summary: Get the current session
+      responses:
+        "200":
+          description: Current signed-in user or an anonymous session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+  /v1/auth/register/donor:
+    post:
+      operationId: registerDonor
+      tags: [authentication]
+      summary: Register a donor account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DonorRegistration"
+      responses:
+        "201":
+          description: Account created and email verification requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/auth/register/teacher:
+    post:
+      operationId: registerTeacher
+      tags: [authentication]
+      summary: Register a teacher account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherRegistration"
+      responses:
+        "201":
+          description: Account created and email verification requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/auth/login:
+    post:
+      operationId: login
+      tags: [authentication]
+      summary: Sign in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Signed-in account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/auth/logout:
+    post:
+      operationId: logout
+      tags: [authentication]
+      summary: End the current session
+      responses:
+        "200":
+          description: Signed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+  /v1/auth/password/forgot:
+    post:
+      operationId: requestPasswordReset
+      tags: [authentication]
+      summary: Request a password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRequest"
+      responses:
+        "202":
+          description: Request accepted without revealing account existence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+        "429":
+          $ref: "#/components/responses/ApiError"
+  /v1/auth/password/reset:
+    post:
+      operationId: resetPassword
+      tags: [authentication]
+      summary: Set a new password using a reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordReset"
+      responses:
+        "200":
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+        "400":
+          $ref: "#/components/responses/ApiError"
+  /v1/auth/email/verify:
+    post:
+      operationId: verifyEmail
+      tags: [authentication]
+      summary: Verify an email address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+      responses:
+        "200":
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+        "400":
+          $ref: "#/components/responses/ApiError"
+  /v1/auth/email/resend:
+    post:
+      operationId: resendVerificationEmail
+      tags: [authentication]
+      summary: Resend an email verification link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRequest"
+      responses:
+        "202":
+          description: Request accepted without revealing account existence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+  /v1/users/me:
+    get:
+      operationId: getCurrentUser
+      tags: [accounts]
+      summary: Get the signed-in account profile
+      responses:
+        "200":
+          description: Current account profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          $ref: "#/components/responses/ApiError"
+    patch:
+      operationId: updateCurrentUser
+      tags: [accounts]
+      summary: Update the signed-in account name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated account profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /v1/teacher-profile:
+    get:
+      operationId: getTeacherProfile
+      tags: [accounts]
+      summary: Get the signed-in teacher profile
+      responses:
+        "200":
+          description: Teacher profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherProfile"
+        "403":
+          $ref: "#/components/responses/ApiError"
+    patch:
+      operationId: updateTeacherProfile
+      tags: [accounts]
+      summary: Update the signed-in teacher profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherProfileUpdate"
+      responses:
+        "200":
+          description: Updated teacher profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherProfile"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/schools:
+    get:
+      operationId: listSchools
+      tags: [accounts]
+      summary: Search active schools
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+        - name: district
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        "200":
+          description: Matching active schools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/School"
+  /v1/verification:
+    get:
+      operationId: getMyVerification
+      tags: [accounts]
+      summary: Get the signed-in account verification status
+      responses:
+        "200":
+          description: Current account verification records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VerificationRecord"
+        "401":
+          $ref: "#/components/responses/ApiError"
+    post:
+      operationId: submitVerification
+      tags: [accounts]
+      summary: Submit verification document metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationSubmission"
+      responses:
+        "201":
+          description: Verification request submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationRecord"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /v1/requests:
+    post:
+      operationId: createRequest
+      tags: [assistance]
+      summary: Create a school assistance request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestInput"
+      responses:
+        "201":
+          description: Request submitted for moderation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistanceRequest"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/requests/{id}:
+    patch:
+      operationId: updateRequest
+      tags: [assistance]
+      summary: Update an owned assistance request
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestInput"
+      responses:
+        "200":
+          description: Updated assistance request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistanceRequest"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+    delete:
+      operationId: deleteRequest
+      tags: [assistance]
+      summary: Cancel an owned assistance request
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "204":
+          description: Request cancelled
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/inventory:
+    get:
+      operationId: getInventory
+      tags: [giving]
+      summary: List the signed-in donor's goods
+      responses:
+        "200":
+          description: Donor inventory
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+        "401":
+          $ref: "#/components/responses/ApiError"
+    post:
+      operationId: createInventory
+      tags: [giving]
+      summary: Add goods to donor inventory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryInput"
+      responses:
+        "201":
+          description: Inventory item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/inventory/{id}:
+    patch:
+      operationId: updateInventory
+      tags: [giving]
+      summary: Update an owned inventory item
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryInput"
+      responses:
+        "200":
+          description: Updated inventory item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+    delete:
+      operationId: deleteInventory
+      tags: [giving]
+      summary: Withdraw an owned inventory item
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "204":
+          description: Inventory item withdrawn
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/sponsorships:
+    get:
+      operationId: getSponsorships
+      tags: [giving]
+      summary: List sponsorships visible to the signed-in account
+      responses:
+        "200":
+          description: Sponsorships
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sponsorship"
+        "401":
+          $ref: "#/components/responses/ApiError"
+    post:
+      operationId: createSponsorship
+      tags: [giving]
+      summary: Offer goods for an assistance request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SponsorshipInput"
+      responses:
+        "201":
+          description: Sponsorship offer submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sponsorship"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/sponsorships/{id}/decision:
+    post:
+      operationId: decideSponsorship
+      tags: [giving]
+      summary: Accept or decline an offer for an owned request
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SponsorshipDecision"
+      responses:
+        "200":
+          description: Updated sponsorship
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sponsorship"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/orders:
+    get:
+      operationId: getOrders
+      tags: [giving]
+      summary: List fulfilment orders visible to the signed-in account
+      responses:
+        "200":
+          description: Fulfilment orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FulfilmentOrder"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /v1/orders/{id}/status:
+    patch:
+      operationId: updateOrderStatus
+      tags: [giving]
+      summary: Update fulfilment progress for an owned order
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderStatusUpdate"
+      responses:
+        "200":
+          description: Updated fulfilment order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FulfilmentOrder"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/notifications:
+    get:
+      operationId: getNotifications
+      tags: [notifications]
+      summary: List the signed-in account's notifications
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /v1/notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark an owned notification as read
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/reports:
+    get:
+      operationId: getMyReports
+      tags: [notifications]
+      summary: List reports submitted by the signed-in account
+      responses:
+        "200":
+          description: Submitted reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Report"
+    post:
+      operationId: createReport
+      tags: [notifications]
+      summary: Report a request or account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportInput"
+      responses:
+        "201":
+          description: Report submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+  /v1/admin/bootstrap:
+    post:
+      operationId: bootstrapAdmin
+      tags: [administration]
+      summary: Provision the first administrator account
+      parameters:
+        - name: x-bootstrap-secret
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminBootstrap"
+      responses:
+        "201":
+          description: Administrator account provisioned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [administration]
+      summary: List accounts for administration
+      responses:
+        "200":
+          description: Account list without credential fields
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuthUser"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/users/{id}/status:
+    patch:
+      operationId: adminUpdateUserStatus
+      tags: [administration]
+      summary: Change an account's status
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserStatusUpdate"
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/requests/{id}/moderation:
+    patch:
+      operationId: moderateRequest
+      tags: [administration]
+      summary: Approve or reject a school request
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestModeration"
+      responses:
+        "200":
+          description: Moderated request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistanceRequest"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/verification:
+    get:
+      operationId: listVerificationQueue
+      tags: [administration]
+      summary: List pending account verification records
+      responses:
+        "200":
+          description: Pending verification metadata
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VerificationRecord"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/verification/{id}/decision:
+    patch:
+      operationId: decideVerification
+      tags: [administration]
+      summary: Approve or reject an account verification
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationDecision"
+      responses:
+        "200":
+          description: Updated verification metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationRecord"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/reports:
+    get:
+      operationId: listAdminReports
+      tags: [administration]
+      summary: List reports for administration
+      responses:
+        "200":
+          description: Reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Report"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/reports/{id}/decision:
+    patch:
+      operationId: decideReport
+      tags: [administration]
+      summary: Resolve or dismiss a report
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportDecision"
+      responses:
+        "200":
+          description: Updated report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
 components:
+  parameters:
+    RecordId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    ApiError:
+      description: Request failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
   schemas:
     HealthStatus:
       type: object
