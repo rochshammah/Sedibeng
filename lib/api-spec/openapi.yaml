@@ -66,6 +66,27 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AssistanceRequest"
+    post:
+      operationId: createRequest
+      tags: [assistance]
+      summary: Create a school assistance request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestInput"
+      responses:
+        "201":
+          description: Request submitted for moderation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistanceRequest"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
   /v1/requests/{id}:
     get:
       operationId: getRequest
@@ -90,6 +111,42 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updateRequest
+      tags: [assistance]
+      summary: Update an owned assistance request
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestInput"
+      responses:
+        "200":
+          description: Updated assistance request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistanceRequest"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+    delete:
+      operationId: deleteRequest
+      tags: [assistance]
+      summary: Cancel an owned assistance request
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "204":
+          description: Request cancelled
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
   /v1/dashboard/donor:
     get:
       operationId: getDonorDashboard
@@ -435,65 +492,6 @@ paths:
               schema:
                 $ref: "#/components/schemas/VerificationRecord"
         "401":
-          $ref: "#/components/responses/ApiError"
-  /v1/requests:
-    post:
-      operationId: createRequest
-      tags: [assistance]
-      summary: Create a school assistance request
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RequestInput"
-      responses:
-        "201":
-          description: Request submitted for moderation
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AssistanceRequest"
-        "401":
-          $ref: "#/components/responses/ApiError"
-        "403":
-          $ref: "#/components/responses/ApiError"
-  /v1/requests/{id}:
-    patch:
-      operationId: updateRequest
-      tags: [assistance]
-      summary: Update an owned assistance request
-      parameters:
-        - $ref: "#/components/parameters/RecordId"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RequestInput"
-      responses:
-        "200":
-          description: Updated assistance request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AssistanceRequest"
-        "403":
-          $ref: "#/components/responses/ApiError"
-        "404":
-          $ref: "#/components/responses/ApiError"
-    delete:
-      operationId: deleteRequest
-      tags: [assistance]
-      summary: Cancel an owned assistance request
-      parameters:
-        - $ref: "#/components/parameters/RecordId"
-      responses:
-        "204":
-          description: Request cancelled
-        "403":
-          $ref: "#/components/responses/ApiError"
-        "404":
           $ref: "#/components/responses/ApiError"
   /v1/inventory:
     get:
@@ -960,14 +958,21 @@ components:
           enum: [Essential, High, Standard]
         status:
           type: string
-          enum: [Open, Partially matched, Matched]
+          enum:
+            - Pending moderation
+            - Open
+            - Partially matched
+            - Matched
+            - Rejected
+            - Cancelled
+            - Fulfilled
         imageUrl:
           type: string
         imageAlt:
           type: string
         updatedLabel:
           type: string
-        demonstration:
+        isSeedData:
           type: boolean
       required:
         - id
@@ -985,7 +990,7 @@ components:
         - imageUrl
         - imageAlt
         - updatedLabel
-        - demonstration
+        - isSeedData
     DashboardCount:
       type: object
       properties:
@@ -996,7 +1001,7 @@ components:
         detail:
           type: string
       required: [label, value, detail]
-    DemoRecord:
+    DashboardRecord:
       type: object
       properties:
         id:
@@ -1024,13 +1029,11 @@ components:
         records:
           type: array
           items:
-            $ref: "#/components/schemas/DemoRecord"
+            $ref: "#/components/schemas/DashboardRecord"
       required: [id, title, detail, status, records]
-    DemoDashboard:
+    DashboardPayload:
       type: object
       properties:
-        demonstration:
-          type: boolean
         counts:
           type: array
           items:
@@ -1038,19 +1041,518 @@ components:
         records:
           type: array
           items:
-            $ref: "#/components/schemas/DemoRecord"
+            $ref: "#/components/schemas/DashboardRecord"
         modules:
           type: array
           items:
             $ref: "#/components/schemas/DashboardModule"
-      required: [demonstration, counts, records, modules]
+      required: [counts, records, modules]
     DonorDashboard:
       allOf:
-        - $ref: "#/components/schemas/DemoDashboard"
+        - $ref: "#/components/schemas/DashboardPayload"
     TeacherDashboard:
       allOf:
-        - $ref: "#/components/schemas/DemoDashboard"
+        - $ref: "#/components/schemas/DashboardPayload"
     AdminDashboard:
       allOf:
-        - $ref: "#/components/schemas/DemoDashboard"
+        - $ref: "#/components/schemas/DashboardPayload"
+    CsrfToken:
+      type: object
+      properties:
+        csrfToken:
+          type: string
+      required: [csrfToken]
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [DONOR, TEACHER, ADMIN, SCHOOL_REPRESENTATIVE]
+        status:
+          type: string
+          enum: [PENDING_VERIFICATION, ACTIVE, SUSPENDED]
+        emailVerifiedAt:
+          type: [string, "null"]
+          format: date-time
+      required: [id, name, email, role, status, emailVerifiedAt]
+    AuthSession:
+      type: object
+      properties:
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/AuthUser"
+            - type: "null"
+      required: [user]
+    AuthMessage:
+      type: object
+      properties:
+        message:
+          type: string
+        user:
+          $ref: "#/components/schemas/AuthUser"
+      required: [message]
+    DonorRegistration:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+      required: [name, email, password]
+    TeacherRegistration:
+      allOf:
+        - $ref: "#/components/schemas/DonorRegistration"
+        - type: object
+          properties:
+            schoolName:
+              type: string
+              minLength: 2
+              maxLength: 160
+            district:
+              type: string
+              minLength: 2
+              maxLength: 100
+            area:
+              type: string
+              maxLength: 100
+          required: [schoolName, district]
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required: [email, password]
+    EmailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+      required: [email]
+    PasswordReset:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 32
+          maxLength: 256
+        newPassword:
+          type: string
+          minLength: 12
+          maxLength: 128
+      required: [token, newPassword]
+    TokenRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 32
+          maxLength: 256
+      required: [token]
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+      required: [name]
+    TeacherProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        schoolId:
+          type: string
+          format: uuid
+        schoolName:
+          type: string
+        district:
+          type: string
+        area:
+          type: [string, "null"]
+        position:
+          type: [string, "null"]
+        schoolStatus:
+          type: string
+          enum: [PENDING_REVIEW, ACTIVE, SUSPENDED]
+      required: [id, schoolId, schoolName, district, area, position, schoolStatus]
+    TeacherProfileUpdate:
+      type: object
+      properties:
+        position:
+          type: [string, "null"]
+          maxLength: 100
+      required: [position]
+    School:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        district:
+          type: string
+        area:
+          type: [string, "null"]
+      required: [id, name, district, area]
+    VerificationRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        userName:
+          type: string
+        type:
+          type: string
+          enum: [TEACHER, DONOR]
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED]
+        documentProvided:
+          type: boolean
+        submittedAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: [string, "null"]
+          format: date-time
+      required: [id, userId, userName, type, status, documentProvided, submittedAt, reviewedAt]
+    VerificationSubmission:
+      type: object
+      properties:
+        note:
+          type: string
+          maxLength: 500
+      required: [note]
+    RequestInput:
+      type: object
+      properties:
+        schoolId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 4
+          maxLength: 160
+        category:
+          type: string
+          minLength: 2
+          maxLength: 60
+        item:
+          type: string
+          minLength: 2
+          maxLength: 160
+        description:
+          type: string
+          minLength: 10
+          maxLength: 2000
+        specifications:
+          type: [string, "null"]
+          maxLength: 1000
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 40
+        priority:
+          type: string
+          enum: [STANDARD, HIGH, ESSENTIAL]
+        schoolContext:
+          type: string
+          minLength: 4
+          maxLength: 500
+      required: [schoolId, title, category, item, description, quantity, unit, priority, schoolContext]
+    InventoryInput:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 4
+          maxLength: 160
+        category:
+          type: string
+          minLength: 2
+          maxLength: 60
+        item:
+          type: string
+          minLength: 2
+          maxLength: 160
+        description:
+          type: string
+          minLength: 4
+          maxLength: 1000
+        specifications:
+          type: [string, "null"]
+          maxLength: 1000
+        quantityAvailable:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 40
+        district:
+          type: string
+          minLength: 2
+          maxLength: 100
+        area:
+          type: [string, "null"]
+          maxLength: 100
+      required: [title, category, item, description, quantityAvailable, unit, district]
+    InventoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        category:
+          type: string
+        item:
+          type: string
+        description:
+          type: string
+        specifications:
+          type: [string, "null"]
+        quantityAvailable:
+          type: integer
+        unit:
+          type: string
+        district:
+          type: string
+        area:
+          type: [string, "null"]
+        status:
+          type: string
+          enum: [DRAFT, AVAILABLE, RESERVED, WITHDRAWN]
+        isSeedData:
+          type: boolean
+      required: [id, title, category, item, description, specifications, quantityAvailable, unit, district, area, status, isSeedData]
+    SponsorshipInput:
+      type: object
+      properties:
+        requestId:
+          type: string
+          format: uuid
+        inventoryId:
+          type: [string, "null"]
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        donorMessage:
+          type: [string, "null"]
+          maxLength: 500
+      required: [requestId, quantity]
+    Sponsorship:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+          format: uuid
+        requestTitle:
+          type: string
+        donorName:
+          type: string
+        quantity:
+          type: integer
+        status:
+          type: string
+          enum: [PENDING_TEACHER_REVIEW, APPROVED, REJECTED, CANCELLED, FULFILLED]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, requestId, requestTitle, donorName, quantity, status, createdAt]
+    SponsorshipDecision:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [APPROVE, REJECT]
+      required: [decision]
+    FulfilmentOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sponsorshipId:
+          type: string
+          format: uuid
+        requestTitle:
+          type: string
+        quantity:
+          type: integer
+        status:
+          type: string
+          enum: [AWAITING_TEACHER_APPROVAL, PREPARING, READY_FOR_HANDOFF, FULFILLED, CANCELLED]
+        generalArea:
+          type: [string, "null"]
+        scheduledAt:
+          type: [string, "null"]
+          format: date-time
+      required: [id, sponsorshipId, requestTitle, quantity, status, generalArea, scheduledAt]
+    OrderStatusUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [PREPARING, READY_FOR_HANDOFF, FULFILLED, CANCELLED]
+        generalArea:
+          type: [string, "null"]
+          maxLength: 120
+        handoffNotes:
+          type: [string, "null"]
+          maxLength: 500
+      required: [status]
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        readAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, type, title, body, readAt, createdAt]
+    ReportInput:
+      type: object
+      properties:
+        targetType:
+          type: string
+          enum: [REQUEST, INVENTORY, SPONSORSHIP, USER]
+        targetId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 120
+        details:
+          type: [string, "null"]
+          maxLength: 1000
+      required: [targetType, targetId, reason]
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        targetType:
+          type: string
+          enum: [REQUEST, INVENTORY, SPONSORSHIP, USER]
+        targetId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        details:
+          type: [string, "null"]
+        status:
+          type: string
+          enum: [OPEN, UNDER_REVIEW, RESOLVED, DISMISSED]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, targetType, targetId, reason, details, status, createdAt]
+    AdminBootstrap:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+      required: [name, email, password]
+    UserStatusUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED]
+      required: [status]
+    RequestModeration:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [APPROVE, REJECT]
+        note:
+          type: [string, "null"]
+          maxLength: 1000
+      required: [decision]
+    VerificationDecision:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [APPROVE, REJECT]
+        note:
+          type: [string, "null"]
+          maxLength: 1000
+      required: [decision]
+    ReportDecision:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [RESOLVED, DISMISSED]
+        note:
+          type: [string, "null"]
+          maxLength: 1000
+      required: [decision]
 

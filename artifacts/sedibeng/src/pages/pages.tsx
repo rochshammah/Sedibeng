@@ -1,330 +1,194 @@
 import { useMemo, useState } from 'react';
-import { Link, useParams } from 'wouter';
-import { useGetRequests, useGetRequest, getGetRequestQueryKey, useGetDonorDashboard, useGetTeacherDashboard, useGetAdminDashboard } from '@workspace/api-client-react';
-import type { AssistanceRequest, DemoDashboard, DemoRecord, DashboardModule } from '@workspace/api-client-react';
-import { ArrowLeft, ArrowRight, ArrowUpRight, BookOpen, Heart, Search, ShieldCheck, Sparkles } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Link, useLocation, useParams } from 'wouter';
+import { useQueryClient } from '@tanstack/react-query';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { Form } from '@/components/ui/form';
+import {
+  useGetRequests, useGetRequest, getGetRequestQueryKey, getGetRequestsQueryKey,
+  useGetAuthSession, useRegisterDonor, useRegisterTeacher,
+  useLogin, useRequestPasswordReset, useResetPassword, useVerifyEmail, useResendVerificationEmail,
+  useLogout, useGetDonorDashboard, getGetDonorDashboardQueryKey, useGetTeacherDashboard, getGetTeacherDashboardQueryKey, useGetAdminDashboard, getGetAdminDashboardQueryKey,
+  useGetInventory, getGetInventoryQueryKey, useCreateInventory, useUpdateInventory, useDeleteInventory,
+  useGetSponsorships, getGetSponsorshipsQueryKey, useCreateSponsorship, useDecideSponsorship,
+  useGetOrders, getGetOrdersQueryKey, useUpdateOrderStatus,
+  useGetNotifications, getGetNotificationsQueryKey, useMarkNotificationRead,
+  useGetMyVerification, getGetMyVerificationQueryKey, useSubmitVerification,
+  useGetTeacherProfile, useListSchools,
+  useCreateRequest, useUpdateRequest, useDeleteRequest,
+  useListAdminUsers, getListAdminUsersQueryKey, useAdminUpdateUserStatus,
+  useListVerificationQueue, getListVerificationQueueQueryKey, useDecideVerification,
+  useListAdminReports, getListAdminReportsQueryKey, useDecideReport, useModerateRequest,
+  useGetMyReports, getGetMyReportsQueryKey, useCreateReport,
+} from '@workspace/api-client-react';
+import type { AssistanceRequest, InventoryInput, InventoryItem, RequestInput } from '@workspace/api-client-react';
+import { ArrowRight, ArrowUpRight, BookOpen, HeartHandshake, Search, ShieldCheck, LogOut, Package, Plus } from 'lucide-react';
 import { DemoTag, ErrorState, LoadingState, PhotoImage, PrivacyNote } from '../components/site';
-const schoolSupplies = '/images/sedibeng-stationery-kit.jpg';
-const learningKit = '/images/sedibeng-backpack-books.jpg';
-const classroomReady = '/images/sedibeng-community-preparation.jpg';
 
-export function HomePage() {
-  return <main>
-    <section className="hero">
-      <div>
-        <span className="eyebrow" data-testid="text-home-kicker">School essentials, shared with care</span>
-        <h1 data-testid="text-home-headline">A little help.<br/><em>A fuller desk.</em></h1>
-        <p className="hero-copy">Sedibeng brings teachers’ requests for physical school goods together with people who want to help—quietly, thoughtfully, and with learners’ dignity at the centre.</p>
-        <div className="hero-actions">
-          <Link href="/requests" className="button button-primary" data-testid="link-explore-requests">Find a way to help <ArrowUpRight size={16}/></Link>
-          <Link href="/register/teacher" className="button button-outline" data-testid="link-teacher-start">Register as a teacher</Link>
-        </div>
-        <div className="hero-note"><span/>Physical goods only <span style={{marginLeft:10}}/>No money transfers <span style={{marginLeft:10}}/>Learners stay private</div>
-      </div>
-      <div className="hero-visual">
-        <PhotoImage className="hero-image" src={classroomReady} alt="A quiet classroom prepared with school supplies on empty desks" data-testid="img-home-hero"/>
-        <div className="hero-stamp">Made for<br/>the next<br/>school day</div>
-        <div className="image-caption">Small essentials can make a classroom feel ready.</div>
-      </div>
-    </section>
-    <section className="section" id="how-it-works">
-      <div className="section-inner">
-        <div className="section-heading"><div><span className="eyebrow">A simple, careful exchange</span><h2>Support that stays close to what a school needs.</h2></div><p>Teachers describe school-level needs. Donors choose physical goods. Sedibeng’s Phase 1 experience is a public demonstration—not a live fulfilment service.</p></div>
-        <div className="steps">
-          <article className="step"><span className="step-no">01 / TEACHERS</span><h3>Share the school need</h3><p>Teachers can outline useful items, quantities and context without revealing a learner’s identity or circumstances.</p></article>
-          <article className="step"><span className="step-no">02 / DONORS</span><h3>Choose goods to give</h3><p>People can browse the catalogue and offer physical school essentials. No money changes hands through the platform.</p></article>
-          <article className="step"><span className="step-no">03 / WITH CARE</span><h3>Keep dignity in view</h3><p>There are no learner accounts and no donor-to-learner communication. Trust and fulfilment workflows are not active in this preview.</p></article>
-        </div>
-      </div>
-    </section>
-    <section className="story-band">
-      <div className="story-content">
-        <div><span className="eyebrow" style={{color:'#9fd1bf'}}>The principle behind the platform</span><h2>Help should feel human.<br/>Privacy should feel certain.</h2><p>Sedibeng is designed around educators and school-level needs. The public catalogue keeps personal details out of view, while the act of giving stays tangible.</p></div>
-        <div className="story-quote">“Sedibeng go iwa ka tsela”<br/><small style={{font:'500 12px "DM Sans",sans-serif',color:'#becac5'}}>The official Sedibeng slogan</small></div>
-      </div>
-    </section>
-    <section className="section" id="safeguarding">
-      <div className="section-inner">
-        <div className="section-heading"><div><span className="eyebrow">Safeguarding comes first</span><h2>Support the need. Protect the learner.</h2></div><p>Privacy and dignity guide the design from the beginning. These are product rules, not claims that live verification is already active.</p></div>
-        <div className="steps">
-          <article className="step"><span className="step-no">01 / PRIVATE</span><h3>No learner accounts</h3><p>Learners never need to sign up, and their names, faces and private circumstances stay out of public requests.</p></article>
-          <article className="step"><span className="step-no">02 / SCHOOL-LEVEL</span><h3>General context only</h3><p>Public examples show broad Gaborone areas and school context, never a home address or private teacher notes.</p></article>
-          <article className="step"><span className="step-no">03 / TEACHER-LED</span><h3>Approval before allocation</h3><p>Future proposed matches must be reviewed by teachers. Verification, moderation and fulfilment are not active in this preview.</p></article>
-        </div>
-      </div>
-    </section>
-    <section className="section" id="smart-match">
-      <div className="section-inner">
-        <div className="section-heading"><div><span className="eyebrow">A future matching concept</span><h2>Smart Match begins with a teacher’s approval.</h2></div><p>In a later phase, available goods could be compared with school-level requests. No matching or allocation runs in this demonstration.</p></div>
-        <div className="match-preview" data-testid="preview-smart-match">
-          <div className="match-photo"><PhotoImage src={learningKit} alt="School backpack and exercise books arranged on a desk" loading="lazy" data-testid="img-smart-match"/></div>
-          <div className="match-copy"><DemoTag label="Concept only"/><h3>Available goods meet a clearly described need.</h3><p>A future suggestion would show the item, quantity and general area. A teacher would decide whether it is appropriate before any allocation.</p><div className="match-flow"><span>Goods offered</span><ArrowRight size={16}/><span>Teacher review</span><ArrowRight size={16}/><span>Allocation only after approval</span></div></div>
-        </div>
-      </div>
-    </section>
-    <section className="section">
-      <div className="section-inner">
-        <div className="section-heading"><div><span className="eyebrow">A tangible kind of support</span><h2>Books, pencils, bags—things a classroom can use.</h2></div><p>Browse sample requests from the Phase 1 catalogue. Every item shown here is demonstration content.</p></div>
-        <div style={{display:'grid',gridTemplateColumns:'1.2fr .8fr',gap:20,alignItems:'stretch'}}>
-          <PhotoImage src={schoolSupplies} alt="Notebooks, pencils and a school bag arranged on a desk" style={{height:340,width:'100%',objectFit:'cover',borderRadius:'4px 60px 4px 4px'}} data-testid="img-feature-supplies"/>
-          <div style={{background:'#e9eee8',padding:'clamp(26px,4vw,48px)',borderRadius:4,display:'flex',flexDirection:'column',justifyContent:'center'}}>
-            <span className="eyebrow">Browse with intention</span><h3 style={{font:"500 36px/1.08 'Newsreader',serif",margin:'18px 0 12px'}}>Find one useful thing to bring along.</h3><p style={{fontSize:13,lineHeight:1.75,color:'#66737b',margin:'0 0 25px'}}>No donation amounts. No payment flow. Just physical essentials and a clear explanation of what the example request is for.</p><Link href="/requests" className="button button-dark" style={{alignSelf:'flex-start'}} data-testid="link-view-catalogue">View the catalogue <ArrowRight size={15}/></Link>
-          </div>
-        </div>
-      </div>
-    </section>
-    <FeaturedRequests />
-    <section className="section" id="get-involved">
-      <div className="section-inner">
-        <div className="section-heading"><div><span className="eyebrow">Two ways to take part</span><h2>Teachers know the need. Donors bring the goods.</h2></div><p>Both pathways are preview screens only. Account setup and request publishing will be connected in a later phase.</p></div>
-        <div className="participation-grid">
-          <article className="participation-card">
-            <span className="step-no">FOR TEACHERS</span><h3>Describe what would help.</h3>
-            <p>Future teacher tools will support school-level requests, suggested matches and approval before allocation—without public learner identities.</p>
-            <Link href="/register/teacher" className="text-link" data-testid="link-join-as-teacher">Teacher registration preview <ArrowRight size={14}/></Link>
-          </article>
-          <article className="participation-card">
-            <span className="step-no">FOR DONORS</span><h3>Offer physical essentials.</h3>
-            <p>Browse sample requests or preview how available goods could be listed. Sedibeng does not transfer money to teachers.</p>
-            <Link href="/register/donor" className="text-link" data-testid="link-join-as-donor">Donor registration preview <ArrowRight size={14}/></Link>
-          </article>
-        </div>
-      </div>
-    </section>
-    <section className="section faq-section" id="faq">
-      <div className="section-inner">
-        <div className="section-heading"><div><span className="eyebrow">Frequently asked questions</span><h2>Clear answers, with learner dignity in view.</h2></div><p>These answers describe the intended product model. Phase 1 screens are demonstrations, not an active service.</p></div>
-        <div className="faq-list">
-          <details id="privacy"><summary>Does Sedibeng give money to teachers?</summary><p>No. The platform is for physical school essentials only. It does not transfer money to teachers.</p></details>
-          <details><summary>Can donors contact learners directly?</summary><p>No. Learners do not create accounts, and direct donor-to-learner communication is not part of the product.</p></details>
-          <details><summary>Are these requests verified and ready to fulfil?</summary><p>No. The current catalogue contains sample demonstration entries. Teacher verification, moderation, matching and fulfilment are future workflows.</p></details>
-          <details><summary>How would a suggested match be approved?</summary><p>In the intended flow, teachers review and approve a proposed match before allocation. No such allocation happens in this preview.</p></details>
-        </div>
-      </div>
-    </section>
-    <section className="close-cta"><div className="close-cta-inner"><div><span className="eyebrow">Sedibeng Phase 1</span><h2>Useful things, given in a thoughtful way.</h2></div><Link href="/requests" className="button button-primary" data-testid="link-cta-catalogue">See sample requests <ArrowUpRight size={16}/></Link></div></section>
-  </main>;
-}
-
-function FeaturedRequests() {
-  const query = useGetRequests({});
-  return <section className="section featured-requests" id="sample-requests">
-    <div className="section-inner">
-      <div className="section-heading"><div><span className="eyebrow">A first look</span><h2>Sample requests from Gaborone.</h2></div><p>Example entries only—no verification, publication or fulfilment is implied.</p></div>
-      {query.isLoading ? <LoadingState label="Loading sample requests"/> : query.isError ? <ErrorState onRetry={()=>void query.refetch()}/> :
-        <div className="request-grid">{(query.data ?? []).slice(0,3).map((item,index)=><RequestCard key={item.id} item={item} index={index}/>)}</div>}
-      <Link href="/requests" className="text-link featured-link" data-testid="link-all-sample-requests">Browse all sample requests <ArrowRight size={14}/></Link>
-    </div>
-  </section>;
-}
-
-function RequestCard({ item, index }: { item: AssistanceRequest; index: number }) {
-  return <article className="request-card" data-testid={`card-request-${item.id}`}>
-      <Link href={`/requests/${item.id}`} data-testid={`link-request-image-${item.id}`} aria-label={`View ${item.title}`}>
-      <div className="request-image-wrap"><PhotoImage className="request-image" src={item.imageUrl} alt={item.imageAlt || 'School goods arranged for a demonstration request'} loading={index < 3 ? 'eager' : 'lazy'} data-testid={`img-request-${item.id}`}/><span className="image-pill">{item.category}</span><span className="image-pill request-status-pill" data-testid={`status-request-card-${item.id}`}>{item.status} · sample</span></div>
-    </Link>
-    <div className="request-content">
-      <div className="request-meta"><span>{item.location}</span><span>{item.priority}</span></div>
-      <h3 data-testid={`text-request-title-${item.id}`}>{item.title}</h3>
-      <p>{item.description}</p>
-      <div className="request-footer"><span className="qty">{item.quantity} {item.unit}</span><Link className="text-link" href={`/requests/${item.id}`} data-testid={`link-request-details-${item.id}`}>View request <ArrowUpRight size={14}/></Link></div>
-    </div>
-  </article>;
-}
-
-export function RequestsPage() {
-  const [search,setSearch] = useState('');
-  const [category,setCategory] = useState('');
-  const [priority,setPriority] = useState('');
-  const params = useMemo(() => ({search:search || undefined,category:category || undefined,priority:priority || undefined}),[search,category,priority]);
-  const query = useGetRequests(params);
-  const requests = query.data;
-  return <main>
-    <div className="page-head"><span className="eyebrow">The school essentials catalogue</span><h1>Requests, with care.</h1><p>Browse sample requests for physical goods. All catalogue entries are demonstration data, not verified needs or live matches.</p><div style={{marginTop:18}}><DemoTag/></div></div>
-    <section className="catalog-wrap">
-      <div className="catalog-toolbar">
-        <label className="searchbox"><Search size={16}/><input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search items, schools or categories" aria-label="Search requests" data-testid="input-request-search"/></label>
-         <select className="select-control" value={category} onChange={e=>setCategory(e.target.value)} aria-label="Filter by category" data-testid="select-request-category"><option value="">All categories</option><option>School shoes</option><option>Books &amp; stationery</option><option>Bags</option><option>Uniforms</option></select>
-        <select className="select-control" value={priority} onChange={e=>setPriority(e.target.value)} aria-label="Filter by priority" data-testid="select-request-priority"><option value="">Any priority</option><option>Essential</option><option>High</option><option>Standard</option></select>
-      </div>
-      {query.isLoading ? <LoadingState label="Loading sample requests"/> : query.isError ? <ErrorState onRetry={()=>void query.refetch()}/> : requests?.length ? <>
-        <p className="result-line" data-testid="text-request-count">{requests.length} demonstration {requests.length===1?'request':'requests'} · no verification or fulfilment implied</p>
-        <div className="request-grid">{requests.map((item,index)=><RequestCard key={item.id} item={item} index={index}/>)}</div>
-      </> : <div className="state-panel" data-testid="state-empty-requests"><BookOpen size={25}/><h3>No sample requests match</h3><p>Try another search or clear a filter to explore the catalogue.</p><button className="button button-outline" onClick={()=>{setSearch('');setCategory('');setPriority('')}} data-testid="button-clear-filters">Clear filters</button></div>}
-    </section>
-  </main>;
-}
-
-export function RequestDetailPage() {
-  const { id } = useParams<{id:string}>();
-  const query = useGetRequest(id || '', {query:{enabled:Boolean(id),queryKey:getGetRequestQueryKey(id || '')}});
-  const [notice,setNotice] = useState(false);
-  if (!id) return <div className="page-head"><ErrorState onRetry={()=>void query.refetch()}/></div>;
-  if (query.isLoading) return <div className="page-head"><LoadingState label="Loading the sample request"/></div>;
-  if (query.isError || !query.data) return <div className="page-head"><ErrorState onRetry={()=>void query.refetch()}/></div>;
-  const request=query.data;
-  return <main>
-    <div className="page-head" style={{paddingBottom:18}}><Link href="/requests" className="text-link" data-testid="link-back-requests"><ArrowLeft size={14}/>Back to requests</Link></div>
-    <div className="detail-layout">
-       <div className="detail-main"><PhotoImage className="detail-photo" src={request.imageUrl} alt={request.imageAlt || 'School goods for a demonstration request'} data-testid="img-request-detail"/><div style={{display:'flex',gap:10,marginTop:22,alignItems:'center',flexWrap:'wrap'}}><DemoTag/><span className="image-pill" style={{position:'static'}}>{request.category}</span></div><p className="detail-context" data-testid="text-request-school-context"><span className="eyebrow">School-level context</span>{request.schoolContext}</p><h1 data-testid="text-detail-title">{request.title}</h1><p>{request.description}</p><h3 style={{font:"500 25px 'Newsreader',serif",marginTop:30}}>What would be useful</h3><p>{request.specifications}</p><PrivacyNote/></div>
-      <aside className="detail-box"><h3>Request overview</h3><div className="detail-row"><span>Item</span><span>{request.item}</span></div><div className="detail-row"><span>Quantity</span><span>{request.quantity} {request.unit}</span></div><div className="detail-row"><span>School area</span><span>{request.location}</span></div><div className="detail-row"><span>Priority</span><span>{request.priority}</span></div><div className="detail-row"><span>Example status</span><span>{request.status}</span></div><div className="detail-row"><span>Last updated</span><span>{request.updatedLabel}</span></div>
-        <button className="button button-primary" style={{width:'100%',marginTop:20}} onClick={()=>setNotice(true)} data-testid="button-offer-assistance"><Heart size={15}/>Offer physical goods</button>
-        {notice && <div className="preview-alert" role="status" data-testid="notice-offer-not-saved">This is a demonstration action only. Your offer has not been sent, recorded, or matched.</div>}
-        <div className="privacy-note">Donors give physical goods only. No money transfers, learner accounts, or direct donor-to-learner contact.</div>
-      </aside>
-    </div>
-  </main>;
-}
-
-type AuthKind = 'signin'|'donor'|'teacher'|'forgot'|'reset';
-type AuthFieldKey = 'name'|'email'|'password'|'schoolName'|'newPassword'|'confirmPassword';
-type AuthValues = {name?:string;email?:string;password?:string;schoolName?:string;newPassword?:string;confirmPassword?:string};
-type AuthField = {key:AuthFieldKey;label:string;type:'text'|'email'|'password'};
-const authSchemaBase = z.object({
-  name:z.string().optional(),
-  email:z.string().optional(),
-  password:z.string().optional(),
-  schoolName:z.string().optional(),
-  newPassword:z.string().optional(),
-  confirmPassword:z.string().optional(),
+const heroPhoto = '/images/sedibeng-community-preparation.jpg';
+const itemPhoto = '/images/sedibeng-stationery-kit.jpg';
+const emptyValues = { name:'',email:'',password:'',schoolName:'',district:'',area:'',token:'',newPassword:'',confirmPassword:'',note:'' };
+type AuthKind = 'signin'|'donor'|'teacher'|'forgot'|'reset'|'verify';
+type AuthValues = typeof emptyValues;
+const authSchema = (kind: AuthKind) => z.object({
+  name:z.string().optional(), email:z.string().email('Enter a valid email address').optional().or(z.literal('')),
+  password:z.string().optional(),schoolName:z.string().optional(),district:z.string().optional(),area:z.string().optional(),
+  token:z.string().optional(),newPassword:z.string().optional(),confirmPassword:z.string().optional(),note:z.string().optional(),
+}).superRefine((v,c)=>{
+  const required:Record<AuthKind,string[]>={signin:['email','password'],donor:['name','email','password'],teacher:['name','email','password','schoolName','district'],forgot:['email'],reset:['token','newPassword','confirmPassword'],verify:['token']};
+  required[kind].forEach((k)=>{if(!v[k as keyof AuthValues]?.trim()) c.addIssue({code:'custom',path:[k],message:'This field is required.'})});
+  if(['signin','donor','teacher'].includes(kind) && v.password && v.password.length<12)c.addIssue({code:'custom',path:['password'],message:'Use at least 12 characters.'});
+  if(kind==='reset' && v.newPassword && v.newPassword.length<12)c.addIssue({code:'custom',path:['newPassword'],message:'Use at least 12 characters.'});
+  if(kind==='reset' && v.confirmPassword!==v.newPassword)c.addIssue({code:'custom',path:['confirmPassword'],message:'Passwords do not match.'});
 });
-const authRequiredFields:Record<AuthKind,AuthFieldKey[]> = {
-  signin:['email','password'],
-  donor:['name','email','password'],
-  teacher:['name','email','schoolName','password'],
-  forgot:['email'],
-  reset:['newPassword','confirmPassword'],
-};
-const authFieldLabels:Record<AuthFieldKey,string> = {
-  name:'Your name',
-  email:'Email address',
-  password:'Password',
-  schoolName:'School name',
-  newPassword:'New password',
-  confirmPassword:'Confirm new password',
-};
-function previewAuthSchema(kind:AuthKind) {
-  return authSchemaBase.superRefine((values,ctx)=>{
-    for (const field of authRequiredFields[kind]) {
-      if (!values[field]?.trim()) ctx.addIssue({code:'custom',path:[field],message:`${authFieldLabels[field]} is required.`});
-    }
-    if (values.email?.trim() && !z.string().email().safeParse(values.email.trim()).success) {
-      ctx.addIssue({code:'custom',path:['email'],message:'Enter a valid email address.'});
-    }
-    const password = kind==='reset' ? values.newPassword : values.password;
-    if (password && password.length < 8) {
-      ctx.addIssue({code:'custom',path:[kind==='reset'?'newPassword':'password'],message:'Use at least 8 characters.'});
-    }
-    if (kind==='reset' && values.newPassword && values.confirmPassword && values.newPassword!==values.confirmPassword) {
-      ctx.addIssue({code:'custom',path:['confirmPassword'],message:'Passwords do not match.'});
-    }
-  });
-}
-const authFields:Record<AuthKind,AuthField[]> = {
-  signin:[{key:'email',label:'Email address',type:'email'},{key:'password',label:'Password',type:'password'}],
-  donor:[{key:'name',label:'Your name',type:'text'},{key:'email',label:'Email address',type:'email'},{key:'password',label:'Password',type:'password'}],
-  teacher:[{key:'name',label:'Your name',type:'text'},{key:'email',label:'School email',type:'email'},{key:'schoolName',label:'School name',type:'text'},{key:'password',label:'Password',type:'password'}],
-  forgot:[{key:'email',label:'Email address',type:'email'}],
-  reset:[{key:'newPassword',label:'New password',type:'password'},{key:'confirmPassword',label:'Confirm new password',type:'password'}],
-};
-const authCopy:Record<AuthKind,{title:string;lead:string;button:string;photo:string}> = {
-  signin:{title:'Welcome back.',lead:'Sign in to your Sedibeng preview.',button:'Continue to preview',photo:classroomReady},
-  donor:{title:'Give something useful.',lead:'Create a donor preview profile to explore a goods-first experience.',button:'Create donor preview',photo:learningKit},
-  teacher:{title:'Start with the school need.',lead:'Teacher registration preview for sharing school-level essentials requests.',button:'Create teacher preview',photo:schoolSupplies},
-  forgot:{title:'A reset link, in a real product.',lead:'This preview does not send email or process account recovery.',button:'Preview recovery state',photo:classroomReady},
-  reset:{title:'Choose a new password.',lead:'Password reset is shown for preview only. No credentials are sent or saved.',button:'Preview password update',photo:learningKit},
+
+const fieldTitles:Record<string,string>={name:'Full name',email:'Email address',password:'Password',schoolName:'School name',district:'District',area:'Area (optional)',token:'Verification or reset token',newPassword:'New password',confirmPassword:'Confirm password'};
+const textInputType=(name:string)=>name.toLowerCase().includes('password')?'password':name==='email'?'email':'text';
+const authMeta:Record<AuthKind,{title:string;copy:string;submit:string}>={
+  signin:{title:'Welcome back.',copy:'Sign in to continue your work with Sedibeng.',submit:'Sign in'},
+  donor:{title:'Give something useful.',copy:'Create a donor account to offer physical school goods.',submit:'Create donor account'},
+  teacher:{title:'Start with the school need.',copy:'Create a teacher account to share school-level requests.',submit:'Create teacher account'},
+  forgot:{title:'A fresh start.',copy:'We’ll send password reset instructions if an account is registered.',submit:'Send reset instructions'},
+  reset:{title:'Choose a new password.',copy:'Use the secure reset token from your email.',submit:'Update password'},
+  verify:{title:'Verify your email.',copy:'Paste the secure verification token from your email.',submit:'Verify email'},
 };
 export function AuthPage({kind}:{kind:AuthKind}) {
-  const copy=authCopy[kind];
-  const [submitted,setSubmitted]=useState(false);
-  const form=useForm<AuthValues>({
-    resolver:zodResolver(previewAuthSchema(kind)),
-    defaultValues:{name:'',email:'',password:'',schoolName:'',newPassword:'',confirmPassword:''},
-  });
-  return <main className="auth-page">
-    <div className="auth-visual"><PhotoImage src={copy.photo} alt="School preparations shown as a non-identifying editorial photograph" data-testid="img-auth-context"/><div className="auth-visual-copy"><span className="eyebrow" style={{color:'#b7dacb'}}>Sedibeng Phase 1</span><h2>Every act of care, with dignity.</h2><p>“Sedibeng go iwa ka tsela” — a thoughtful way to give.</p></div></div>
-    <div className="auth-form-wrap"><div className="auth-card"><span className="eyebrow">A safe preview</span><h1 data-testid="text-auth-title">{copy.title}</h1><p>{copy.lead}</p><div className="preview-alert" data-testid="notice-auth-preview"><ShieldCheck size={15} style={{display:'inline',verticalAlign:'middle',marginRight:7}}/>Preview only. Authentication is not active. Do not enter real credentials; nothing is sent or persisted.</div>
-      <Form {...form}>
-      <form noValidate onSubmit={form.handleSubmit(()=>setSubmitted(true))} data-testid="form-preview-auth">
-        {authFields[kind].map(field=><FormField key={field.key} control={form.control} name={field.key} render={({field:control})=><FormItem className="field"><FormLabel>{field.label}</FormLabel><FormControl><input {...control} value={control.value??''} className="auth-input" type={field.type} autoComplete="off" placeholder={field.type==='password'?'Preview only':''} data-testid={`input-auth-${field.key}`}/></FormControl><FormMessage/></FormItem>}/>)}
-        {kind==='signin' && <div className="auth-links"><span>Preview access only</span><Link href="/forgot-password" data-testid="link-forgot-password">Forgot password?</Link></div>}
-        <button className="button button-primary" type="submit" data-testid="button-auth-submit">{copy.button}<ArrowRight size={15}/></button>
-      </form>
-      </Form>
-      {submitted && <div className="preview-alert" role="status" data-testid="notice-auth-not-saved">Nothing was submitted. This page demonstrates the interface only; credentials are not sent or saved.</div>}
-      <div className="auth-foot">{kind==='signin'?<>Need a preview role? <Link href="/register/donor" data-testid="link-register-donor">Donor</Link> · <Link href="/register/teacher" data-testid="link-register-teacher">Teacher</Link></>:<>Already viewing Sedibeng? <Link href="/sign-in" data-testid="link-auth-signin">Return to sign in</Link></>}</div>
-    </div></div>
-  </main>;
+  const [,navigate]=useLocation(); const client=useQueryClient(); const [status,setStatus]=useState(''); const [failure,setFailure]=useState('');
+  const form=useForm<AuthValues>({resolver:zodResolver(authSchema(kind)),defaultValues:emptyValues});
+  const registerDonor=useRegisterDonor(); const registerTeacher=useRegisterTeacher(); const login=useLogin(); const forgot=useRequestPasswordReset(); const reset=useResetPassword(); const verify=useVerifyEmail(); const resend=useResendVerificationEmail();
+  const busy=registerDonor.isPending||registerTeacher.isPending||login.isPending||forgot.isPending||reset.isPending||verify.isPending||resend.isPending;
+  const submit=(v:AuthValues)=>{
+    setFailure('');setStatus('');
+    const done=(message:string,go?:string)=>{void client.invalidateQueries();setStatus(message);if(go)navigate(go)};
+    const fail=(e:unknown)=>setFailure(e instanceof Error?e.message:'Something went wrong. Please try again.');
+    if(kind==='signin') login.mutate({data:{email:v.email!,password:v.password!}},{onSuccess:()=>done('You’re signed in.','/'),onError:fail});
+    if(kind==='donor') registerDonor.mutate({data:{name:v.name!,email:v.email!,password:v.password!}},{onSuccess:()=>done('Account created. Check your inbox to verify your email.'),onError:fail});
+    if(kind==='teacher') registerTeacher.mutate({data:{name:v.name!,email:v.email!,password:v.password!,schoolName:v.schoolName!,district:v.district!,area:v.area||undefined}},{onSuccess:()=>done('Account created. Check your inbox to verify your email.'),onError:fail});
+    if(kind==='forgot') forgot.mutate({data:{email:v.email!}},{onSuccess:()=>done('If the address is registered, reset instructions are on their way.'),onError:fail});
+    if(kind==='reset') reset.mutate({data:{token:v.token!,newPassword:v.newPassword!}},{onSuccess:()=>done('Password updated. You can now sign in.','/sign-in'),onError:fail});
+    if(kind==='verify') verify.mutate({data:{token:v.token!}},{onSuccess:()=>done('Email verified.','/sign-in'),onError:fail});
+  };
+  const meta=authMeta[kind];
+  return <main className="auth-page"><section className="auth-art"><PhotoImage src={heroPhoto} alt="A classroom prepared with learning materials"/><div className="auth-art-shade"/><div className="auth-art-copy"><span className="eyebrow">Sedibeng · Botswana</span><h2>Care, made practical.</h2><p>Physical school essentials, offered with dignity and care.</p></div></section>
+    <section className="auth-form-wrap"><div className="auth-card"><span className="eyebrow">Your Sedibeng account</span><h1 data-testid="text-auth-title">{meta.title}</h1><p>{meta.copy}</p>
+      <Form {...form}><form onSubmit={form.handleSubmit(submit)} data-testid={`form-auth-${kind}`}>
+      {(kind==='signin'?['email','password']:kind==='donor'?['name','email','password']:kind==='teacher'?['name','email','schoolName','district','area','password']:kind==='forgot'?['email']:kind==='reset'?['token','newPassword','confirmPassword']:['token']).map(name=><label className="field" key={name}>{fieldTitles[name]}{['schoolName','district','area'].includes(name)&&kind==='teacher'&&<span className="required-mark">{name!=='area'?' *':''}</span>}<input className="auth-input" type={textInputType(name)} autoComplete={name==='password'?'current-password':'off'} {...form.register(name as keyof AuthValues)} data-testid={`input-auth-${name}`}/><small className="field-error">{form.formState.errors[name as keyof AuthValues]?.message as string}</small></label>)}
+      {kind==='signin'&&<div className="auth-links"><Link href="/forgot-password" data-testid="link-forgot-password">Forgot password?</Link><Link href="/verify-email" data-testid="link-verify-email">Verify email</Link></div>}
+      {failure&&<div className="alert alert-error" role="alert" data-testid="state-auth-error">{failure}</div>}
+      {status&&<div className="alert alert-success" role="status" data-testid="state-auth-success">{status}</div>}
+      <button className="button button-primary full-button" type="submit" disabled={busy} data-testid="button-auth-submit">{busy?'Working…':meta.submit}<ArrowRight size={16}/></button>
+      </form></Form>
+      {kind==='signin'&&<button type="button" className="text-button" disabled={busy} onClick={()=>{const email=form.getValues('email');if(!email){setFailure('Enter your email address first.');return}resend.mutate({data:{email}},{onSuccess:()=>setStatus('Verification email sent. Check your inbox.'),onError:e=>setFailure(e instanceof Error?e.message:'Could not resend the message.')})}} data-testid="button-resend-verification">Resend verification email</button>}
+      <div className="auth-foot">{kind==='signin'?<>New to Sedibeng? <Link href="/register/donor">Join as a donor</Link> · <Link href="/register/teacher">Join as a teacher</Link></>:<>Already have an account? <Link href="/sign-in">Sign in</Link></>}</div>
+    </div></section></main>;
 }
 
-const roleData = {
-  donor:{title:'Donor preview',description:'A sample view of physical-goods giving. Offers are not saved or matched.',use:useGetDonorDashboard,icon:Heart,nav:[['Overview','/dashboard/donor'],['Browse requests','/requests'],['Teacher preview','/dashboard/teacher'],['Admin preview','/dashboard/admin']]},
-  teacher:{title:'Teacher preview',description:'A sample view of school-level request management. No request can be created here.',use:useGetTeacherDashboard,icon:BookOpen,nav:[['Overview','/dashboard/teacher'],['Browse requests','/requests'],['Donor preview','/dashboard/donor'],['Admin preview','/dashboard/admin']]},
-  admin:{title:'Admin preview',description:'A sample overview of a safeguarding-first catalogue. No moderation or verification actions are live.',use:useGetAdminDashboard,icon:ShieldCheck,nav:[['Overview','/dashboard/admin'],['Browse requests','/requests'],['Teacher preview','/dashboard/teacher'],['Donor preview','/dashboard/donor']]},
-} as const;
-type Role = keyof typeof roleData;
-
-function DashboardContent({role,data}:{role:Role;data:DemoDashboard}) {
-  const config=roleData[role];
-  const Icon=config.icon;
-  return <main className={`dash-layout dash-layout-${role}`}>
-    <aside className="dash-nav" aria-label={`${config.title} navigation`}>
-      <Link href="/" className="brand" data-testid="dash-brand"><span className="brand-mark">s</span><span>Sedibeng</span></Link>
-      <div className="dash-nav-title">Preview workspace</div>
-      {config.nav.map(([label,href])=><Link key={href} href={href} className={href===`/dashboard/${role}`?'active':''} aria-current={href===`/dashboard/${role}`?'page':undefined} data-testid={`dash-link-${role}-${label.toLowerCase().replaceAll(' ','-')}`}><Icon size={15} aria-hidden="true"/>{label}</Link>)}
-      <div className="dash-nav-title">Public</div>
-      <Link href="/requests" data-testid="dash-link-catalogue"><Search size={15} aria-hidden="true"/>Request catalogue</Link>
-      <Link href="/sign-in" data-testid="dash-link-signout"><ArrowLeft size={15} aria-hidden="true"/>Exit preview</Link>
-    </aside>
-    <div className="dash-main">
-      <header className="dash-head">
-        <div><span className="dash-kicker">Gaborone · Sedibeng Phase 1</span><h1 data-testid="text-dashboard-title">{config.title}</h1><p>{config.description}</p></div>
-        <Link href="/requests" className="button button-primary" data-testid="button-dash-browse">Browse requests <ArrowUpRight size={15} aria-hidden="true"/></Link>
-      </header>
-      <div className="dash-warning" role="note" data-testid="notice-dashboard-demo"><Sparkles size={16} aria-hidden="true"/><span><strong>Demonstration only.</strong> Nothing here is verified, matched, fulfilled, authenticated, saved, or changed. Statuses describe sample records only.</span></div>
-      {!data.demonstration && <div className="dash-warning" role="status" data-testid="notice-dashboard-unmarked">This response is not marked as demonstration content. It is shown only as an unverified preview.</div>}
-      {data.counts.length ? <section className="stats-grid" aria-label="Demonstration overview" data-testid={`dashboard-counts-${role}`}>{data.counts.map((count,index)=><article className="stat-card" key={`${count.label}-${index}`} data-testid={`stat-${role}-${index}`}><span>{count.label}</span><strong>{count.value}</strong><small>{count.detail}</small></article>)}</section>:<div className="state-panel" data-testid="state-empty-dashboard-counts"><h3>No preview counts yet</h3><p>This demonstration response does not include any overview values.</p></div>}
-      <section className="dash-section dash-activity" aria-labelledby={`activity-title-${role}`}>
-        <div className="dash-section-head"><div><span className="dash-section-kicker">Response records</span><h2 id={`activity-title-${role}`}>Sample activity</h2></div><DemoTag label="Example records"/></div>
-        {data.records.length ? <div className="dash-record-list">{data.records.map(record=><DashboardRecordRow key={record.id} role={role} scope="activity" record={record}/>)}</div> : <div className="dash-empty" data-testid="state-empty-dashboard-records">There are no example records in this response. No action is waiting to be taken.</div>}
-      </section>
-      <section className="dash-modules" aria-labelledby={`modules-title-${role}`} data-testid={`dashboard-modules-${role}`}>
-        <div className="dash-section-head dash-modules-heading"><div><span className="dash-section-kicker">From this response</span><h2 id={`modules-title-${role}`}>Workspace modules</h2></div><span className="module-total" data-testid={`module-count-${role}`}>{data.modules.length} {data.modules.length===1?'module':'modules'}</span></div>
-        {data.modules.length ? <div className="dash-module-list">{data.modules.map((module,index)=><DashboardModuleCard key={module.id} module={module} role={role} index={index}/>)}</div> : <div className="dash-empty dash-module-empty" data-testid="state-empty-dashboard-modules">No modules are included in this demonstration response.</div>}
-      </section>
-      <PrivacyNote/>
-    </div>
-  </main>;
+export function HomePage(){
+  const requests=useGetRequests({});const session=useGetAuthSession();
+  return <main><section className="hero"><div className="hero-copy-block"><span className="eyebrow">School essentials, shared with care</span><h1>A little help.<br/><em>A fuller desk.</em></h1><p>Sedibeng brings teachers’ requests for physical school goods together with people ready to help—quietly, thoughtfully, with learners’ dignity at the centre.</p><div className="hero-actions"><Link href="/requests" className="button button-primary" data-testid="link-explore-requests">Browse school needs <ArrowUpRight size={16}/></Link><Link href={session.data?.user?.role==='TEACHER'?'/dashboard/teacher':'/register/teacher'} className="button button-outline" data-testid="link-teacher-start">{session.data?.user?.role==='TEACHER'?'Teacher workspace':'I’m a teacher'}</Link></div><div className="hero-note"><span/>Physical goods only <span/>No money transfers <span/>Learners stay private</div></div><div className="hero-visual"><PhotoImage className="hero-image" src={heroPhoto} alt="Sunlit empty classroom with school supplies arranged on desks" data-testid="img-home-hero"/><div className="hero-stamp">For the<br/>next school<br/>day</div><div className="image-caption">Practical support, close to what schools need.</div></div></section>
+    <section className="section"><div className="section-inner"><div className="section-heading"><div><span className="eyebrow">A careful exchange</span><h2>Support that stays close to what a school needs.</h2></div><p>Teachers describe school-level needs. Donors offer useful physical goods. Every step keeps learner privacy in view.</p></div><div className="steps"><article className="step"><span className="step-no">01 / TEACHERS</span><h3>Share the school need</h3><p>Describe items, quantities and school context without disclosing a learner’s identity.</p></article><article className="step"><span className="step-no">02 / DONORS</span><h3>Choose goods to give</h3><p>Browse published needs or list available goods. No money changes hands on Sedibeng.</p></article><article className="step"><span className="step-no">03 / WITH CARE</span><h3>Keep dignity in view</h3><p>Teacher-led decisions and school-level details keep support appropriate and private.</p></article></div></div></section>
+    <section className="story-band"><div className="story-content"><div><span className="eyebrow">The principle behind the platform</span><h2>Help should feel human.<br/>Privacy should feel certain.</h2><p>Sedibeng is built around educators and school-level needs. The public catalogue keeps personal details out of view, while giving stays tangible.</p></div><div className="story-quote">“Sedibeng go iwa ka tsela”<br/><small>The Sedibeng way of giving</small></div></div></section>
+    <section className="section"><div className="section-inner"><div className="section-heading"><div><span className="eyebrow">Published school needs</span><h2>One useful thing can make a difference.</h2></div><p>Browse real published requests and choose a practical way to help.</p></div>{requests.isLoading?<LoadingState label="Loading published requests"/>:requests.isError?<ErrorState onRetry={()=>void requests.refetch()}/>:<div className="request-grid">{(requests.data??[]).slice(0,3).map((r,i)=><RequestCard item={r} key={r.id} index={i}/>)}</div>}<Link href="/requests" className="text-link featured-link">Explore all requests <ArrowRight size={14}/></Link></div></section>
+    <section className="section"><div className="section-inner split-feature"><PhotoImage src={itemPhoto} alt="Notebooks, pencils and school essentials arranged on a table"/><div><span className="eyebrow">Safeguarding comes first</span><h2>Support the need.<br/>Protect the learner.</h2><p>Learners do not need accounts. Requests show school context only, never learner names, faces or private circumstances.</p><PrivacyNote/><div className="hero-actions"><Link href="/register/donor" className="button button-primary">Give physical goods <ArrowRight size={15}/></Link><Link href="/register/teacher" className="text-link">Share a school need <ArrowRight size={14}/></Link></div></div></div></section>
+    <section className="close-cta"><div className="close-cta-inner"><div><span className="eyebrow">Small essentials. Real care.</span><h2>Find a school need you can help meet.</h2></div><Link href="/requests" className="button button-primary">Browse requests <ArrowUpRight size={16}/></Link></div></section></main>;
 }
 
-function DashboardRecordRow({role,scope,record}:{role:Role;scope:string;record:DemoRecord}) {
-  return <article className="dash-record" data-testid={`record-${role}-${scope}-${record.id}`}>
-    {record.imageUrl ? <PhotoImage src={record.imageUrl} alt="School goods shown for a demonstration record" loading="lazy" data-testid={`img-dashboard-record-${scope}-${record.id}`}/> : <div className="record-image-placeholder" aria-hidden="true"><span/></div>}
-    <div className="dash-record-copy"><h3>{record.title}</h3><p>{record.detail}</p></div>
-    <span className="record-status" data-testid={`status-${role}-${scope}-${record.id}`}>{record.status}</span>
-  </article>;
+function RequestCard({item,index}:{item:AssistanceRequest;index:number}){
+  return <article className="request-card" data-testid={`card-request-${item.id}`}><Link href={`/requests/${item.id}`}><div className="request-image-wrap"><PhotoImage src={item.imageUrl||itemPhoto} alt={item.imageAlt||'School supplies'} className="request-image" loading={index<3?'eager':'lazy'}/><span className="image-pill">{item.category}</span>{item.isSeedData&&<span className="image-pill request-status-pill">Development sample</span>}</div></Link><div className="request-content"><div className="request-meta"><span>{item.location}</span><span>{item.priority}</span></div><h3>{item.title}</h3><p>{item.description}</p><div className="request-footer"><span className="qty">{item.quantity} {item.unit}</span><Link className="text-link" href={`/requests/${item.id}`} data-testid={`link-request-${item.id}`}>View request <ArrowUpRight size={14}/></Link></div></div></article>
 }
 
-function DashboardModuleCard({module,role,index}:{module:DashboardModule;role:Role;index:number}) {
-  return <article className="dash-module" data-testid={`module-${role}-${module.id}`}>
-    <div className="dash-module-top"><span className="module-index">{String(index+1).padStart(2,'0')}</span><span className="module-status" data-testid={`status-${role}-module-${module.id}`}>{module.status}</span></div>
-    <h3 data-testid={`text-${role}-module-title-${module.id}`}>{module.title}</h3>
-    <p className="dash-module-detail">{module.detail}</p>
-    {module.records.length ? <div className="dash-module-records" aria-label={`${module.title} example records`}>{module.records.map(record=><DashboardRecordRow key={record.id} role={role} scope={`module-${module.id}`} record={record}/>)}</div> : <p className="module-no-records" data-testid={`state-empty-module-${module.id}`}>No example records are included in this module.</p>}
-  </article>;
+export function RequestsPage(){
+  const [search,setSearch]=useState('');const [category,setCategory]=useState('');const [priority,setPriority]=useState('');
+  const params=useMemo(()=>({search:search||undefined,category:category||undefined,priority:priority||undefined}),[search,category,priority]);
+  const q=useGetRequests(params);
+  return <main><div className="page-head"><span className="eyebrow">The school essentials catalogue</span><h1>Requests, with care.</h1><p>Published school needs for physical goods. Personal learner details are never included.</p></div><section className="catalog-wrap"><div className="catalog-toolbar"><label className="searchbox"><Search size={16}/><input type="search" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search items, schools or categories" aria-label="Search requests" data-testid="input-request-search"/></label><select className="select-control" value={category} onChange={e=>setCategory(e.target.value)} aria-label="Filter category" data-testid="select-request-category"><option value="">All categories</option><option>School shoes</option><option>Books & stationery</option><option>Bags</option><option>Uniforms</option></select><select className="select-control" value={priority} onChange={e=>setPriority(e.target.value)} aria-label="Filter priority" data-testid="select-request-priority"><option value="">Any priority</option><option>Essential</option><option>High</option><option>Standard</option></select></div>
+    {q.isLoading?<LoadingState label="Loading published requests"/>:q.isError?<ErrorState onRetry={()=>void q.refetch()}/>:q.data?.length?<><p className="result-line">{q.data.length} published {q.data.length===1?'request':'requests'}{q.data.some(x=>x.isSeedData)?' · includes development sample data':''}</p><div className="request-grid">{q.data.map((r,i)=><RequestCard item={r} index={i} key={r.id}/>)}</div></>:<div className="state-panel"><BookOpen size={25}/><h3>No requests found</h3><p>Try another search or clear the filters.</p><button className="button button-outline" onClick={()=>{setSearch('');setCategory('');setPriority('')}} data-testid="button-clear-filters">Clear filters</button></div>}</section></main>;
 }
 
-export function DashboardPage({role}:{role:Role}) {
-  const query=roleData[role].use();
-  if(query.isLoading) return <div className="dash-layout"><LoadingState label="Loading dashboard demonstration"/></div>;
-  if(query.isError || !query.data) return <div className="dash-layout"><ErrorState onRetry={()=>void query.refetch()}/></div>;
-  return <DashboardContent role={role} data={query.data}/>;
+export function RequestDetailPage(){
+ const {id}=useParams<{id:string}>();const q=useGetRequest(id||'',{query:{enabled:!!id,queryKey:getGetRequestQueryKey(id||'')}});const session=useGetAuthSession();const makeOffer=useCreateSponsorship();const createReport=useCreateReport();const client=useQueryClient();const [message,setMessage]=useState('');const [error,setError]=useState('');const [showReport,setShowReport]=useState(false);
+ const offerForm=useForm<{quantity:number;donorMessage:string}>({defaultValues:{quantity:1,donorMessage:''}});
+ const reportForm=useForm<{reason:string;details:string}>({defaultValues:{reason:'',details:''}});
+ if(q.isLoading)return <div className="page-head"><LoadingState label="Loading request"/></div>;if(q.isError||!q.data)return <div className="page-head"><ErrorState onRetry={()=>void q.refetch()}/></div>;
+ const r=q.data;
+ return <main><div className="page-head detail-back"><Link href="/requests" className="text-link"><ArrowRight className="back-arrow" size={14}/>Back to requests</Link></div><div className="detail-layout"><section className="detail-main"><PhotoImage className="detail-photo" src={r.imageUrl||itemPhoto} alt={r.imageAlt||'School goods'} data-testid="img-request-detail"/><div className="detail-tags"><span className="image-pill static-pill">{r.category}</span>{r.isSeedData&&<DemoTag label="Development sample data"/>}</div><p className="detail-context"><span className="eyebrow">School-level context</span>{r.schoolContext}</p><h1>{r.title}</h1><p>{r.description}</p><h3>What would be useful</h3><p>{r.specifications||r.item}</p><PrivacyNote/></section>
+ <aside className="detail-box"><h3>Request overview</h3>{[['Item',r.item],['Quantity',`${r.quantity} ${r.unit}`],['School area',r.location],['Priority',r.priority],['Status',r.status],['Updated',r.updatedLabel]].map(([a,b])=><div className="detail-row" key={a}><span>{a}</span><span>{b}</span></div>)}
+ {session.data?.user?.role==='DONOR'?<Form {...offerForm}><form className="offer-form" onSubmit={offerForm.handleSubmit(v=>{setError('');setMessage('');makeOffer.mutate({data:{requestId:r.id,quantity:Number(v.quantity),donorMessage:v.donorMessage||null}},{onSuccess:()=>{setMessage('Your offer is with the teacher for review.');offerForm.reset({quantity:1,donorMessage:''});void client.invalidateQueries({queryKey:getGetRequestsQueryKey()});void client.invalidateQueries({queryKey:getGetSponsorshipsQueryKey()})},onError:e=>setError(e instanceof Error?e.message:'Your offer could not be submitted.')})})}><label className="field">Quantity<input className="auth-input" type="number" min="1" {...offerForm.register('quantity',{valueAsNumber:true,min:1})} data-testid="input-offer-quantity"/></label><label className="field">Message to the teacher <textarea className="auth-input textarea" maxLength={500} {...offerForm.register('donorMessage')} data-testid="input-offer-message"/></label>{error&&<p className="inline-error">{error}</p>}{message&&<p className="inline-success" role="status">{message}</p>}<button className="button button-primary full-button" disabled={makeOffer.isPending} data-testid="button-offer-assistance"><HeartHandshake size={16}/>{makeOffer.isPending?'Sending…':'Offer physical goods'}</button></form></Form>:<Link className="button button-primary full-button" href={session.data?.user?'/dashboard/donor':'/sign-in'} data-testid="button-offer-assistance">{session.data?.user?'Open donor workspace':'Sign in to offer goods'} <ArrowRight size={15}/></Link>}
+  {session.data?.user&&<div className="report-box"><button type="button" className="text-button" onClick={()=>setShowReport(v=>!v)} data-testid="button-report-request">{showReport?'Close report form':'Report a concern about this request'}</button>{showReport&&<Form {...reportForm}><form onSubmit={reportForm.handleSubmit(v=>createReport.mutate({data:{targetType:'REQUEST',targetId:r.id,reason:v.reason,details:v.details||null}},{onSuccess:()=>{setMessage('Thank you. Your report has been received for review.');setShowReport(false);void client.invalidateQueries({queryKey:getGetMyReportsQueryKey()})},onError:e=>setError(e instanceof Error?e.message:'The report could not be sent.')}))}><label className="field">Reason<input className="auth-input" minLength={3} maxLength={120} {...reportForm.register('reason',{required:true})} data-testid="input-report-reason"/></label><label className="field">Additional details<textarea className="auth-input textarea" maxLength={1000} {...reportForm.register('details')} data-testid="input-report-details"/></label><button className="button button-outline" disabled={createReport.isPending} data-testid="button-submit-report">Send report</button></form></Form>}</div>}
+  <div className="privacy-note">Goods only. No money transfers, learner accounts, or direct donor-to-learner contact.</div></aside></div></main>
 }
 
-export function NotFoundPage() {
-  return <main className="notfound"><div><span className="eyebrow">Nothing here yet</span><h1>That page moved.</h1><p style={{color:'#6b777b',lineHeight:1.7,marginBottom:25}}>The address may be incorrect. The catalogue and all preview pages are still easy to find.</p><Link href="/" className="button button-primary" data-testid="link-not-found-home">Return home <ArrowRight size={15}/></Link></div></main>;
+type Role='donor'|'teacher'|'admin';
+export function DashboardPage({role}:{role:Role}){
+  if(role==='donor')return <DonorWorkspace/>;
+  if(role==='teacher')return <TeacherWorkspace/>;
+  return <AdminWorkspace/>;
 }
+function WorkspaceFrame({role,title,description,children}:{role:Role;title:string;description:string;children:React.ReactNode}){
+ const client=useQueryClient();const [,navigate]=useLocation();const logout=useLogout();const session=useGetAuthSession();const user=session.data?.user;
+ return <main className="dash-layout"><aside className="dash-nav"><Link href="/" className="brand"><span className="brand-mark">s</span><span>Sedibeng</span></Link><div className="dash-nav-title">Workspace</div><Link href={`/dashboard/${role}`} className="active">{role==='teacher'?<BookOpen size={15}/>:role==='donor'?<HeartHandshake size={15}/>:<ShieldCheck size={15}/>} Overview</Link><Link href="/requests"><Search size={15}/>Browse requests</Link><div className="dash-user"><span className="avatar">{user?.name?.slice(0,1)||'S'}</span><div><b>{user?.name}</b><small>{user?.email}</small></div></div><button className="dash-signout" onClick={()=>logout.mutate(undefined,{onSuccess:()=>{void client.invalidateQueries();navigate('/sign-in')}})} disabled={logout.isPending} data-testid="button-sign-out"><LogOut size={15}/>{logout.isPending?'Signing out…':'Sign out'}</button></aside><div className="dash-main"><header className="dash-head"><div><span className="dash-kicker">{user?.status?.replaceAll('_',' ')||'ACCOUNT'}</span><h1 data-testid="text-dashboard-title">{title}</h1><p>{description}</p></div><span className={`verified-chip ${user?.emailVerifiedAt?'is-verified':''}`}><ShieldCheck size={15}/>{user?.emailVerifiedAt?'Email verified':'Email not verified'}</span></header>{children}<PrivacyNote/></div></main>
+}
+function Panel({title,eyebrow,children,action}:{title:string;eyebrow?:string;children:React.ReactNode;action?:React.ReactNode}){
+ return <section className="dash-section"><div className="dash-section-head"><div>{eyebrow&&<span className="dash-section-kicker">{eyebrow}</span>}<h2>{title}</h2></div>{action}</div>{children}</section>
+}
+function Rows({items,empty}:{items?:{id:string;title:string;detail:string;status?:string;right?:React.ReactNode}[];empty:string}){
+ return items?.length?<div className="data-list">{items.map(r=><article className="data-row" key={r.id}><div className="data-row-icon"><Package size={17}/></div><div className="data-row-copy"><b>{r.title}</b><span>{r.detail}</span></div>{r.status&&<span className="record-status">{r.status.replaceAll('_',' ')}</span>}{r.right}</article>)}</div>:<div className="dash-empty">{empty}</div>;
+}
+function MutateState({error,success}:{error?:unknown;success?:string}){return <>{error&&<p className="inline-error" role="alert">{error instanceof Error?error.message:'Action could not be completed.'}</p>}{success&&<p className="inline-success" role="status">{success}</p>}</>}
+
+function DonorWorkspace(){
+ const client=useQueryClient();const dash=useGetDonorDashboard();const inv=useGetInventory();const sponsors=useGetSponsorships();const orders=useGetOrders();const notifications=useGetNotifications();const reports=useGetMyReports();
+ const create=useCreateInventory();const update=useUpdateInventory();const remove=useDeleteInventory();const mark=useMarkNotificationRead();const orderStatus=useUpdateOrderStatus();const [editing,setEditing]=useState<InventoryItem|null>(null);const [feedback,setFeedback]=useState('');
+ const form=useForm<InventoryInput>({defaultValues:{title:'',category:'',item:'',description:'',specifications:'',quantityAvailable:1,unit:'items',district:'',area:''}});
+ const refresh=()=>{void client.invalidateQueries({queryKey:getGetInventoryQueryKey()});void client.invalidateQueries({queryKey:getGetDonorDashboardQueryKey()})};
+ const save=(v:InventoryInput)=>{setFeedback('');const done=()=>{setFeedback(editing?'Goods listing updated.':'Goods listing created.');setEditing(null);form.reset();refresh()};editing?update.mutate({id:editing.id,data:v},{onSuccess:done,onError:e=>setFeedback(e instanceof Error?e.message:'Could not update listing.') }):create.mutate({data:v},{onSuccess:done,onError:e=>setFeedback(e instanceof Error?e.message:'Could not create listing.')})};
+ if(dash.isLoading)return <div className="dash-layout"><LoadingState label="Loading donor workspace"/></div>;if(dash.isError)return <div className="dash-layout"><ErrorState onRetry={()=>void dash.refetch()}/></div>;
+ return <WorkspaceFrame role="donor" title="Your giving, made practical." description="Offer useful goods, follow teacher decisions and keep fulfilment moving."><StatStrip counts={dash.data?.counts??[]}/>
+ <Panel title="Your goods" eyebrow="Donor inventory" action={<span className="module-total">{inv.data?.length??0} listings</span>}>
+ <Form {...form}><form className="compact-form" onSubmit={form.handleSubmit(save)}><div className="form-grid">{(['title','category','item','description','specifications','quantityAvailable','unit','district','area'] as const).map(k=><label className={`field ${['description','specifications'].includes(k)?'span-two':''}`} key={k}>{k==='quantityAvailable'?'Quantity available':k[0].toUpperCase()+k.slice(1)}{['description','specifications'].includes(k)?<textarea className="auth-input textarea" {...form.register(k)} data-testid={`input-inventory-${k}`}/>:<input className="auth-input" type={k==='quantityAvailable'?'number':'text'} {...form.register(k,k==='quantityAvailable'?{valueAsNumber:true}:undefined)} data-testid={`input-inventory-${k}`}/>}</label>)}</div><div className="form-actions"><button className="button button-primary" disabled={create.isPending||update.isPending} data-testid="button-save-inventory">{editing?'Save changes':'Add goods'} <Plus size={15}/></button>{editing&&<button type="button" className="button button-outline" onClick={()=>{setEditing(null);form.reset()}}>Cancel edit</button>}</div><MutateState success={feedback}/></form></Form>
+ <Rows items={(inv.data??[]).map(x=>({id:x.id,title:x.title,detail:`${x.quantityAvailable} ${x.unit} · ${x.district}${x.area?`, ${x.area}`:''}`,status:x.status,right:<div className="row-actions"><button className="icon-button" aria-label={`Edit ${x.title}`} onClick={()=>{setEditing(x);form.reset({title:x.title,category:x.category,item:x.item,description:x.description,specifications:x.specifications||'',quantityAvailable:x.quantityAvailable,unit:x.unit,district:x.district,area:x.area||''})}}>Edit</button>{x.status!=='WITHDRAWN'&&<button className="icon-button danger" onClick={()=>{if(confirm(`Withdraw “${x.title}”?`))remove.mutate({id:x.id},{onSuccess:refresh})}}>Withdraw</button>}</div>}))} empty={inv.isLoading?'Loading goods…':'No goods listed yet. Add an item above when you are ready.'}/>
+ </Panel>
+ <Panel title="Offers and handoffs" eyebrow="Giving activity"><Rows items={(sponsors.data??[]).map(s=>({id:s.id,title:s.requestTitle,detail:`${s.quantity} offered · ${new Date(s.createdAt).toLocaleDateString()}`,status:s.status}))} empty="Your offers to school requests will appear here."/></Panel>
+ <Panel title="Fulfilment" eyebrow="Next steps"><Rows items={(orders.data??[]).map(o=>({id:o.id,title:o.requestTitle,detail:`${o.quantity} · ${o.generalArea||'Area to be confirmed'}${o.scheduledAt?` · ${new Date(o.scheduledAt).toLocaleDateString()}`:''}`,status:o.status,right:o.status==='PREPARING'?<button className="icon-button approve" onClick={()=>orderStatus.mutate({id:o.id,data:{status:'READY_FOR_HANDOFF'}},{onSuccess:()=>void client.invalidateQueries({queryKey:getGetOrdersQueryKey()})})}>Ready for handoff</button>:undefined}))} empty="No fulfilment orders yet."/></Panel>
+ <Panel title="Notifications" eyebrow="Account updates"><Rows items={(notifications.data??[]).map(n=>({id:n.id,title:n.title,detail:n.body,status:n.readAt?'Read':'New',right:!n.readAt?<button className="icon-button" onClick={()=>mark.mutate({id:n.id},{onSuccess:()=>void client.invalidateQueries({queryKey:getGetNotificationsQueryKey()})})} data-testid={`button-read-notification-${n.id}`}>Mark read</button>:undefined}))} empty="You’re all caught up."/></Panel>
+ <Panel title="Reports you’ve submitted"><Rows items={(reports.data??[]).map(r=>({id:r.id,title:r.reason,detail:`${r.targetType} · ${r.createdAt.slice(0,10)}`,status:r.status}))} empty="No reports submitted."/></Panel>
+ </WorkspaceFrame>
+}
+
+function StatStrip({counts}:{counts:{label:string;value:number;detail:string}[]}){
+ return counts.length?<section className="stats-grid" aria-label="Workspace summary">{counts.map((c,i)=><article className="stat-card" key={c.label}><span>{c.label}</span><strong>{c.value}</strong><small>{c.detail}</small></article>)}</section>:null;
+}
+
+function TeacherWorkspace(){
+ const client=useQueryClient();const dash=useGetTeacherDashboard();const profile=useGetTeacherProfile();const verification=useGetMyVerification();const schools=useListSchools({});const requests=useGetRequests({});const sponsor=useGetSponsorships();const orders=useGetOrders();const notifications=useGetNotifications();const submitVerify=useSubmitVerification();const decide=useDecideSponsorship();const mark=useMarkNotificationRead();const createReq=useCreateRequest();const updateReq=useUpdateRequest();const deleteReq=useDeleteRequest();const updateOrder=useUpdateOrderStatus();
+ const [editing,setEditing]=useState<AssistanceRequest|null>(null);const [feedback,setFeedback]=useState('');
+ const requestForm=useForm<RequestInput>({defaultValues:{schoolId:'',title:'',category:'',item:'',description:'',specifications:'',quantity:1,unit:'items',priority:'STANDARD',schoolContext:''}});
+ const verificationForm=useForm<{note:string}>({defaultValues:{note:''}});
+ const refresh=()=>{void client.invalidateQueries({queryKey:getGetRequestsQueryKey()});void client.invalidateQueries({queryKey:getGetTeacherDashboardQueryKey()});};
+ if(dash.isLoading)return <div className="dash-layout"><LoadingState label="Loading teacher workspace"/></div>;if(dash.isError)return <div className="dash-layout"><ErrorState onRetry={()=>void dash.refetch()}/></div>;
+ const saveRequest=(v:RequestInput)=>{setFeedback('');const ok=()=>{setFeedback(editing?'Request updated.':'Request submitted for review.');setEditing(null);requestForm.reset({schoolId:profile.data?.schoolId||'',title:'',category:'',item:'',description:'',specifications:'',quantity:1,unit:'items',priority:'STANDARD',schoolContext:''});refresh()};editing?updateReq.mutate({id:editing.id,data:v},{onSuccess:ok,onError:e=>setFeedback(e instanceof Error?e.message:'Could not update request.') }):createReq.mutate({data:v},{onSuccess:ok,onError:e=>setFeedback(e instanceof Error?e.message:'Could not submit request.')})};
+ return <WorkspaceFrame role="teacher" title="Your school’s needs, clearly shared." description={profile.data?`${profile.data.schoolName} · ${profile.data.district}${profile.data.area?` · ${profile.data.area}`:''}`:'Manage requests, review goods offers and coordinate next steps.'}><StatStrip counts={dash.data?.counts??[]}/>
+ <Panel title="School verification" eyebrow="Teacher account"><p className="panel-intro">Share a short note to submit your school affiliation for review.</p><Form {...verificationForm}><form className="inline-form" onSubmit={verificationForm.handleSubmit(v=>submitVerify.mutate({data:v},{onSuccess:()=>void client.invalidateQueries({queryKey:getGetMyVerificationQueryKey()}),onError:e=>setFeedback(e instanceof Error?e.message:'Verification submission failed.')}))}><textarea className="auth-input textarea" maxLength={500} placeholder="Add context to support your school verification" {...verificationForm.register('note',{required:true})} data-testid="input-verification-note"/><button className="button button-primary" disabled={submitVerify.isPending||verification.data?.[0]?.status==='PENDING'} data-testid="button-submit-verification">{verification.data?.[0]?.status==='PENDING'?'Under review':'Submit for verification'} <ArrowRight size={15}/></button></form></Form>{verification.data?.[0]&&<p className="muted-line">Verification status: <b>{verification.data[0].status}</b></p>}{feedback&&<MutateState success={feedback}/>}</Panel>
+ <Panel title={editing?'Edit school request':'Share a school need'} eyebrow="School-level requests"><Form {...requestForm}><form className="compact-form" onSubmit={requestForm.handleSubmit(saveRequest)}><div className="form-grid"><label className="field span-two">School<select className="auth-input" {...requestForm.register('schoolId')} data-testid="select-request-school"><option value="">Choose a school</option>{(schools.data??[]).map(s=><option key={s.id} value={s.id}>{s.name} · {s.district}</option>)}</select></label>{(['title','category','item','quantity','unit','description','specifications','schoolContext'] as const).map(k=><label className={`field ${['description','specifications','schoolContext'].includes(k)?'span-two':''}`} key={k}>{k==='schoolContext'?'School-level context':k==='quantity'?'Quantity':k[0].toUpperCase()+k.slice(1)}{['description','specifications','schoolContext'].includes(k)?<textarea className="auth-input textarea" {...requestForm.register(k)} data-testid={`input-request-${k}`}/>:<input className="auth-input" type={k==='quantity'?'number':'text'} {...requestForm.register(k,k==='quantity'?{valueAsNumber:true}:undefined)} data-testid={`input-request-${k}`}/>}</label>)}<label className="field">Priority<select className="auth-input" {...requestForm.register('priority')}><option value="STANDARD">Standard</option><option value="HIGH">High</option><option value="ESSENTIAL">Essential</option></select></label></div><div className="form-actions"><button className="button button-primary" disabled={createReq.isPending||updateReq.isPending} data-testid="button-save-request">{editing?'Save request':'Submit request'} <Plus size={15}/></button>{editing&&<button type="button" className="button button-outline" onClick={()=>{setEditing(null);requestForm.reset()}}>Cancel edit</button>}</div><MutateState success={feedback}/></form></Form>
+ <Rows items={(requests.data??[]).filter(r=>r.schoolContext&&profile.data?.schoolName&&r.schoolContext.includes(profile.data.schoolName)).map(r=>({id:r.id,title:r.title,detail:`${r.quantity} ${r.unit} · ${r.location}`,status:r.status,right:<div className="row-actions"><button className="icon-button" onClick={()=>{setEditing(r);requestForm.reset({schoolId:profile.data?.schoolId||'',title:r.title,category:r.category,item:r.item,description:r.description,specifications:r.specifications,quantity:r.quantity,unit:r.unit,priority:r.priority.toUpperCase() as RequestInput['priority'],schoolContext:r.schoolContext})}}>Edit</button><button className="icon-button danger" onClick={()=>{if(confirm(`Cancel “${r.title}”?`))deleteReq.mutate({id:r.id},{onSuccess:refresh})}}>Cancel</button></div>}))} empty={requests.isLoading?'Loading requests…':'Your school requests will appear here after submission.'}/></Panel>
+ <Panel title="Goods offers to review" eyebrow="Teacher decisions"><Rows items={(sponsor.data??[]).map(s=>({id:s.id,title:s.requestTitle,detail:`${s.donorName} offered ${s.quantity}`,status:s.status,right:s.status==='PENDING_TEACHER_REVIEW'?<div className="row-actions"><button className="icon-button approve" onClick={()=>decide.mutate({id:s.id,data:{decision:'APPROVE'}},{onSuccess:()=>{void client.invalidateQueries({queryKey:getGetSponsorshipsQueryKey()});void client.invalidateQueries({queryKey:getGetOrdersQueryKey()})}})}>Approve</button><button className="icon-button danger" onClick={()=>decide.mutate({id:s.id,data:{decision:'REJECT'}},{onSuccess:()=>void client.invalidateQueries({queryKey:getGetSponsorshipsQueryKey()})})}>Decline</button></div>:undefined}))} empty="No goods offers are waiting for your decision."/></Panel>
+ <Panel title="Fulfilment progress" eyebrow="Handoffs"><Rows items={(orders.data??[]).map(o=>({id:o.id,title:o.requestTitle,detail:`${o.quantity} · ${o.generalArea||'Area not set'}`,status:o.status,right:o.status==='AWAITING_TEACHER_APPROVAL'?<button className="icon-button approve" onClick={()=>updateOrder.mutate({id:o.id,data:{status:'PREPARING'}},{onSuccess:()=>{void client.invalidateQueries({queryKey:getGetOrdersQueryKey()});void client.invalidateQueries({queryKey:getGetTeacherDashboardQueryKey()})}})}>Begin preparation</button>:o.status==='READY_FOR_HANDOFF'?<button className="icon-button approve" onClick={()=>updateOrder.mutate({id:o.id,data:{status:'FULFILLED'}},{onSuccess:()=>void client.invalidateQueries({queryKey:getGetOrdersQueryKey()})})}>Mark fulfilled</button>:undefined}))} empty="No fulfilment updates yet."/></Panel>
+ <Panel title="Notifications"><Rows items={(notifications.data??[]).map(n=>({id:n.id,title:n.title,detail:n.body,status:n.readAt?'Read':'New',right:!n.readAt?<button className="icon-button" onClick={()=>mark.mutate({id:n.id},{onSuccess:()=>void client.invalidateQueries({queryKey:getGetNotificationsQueryKey()})})}>Mark read</button>:undefined}))} empty="You’re all caught up."/></Panel>
+ </WorkspaceFrame>
+}
+
+function AdminWorkspace(){
+ const client=useQueryClient();const dash=useGetAdminDashboard();const users=useListAdminUsers();const queue=useListVerificationQueue();const reports=useListAdminReports();const requests=useGetRequests({});
+ const userStatus=useAdminUpdateUserStatus();const verify=useDecideVerification();const reportDecision=useDecideReport();const moderate=useModerateRequest();
+ if(dash.isLoading)return <div className="dash-layout"><LoadingState label="Loading administrator workspace"/></div>;if(dash.isError)return <div className="dash-layout"><ErrorState onRetry={()=>void dash.refetch()}/></div>;
+ const refresh=()=>{void client.invalidateQueries({queryKey:getListAdminUsersQueryKey()});void client.invalidateQueries({queryKey:getListVerificationQueueQueryKey()});void client.invalidateQueries({queryKey:getListAdminReportsQueryKey()});void client.invalidateQueries({queryKey:getGetRequestsQueryKey()});void client.invalidateQueries({queryKey:getGetAdminDashboardQueryKey()})};
+ return <WorkspaceFrame role="admin" title="Review with care." description="Safeguarding, verification and moderation tools for Sedibeng administrators."><StatStrip counts={dash.data?.counts??[]}/>
+ <Panel title="People and account access" eyebrow="User review"><Rows items={(users.data??[]).map(u=>({id:u.id,title:u.name,detail:`${u.email} · ${u.role}`,status:u.status,right:<button className="icon-button" onClick={()=>userStatus.mutate({id:u.id,data:{status:u.status==='SUSPENDED'?'ACTIVE':'SUSPENDED'}},{onSuccess:refresh})}>{u.status==='SUSPENDED'?'Reactivate':'Suspend'}</button>}))} empty="No users to review."/></Panel>
+ <Panel title="Verification queue" eyebrow="School and donor checks"><Rows items={(queue.data??[]).map(v=>({id:v.id,title:v.userName,detail:`${v.type} · submitted ${v.submittedAt.slice(0,10)} · ${v.documentProvided?'document supplied':'no document'}`,status:v.status,right:v.status==='PENDING'?<div className="row-actions"><button className="icon-button approve" onClick={()=>verify.mutate({id:v.id,data:{decision:'APPROVE'}},{onSuccess:refresh})}>Approve</button><button className="icon-button danger" onClick={()=>verify.mutate({id:v.id,data:{decision:'REJECT'}},{onSuccess:refresh})}>Decline</button></div>:undefined}))} empty="The verification queue is clear."/></Panel>
+ <Panel title="Published requests" eyebrow="Moderation"><Rows items={(requests.data??[]).map(r=>({id:r.id,title:r.title,detail:`${r.location} · ${r.category}`,status:r.status,right:<div className="row-actions"><button className="icon-button approve" onClick={()=>moderate.mutate({id:r.id,data:{decision:'APPROVE'}},{onSuccess:refresh})}>Approve</button><button className="icon-button danger" onClick={()=>moderate.mutate({id:r.id,data:{decision:'REJECT'}},{onSuccess:refresh})}>Reject</button></div>}))} empty="No requests to moderate."/></Panel>
+ <Panel title="Reports" eyebrow="Community safeguarding"><Rows items={(reports.data??[]).map(r=>({id:r.id,title:r.reason,detail:`${r.targetType} · ${r.details||'No additional detail'}`,status:r.status,right:r.status==='OPEN'||r.status==='UNDER_REVIEW'?<div className="row-actions"><button className="icon-button approve" onClick={()=>reportDecision.mutate({id:r.id,data:{decision:'RESOLVED'}},{onSuccess:refresh})}>Resolve</button><button className="icon-button" onClick={()=>reportDecision.mutate({id:r.id,data:{decision:'DISMISSED'}},{onSuccess:refresh})}>Dismiss</button></div>:undefined}))} empty="No reports waiting for review."/></Panel>
+ </WorkspaceFrame>
+}
+
+export function NotFoundPage(){return <main className="notfound"><div><span className="eyebrow">Page not found</span><h1>Let’s find the right path.</h1><p>The address may be incorrect. Browse published school needs or return to Sedibeng.</p><Link href="/" className="button button-primary">Return home <ArrowRight size={15}/></Link></div></main>}
