@@ -1238,6 +1238,8 @@ components:
         status:
           type: string
           enum: [PENDING, APPROVED, REJECTED]
+        applicantNote:
+          type: [string, "null"]
         documentProvided:
           type: boolean
         submittedAt:
@@ -1246,7 +1248,7 @@ components:
         reviewedAt:
           type: [string, "null"]
           format: date-time
-      required: [id, userId, userName, type, status, documentProvided, submittedAt, reviewedAt]
+      required: [id, userId, userName, type, status, applicantNote, documentProvided, submittedAt, reviewedAt]
     VerificationSubmission:
       type: object
       properties:

@@ -119,13 +119,22 @@ router.get("/requests", async (request, response) => {
     response.status(400).json({ error: "Request filters are not valid." });
     return;
   }
-  const filters = [
-    or(
-      eq(assistanceRequestsTable.status, "OPEN"),
-      eq(assistanceRequestsTable.status, "PARTIALLY_MATCHED"),
-      eq(assistanceRequestsTable.status, "MATCHED"),
-    ),
-  ];
+  const publicVisibility = or(
+    eq(assistanceRequestsTable.status, "OPEN"),
+    eq(assistanceRequestsTable.status, "PARTIALLY_MATCHED"),
+    eq(assistanceRequestsTable.status, "MATCHED"),
+    eq(assistanceRequestsTable.status, "FULFILLED"),
+  );
+  const visibility =
+    request.authUser?.role === "ADMIN"
+      ? undefined
+      : request.authUser?.role === "TEACHER"
+        ? or(
+            publicVisibility,
+            eq(assistanceRequestsTable.teacherUserId, request.authUser.id),
+          )
+        : publicVisibility;
+  const filters = [visibility];
   if (process.env.NODE_ENV === "production") {
     filters.push(eq(assistanceRequestsTable.isSeedData, false));
   }
@@ -156,13 +165,19 @@ router.get("/requests", async (request, response) => {
   }
 
   const rows = await requireDb()
-    .select()
+    .select({
+      request: assistanceRequestsTable,
+      schoolName: schoolsTable.name,
+    })
     .from(assistanceRequestsTable)
+    .innerJoin(schoolsTable, eq(assistanceRequestsTable.schoolId, schoolsTable.id))
     .where(and(...filters))
     .orderBy(desc(assistanceRequestsTable.priority), desc(assistanceRequestsTable.createdAt))
     .limit(100);
   response.json(
-    Contract.GetRequestsResponse.parse(rows.map((row) => toPublicRequest(row))),
+    Contract.GetRequestsResponse.parse(
+      rows.map(({ request: row, schoolName }) => toPublicRequest(row, schoolName)),
+    ),
   );
 });
 
@@ -172,17 +187,37 @@ router.get("/requests/:id", async (request, response) => {
     response.status(400).json({ error: "The request id is not valid." });
     return;
   }
+  const publicVisibility = or(
+    eq(assistanceRequestsTable.status, "OPEN"),
+    eq(assistanceRequestsTable.status, "PARTIALLY_MATCHED"),
+    eq(assistanceRequestsTable.status, "MATCHED"),
+    eq(assistanceRequestsTable.status, "FULFILLED"),
+  );
+  const visibility =
+    request.authUser?.role === "ADMIN"
+      ? undefined
+      : request.authUser?.role === "TEACHER"
+        ? or(
+            publicVisibility,
+            eq(assistanceRequestsTable.teacherUserId, request.authUser.id),
+          )
+        : publicVisibility;
   const [row] = await requireDb()
     .select()
     .from(assistanceRequestsTable)
     .where(
       and(
         eq(assistanceRequestsTable.id, params.data.id),
-        or(
-          eq(assistanceRequestsTable.status, "OPEN"),
-          eq(assistanceRequestsTable.status, "PARTIALLY_MATCHED"),
-          eq(assistanceRequestsTable.status, "MATCHED"),
-        ),
+        visibility,
+        request.authUser?.role === "ADMIN" ||
+          request.authUser?.role === "TEACHER"
+          ? undefined
+          : or(
+              eq(assistanceRequestsTable.status, "OPEN"),
+              eq(assistanceRequestsTable.status, "PARTIALLY_MATCHED"),
+              eq(assistanceRequestsTable.status, "MATCHED"),
+              eq(assistanceRequestsTable.status, "FULFILLED"),
+            ),
         process.env.NODE_ENV === "production"
           ? eq(assistanceRequestsTable.isSeedData, false)
           : undefined,

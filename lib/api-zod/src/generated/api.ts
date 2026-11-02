@@ -648,6 +648,7 @@ export const GetMyVerificationResponseItem = zod.object({
   "userName": zod.string(),
   "type": zod.enum(['TEACHER', 'DONOR']),
   "status": zod.enum(['PENDING', 'APPROVED', 'REJECTED']),
+  "applicantNote": zod.string().nullable(),
   "documentProvided": zod.boolean(),
   "submittedAt": zod.coerce.date(),
   "reviewedAt": zod.coerce.date().nullable()
@@ -672,6 +673,7 @@ export const SubmitVerificationResponse = zod.object({
   "userName": zod.string(),
   "type": zod.enum(['TEACHER', 'DONOR']),
   "status": zod.enum(['PENDING', 'APPROVED', 'REJECTED']),
+  "applicantNote": zod.string().nullable(),
   "documentProvided": zod.boolean(),
   "submittedAt": zod.coerce.date(),
   "reviewedAt": zod.coerce.date().nullable()
@@ -1121,6 +1123,7 @@ export const ListVerificationQueueResponseItem = zod.object({
   "userName": zod.string(),
   "type": zod.enum(['TEACHER', 'DONOR']),
   "status": zod.enum(['PENDING', 'APPROVED', 'REJECTED']),
+  "applicantNote": zod.string().nullable(),
   "documentProvided": zod.boolean(),
   "submittedAt": zod.coerce.date(),
   "reviewedAt": zod.coerce.date().nullable()
@@ -1150,6 +1153,7 @@ export const DecideVerificationResponse = zod.object({
   "userName": zod.string(),
   "type": zod.enum(['TEACHER', 'DONOR']),
   "status": zod.enum(['PENDING', 'APPROVED', 'REJECTED']),
+  "applicantNote": zod.string().nullable(),
   "documentProvided": zod.boolean(),
   "submittedAt": zod.coerce.date(),
   "reviewedAt": zod.coerce.date().nullable()

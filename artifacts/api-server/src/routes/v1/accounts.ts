@@ -132,6 +132,7 @@ router.get("/verification", requireAuth, async (request, response) => {
         userName: request.authUser!.name,
         type: record.type,
         status: record.status,
+        applicantNote: record.applicantNote,
         documentProvided: Boolean(record.documentObjectKey),
         submittedAt: record.submittedAt.toISOString(),
         reviewedAt: responseDate(record.reviewedAt),
@@ -171,7 +172,7 @@ router.post(
         userId: request.authUser!.id,
         type: request.authUser!.role === "TEACHER" ? "TEACHER" : "DONOR",
         status: "PENDING",
-        privateReviewNotes: input.note.trim() || null,
+        applicantNote: input.note.trim() || null,
       })
       .returning();
     await database.insert(auditLogsTable).values({
@@ -188,6 +189,7 @@ router.post(
         userName: request.authUser!.name,
         type: record.type,
         status: record.status,
+        applicantNote: record.applicantNote,
         documentProvided: false,
         submittedAt: record.submittedAt.toISOString(),
         reviewedAt: null,

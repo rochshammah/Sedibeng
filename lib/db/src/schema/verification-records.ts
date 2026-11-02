@@ -22,6 +22,7 @@ export const verificationRecordsTable = pgTable(
     }),
     type: verificationTypeEnum("type").notNull(),
     status: verificationStatusEnum("status").notNull().default("PENDING"),
+    applicantNote: text("applicant_note"),
     documentObjectKey: text("document_object_key"),
     privateReviewNotes: text("private_review_notes"),
     submittedAt: timestamp("submitted_at", { withTimezone: true })

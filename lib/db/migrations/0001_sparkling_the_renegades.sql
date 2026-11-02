@@ -1,0 +1,1 @@
+ALTER TABLE "verification_records" ADD COLUMN "applicant_note" text;

@@ -1,5 +1,4 @@
 import { defineConfig } from "drizzle-kit";
-import path from "path";
 
 const isReplitRuntime = Boolean(
   process.env.REPL_ID || process.env.REPLIT_DEV_DOMAIN,
@@ -15,8 +14,8 @@ if (!connectionString) {
 }
 
 export default defineConfig({
-  schema: path.join(__dirname, "./src/schema/index.ts"),
-  out: path.join(__dirname, "./migrations"),
+  schema: "./src/schema/index.ts",
+  out: "./migrations",
   dialect: "postgresql",
   dbCredentials: {
     url: connectionString,

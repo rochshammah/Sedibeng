@@ -1,6 +1,7 @@
 import { type ImgHTMLAttributes, type SyntheticEvent } from 'react';
 import { Link } from 'wouter';
 import { ArrowUpRight, BookOpen, HeartHandshake, Shield } from 'lucide-react';
+import { useGetAuthSession } from '@workspace/api-client-react';
 
 const fallbackPhoto = '/images/sedibeng-community-preparation.jpg';
 
@@ -28,16 +29,33 @@ export function Brand() {
 }
 
 export function Header() {
+  const session = useGetAuthSession();
+  const user = session.data?.user;
+  const workspace = user
+    ? user.role === 'ADMIN'
+      ? '/dashboard/admin'
+      : user.role === 'TEACHER'
+        ? '/dashboard/teacher'
+        : '/dashboard/donor'
+    : '/sign-in';
   return <header className="site-header" data-testid="site-header">
     <Brand />
     <nav className="nav-links" aria-label="Main navigation">
       <Link href="/requests" data-testid="link-catalogue">Browse requests</Link>
       <a href="/#how-it-works" data-testid="link-how-it-works">How it works</a>
-      <Link href="/sign-in" data-testid="link-account">Your account</Link>
+      <Link href={workspace} data-testid="link-account">{user ? 'Your workspace' : 'Your account'}</Link>
     </nav>
     <div className="nav-actions">
-      <Link href="/sign-in" className="button button-outline" data-testid="link-sign-in">Sign in</Link>
-      <Link href="/register/donor" className="button button-primary" data-testid="link-give-goods">Give goods <ArrowUpRight size={15}/></Link>
+      {user ? (
+        <Link href={workspace} className="button button-primary" data-testid="link-workspace">
+          Open workspace <ArrowUpRight size={15}/>
+        </Link>
+      ) : (
+        <>
+          <Link href="/sign-in" className="button button-outline" data-testid="link-sign-in">Sign in</Link>
+          <Link href="/register/donor" className="button button-primary" data-testid="link-give-goods">Give goods <ArrowUpRight size={15}/></Link>
+        </>
+      )}
     </div>
   </header>;
 }
@@ -59,7 +77,7 @@ export function Footer() {
   </div></footer>;
 }
 
-export function DemoTag({ label = 'Demonstration data' }: { label?: string }) {
+export function DemoTag({ label = 'Development sample data' }: { label?: string }) {
   return <span className="demo-pill" data-testid="status-demonstration"><i aria-hidden="true"/>{label}</span>;
 }
 

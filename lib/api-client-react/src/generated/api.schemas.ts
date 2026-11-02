@@ -264,6 +264,8 @@ export interface VerificationRecord {
   userName: string;
   type: VerificationRecordType;
   status: VerificationRecordStatus;
+  /** @nullable */
+  applicantNote: string | null;
   documentProvided: boolean;
   submittedAt: string;
   /** @nullable */

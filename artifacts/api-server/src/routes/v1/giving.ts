@@ -421,7 +421,10 @@ router.post(
           .where(
             and(
               eq(sponsorshipsTable.requestId, offer.request.id),
-              eq(sponsorshipsTable.status, "APPROVED"),
+              or(
+                eq(sponsorshipsTable.status, "APPROVED"),
+                eq(sponsorshipsTable.status, "FULFILLED"),
+              ),
             ),
           );
         const requestStatus =
@@ -579,7 +582,7 @@ router.patch(
               : eq(assistanceRequestsTable.teacherUserId, request.authUser!.id),
           ),
         )
-        .for("update")
+        .for("update", { of: ordersTable })
         .limit(1);
       if (!record) throw new HttpError(404, "The order could not be updated.");
 
@@ -595,6 +598,24 @@ router.patch(
         !["FULFILLED", "CANCELLED"].includes(nextStatus)
       ) {
         throw new HttpError(403, "Only the donor can update preparation progress.");
+      }
+      if (
+        nextStatus === "READY_FOR_HANDOFF" &&
+        record.order.status !== "PREPARING"
+      ) {
+        throw new HttpError(409, "This order is not ready for a handoff update.");
+      }
+      if (
+        nextStatus === "FULFILLED" &&
+        record.order.status !== "READY_FOR_HANDOFF"
+      ) {
+        throw new HttpError(409, "The donor must mark the goods ready before the school confirms receipt.");
+      }
+      if (
+        nextStatus === "CANCELLED" &&
+        !["PREPARING", "READY_FOR_HANDOFF"].includes(record.order.status)
+      ) {
+        throw new HttpError(409, "This order can no longer be cancelled.");
       }
 
       const [updatedOrder] = await tx
@@ -632,8 +653,76 @@ router.patch(
 
       if (nextStatus === "FULFILLED") {
         await tx
-          .update(assistanceRequestsTable)
+          .update(sponsorshipsTable)
           .set({ status: "FULFILLED", updatedAt: new Date() })
+          .where(eq(sponsorshipsTable.id, record.sponsorship.id));
+      } else if (nextStatus === "CANCELLED") {
+        await tx
+          .update(sponsorshipsTable)
+          .set({ status: "CANCELLED", updatedAt: new Date() })
+          .where(eq(sponsorshipsTable.id, record.sponsorship.id));
+        if (record.sponsorship.inventoryId) {
+          const [inventory] = await tx
+            .select()
+            .from(donorInventoryTable)
+            .where(eq(donorInventoryTable.id, record.sponsorship.inventoryId))
+            .for("update")
+            .limit(1);
+          if (inventory) {
+            await tx
+              .update(donorInventoryTable)
+              .set({
+                quantityAvailable:
+                  inventory.quantityAvailable + record.sponsorship.quantity,
+                status: "AVAILABLE",
+                updatedAt: new Date(),
+              })
+              .where(eq(donorInventoryTable.id, inventory.id));
+          }
+        }
+      }
+
+      if (nextStatus === "FULFILLED" || nextStatus === "CANCELLED") {
+        const [{ activeQuantity }] = await tx
+          .select({
+            activeQuantity: sql<number>`coalesce(sum(${sponsorshipsTable.quantity}), 0)::int`,
+          })
+          .from(sponsorshipsTable)
+          .where(
+            and(
+              eq(sponsorshipsTable.requestId, record.schoolRequest.id),
+              or(
+                eq(sponsorshipsTable.status, "APPROVED"),
+                eq(sponsorshipsTable.status, "FULFILLED"),
+              ),
+            ),
+          );
+        const [{ fulfilledQuantity }] = await tx
+          .select({
+            fulfilledQuantity: sql<number>`coalesce(sum(${sponsorshipsTable.quantity}), 0)::int`,
+          })
+          .from(ordersTable)
+          .innerJoin(
+            sponsorshipsTable,
+            eq(ordersTable.sponsorshipId, sponsorshipsTable.id),
+          )
+          .where(
+            and(
+              eq(sponsorshipsTable.requestId, record.schoolRequest.id),
+              eq(ordersTable.status, "FULFILLED"),
+            ),
+          );
+        const requestStatus =
+          fulfilledQuantity >= record.schoolRequest.quantity
+            ? "FULFILLED"
+            : activeQuantity >= record.schoolRequest.quantity
+              ? "MATCHED"
+              : activeQuantity > 0
+                ? "PARTIALLY_MATCHED"
+                : "OPEN";
+        await tx
+          .update(assistanceRequestsTable)
+          .set({ status: requestStatus, updatedAt: new Date() })
           .where(eq(assistanceRequestsTable.id, record.schoolRequest.id));
       }
 
