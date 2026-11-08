@@ -23,17 +23,17 @@ const createLimit = rateLimit({
     response.status(429).json({ error: "Too many requests. Try again later." }),
 });
 
-function likeTerm(value: string) {
+export function likeTerm(value: string) {
   return `%${value.replace(/[\\%_]/g, "\\$&")}%`;
 }
 
-function priorityLabel(priority: string): "Essential" | "High" | "Standard" {
+export function priorityLabel(priority: string): "Essential" | "High" | "Standard" {
   if (priority === "ESSENTIAL") return "Essential";
   if (priority === "HIGH") return "High";
   return "Standard";
 }
 
-function requestStatusLabel(
+export function requestStatusLabel(
   status: string,
 ):
   | "Pending moderation"
@@ -52,7 +52,7 @@ function requestStatusLabel(
   return "Open";
 }
 
-function itemImage(category: string) {
+export function itemImage(category: string) {
   const normalized = category.toLowerCase();
   if (normalized.includes("book") || normalized.includes("read")) {
     return "/images/sedibeng-backpack-books.jpg";
