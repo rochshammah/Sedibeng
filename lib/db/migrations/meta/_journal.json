@@ -15,6 +15,13 @@
       "when": 1793592483086,
       "tag": "0001_sparkling_the_renegades",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793876004555,
+      "tag": "0002_bored_argent",
+      "breakpoints": true
     }
   ]
 }
