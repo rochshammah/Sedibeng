@@ -13,6 +13,58 @@ export interface ApiError {
   error: string;
 }
 
+export type FeedPostPriority = typeof FeedPostPriority[keyof typeof FeedPostPriority];
+
+
+export const FeedPostPriority = {
+  Essential: 'Essential',
+  High: 'High',
+  Standard: 'Standard',
+} as const;
+
+export type FeedPostStatus = typeof FeedPostStatus[keyof typeof FeedPostStatus];
+
+
+export const FeedPostStatus = {
+  Open: 'Open',
+  Partially_matched: 'Partially matched',
+  Matched: 'Matched',
+  Fulfilled: 'Fulfilled',
+} as const;
+
+export interface FeedPost {
+  id: string;
+  title: string;
+  category: string;
+  item: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  location: string;
+  schoolName: string;
+  priority: FeedPostPriority;
+  status: FeedPostStatus;
+  imageUrl: string;
+  imageAlt: string;
+  postedAt: string;
+  quantityCovered: number;
+  quantityPending: number;
+  myOfferQuantity: number;
+  isSaved: boolean;
+  isSeedData: boolean;
+}
+
+export interface FeedPage {
+  items: FeedPost[];
+  /** @nullable */
+  nextCursor: string | null;
+}
+
+export interface SaveState {
+  requestId: string;
+  isSaved: boolean;
+}
+
 export type AssistanceRequestPriority = typeof AssistanceRequestPriority[keyof typeof AssistanceRequestPriority];
 
 
@@ -651,6 +703,18 @@ export interface ReportDecision {
 export type ApiErrorResponse = ApiError;
 
 export type GetRequestsParams = {
+search?: string;
+category?: string;
+priority?: string;
+};
+
+export type GetFeedParams = {
+cursor?: string;
+/**
+ * @minimum 1
+ * @maximum 20
+ */
+limit?: number;
 search?: string;
 category?: string;
 priority?: string;
