@@ -87,6 +87,109 @@ paths:
           $ref: "#/components/responses/ApiError"
         "403":
           $ref: "#/components/responses/ApiError"
+  /v1/feed:
+    get:
+      operationId: getFeed
+      tags: [assistance]
+      summary: Newsfeed of published school requests, newest first, loaded in pages
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: priority
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: One page of feed posts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedPage"
+  /v1/saved:
+    get:
+      operationId: getSavedRequests
+      tags: [assistance]
+      summary: Requests the signed-in donor has saved
+      responses:
+        "200":
+          description: Saved requests, most recently saved first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FeedPost"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/requests/{id}/save:
+    put:
+      operationId: saveRequest
+      tags: [assistance]
+      summary: Save a request for later
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveState"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+    delete:
+      operationId: unsaveRequest
+      tags: [assistance]
+      summary: Remove a request from saved
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveState"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
   /v1/requests/{id}:
     get:
       operationId: getRequest
@@ -930,6 +1033,92 @@ components:
           type: string
       required:
         - error
+    FeedPost:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        category:
+          type: string
+        item:
+          type: string
+        description:
+          type: string
+        quantity:
+          type: integer
+        unit:
+          type: string
+        location:
+          type: string
+        schoolName:
+          type: string
+        priority:
+          type: string
+          enum: [Essential, High, Standard]
+        status:
+          type: string
+          enum:
+            - Open
+            - Partially matched
+            - Matched
+            - Fulfilled
+        imageUrl:
+          type: string
+        imageAlt:
+          type: string
+        postedAt:
+          type: string
+        quantityCovered:
+          type: integer
+        quantityPending:
+          type: integer
+        myOfferQuantity:
+          type: integer
+        isSaved:
+          type: boolean
+        isSeedData:
+          type: boolean
+      required:
+        - id
+        - title
+        - category
+        - item
+        - description
+        - quantity
+        - unit
+        - location
+        - schoolName
+        - priority
+        - status
+        - imageUrl
+        - imageAlt
+        - postedAt
+        - quantityCovered
+        - quantityPending
+        - myOfferQuantity
+        - isSaved
+        - isSeedData
+    FeedPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedPost"
+        nextCursor:
+          type: string
+          nullable: true
+      required: [items, nextCursor]
+    SaveState:
+      type: object
+      properties:
+        requestId:
+          type: string
+        isSaved:
+          type: boolean
+      required: [requestId, isSaved]
     AssistanceRequest:
       type: object
       properties:
