@@ -63,6 +63,20 @@ describe("API authentication boundaries", () => {
     assert.deepEqual(await response.json(), { user: null });
   });
 
+  it("keeps saved requests private to signed-in donors", async () => {
+    const list = await fetch(`${baseUrl}/api/v1/saved`);
+    assert.equal(list.status, 401);
+    const save = await apiRequest("/api/v1/requests/00000000-0000-4000-8000-000000000000/save", { method: "PUT" });
+    assert.equal(save.status, 401);
+  });
+
+  it("validates feed paging parameters before touching the database", async () => {
+    const tooMany = await fetch(`${baseUrl}/api/v1/feed?limit=500`);
+    assert.equal(tooMany.status, 400);
+    const badCursor = await fetch(`${baseUrl}/api/v1/feed?cursor=not-a-real-cursor`);
+    assert.equal(badCursor.status, 400);
+  });
+
   it("rejects protected dashboard requests without a signed-in account", async () => {
     for (const role of ["donor", "teacher", "admin"]) {
       const response = await fetch(`${baseUrl}/api/v1/dashboard/${role}`);
