@@ -33,10 +33,10 @@ export function Header() {
   const user = session.data?.user;
   const workspace = user
     ? user.role === 'ADMIN'
-      ? '/dashboard/admin'
+      ? '/admin'
       : user.role === 'TEACHER'
-        ? '/dashboard/teacher'
-        : '/dashboard/donor'
+        ? '/teacher'
+        : '/donor'
     : '/sign-in';
   return <header className="site-header" data-testid="site-header">
     <Brand />
