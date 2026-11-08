@@ -37,7 +37,10 @@ import type {
   DonorDashboard,
   DonorRegistration,
   EmailRequest,
+  FeedPage,
+  FeedPost,
   FulfilmentOrder,
+  GetFeedParams,
   GetRequestsParams,
   HealthStatus,
   InventoryInput,
@@ -53,6 +56,7 @@ import type {
   ReportInput,
   RequestInput,
   RequestModeration,
+  SaveState,
   School,
   Sponsorship,
   SponsorshipDecision,
@@ -391,6 +395,363 @@ export const useCreateRequest = <TError = ErrorType<ApiErrorResponse>,
         TContext
       > => {
       return useMutation(getCreateRequestMutationOptions(options), queryClient);
+    }
+
+export const getGetFeedUrl = (params?: GetFeedParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/feed?${stringifiedParams}` : `/api/v1/feed`
+}
+
+/**
+ * @summary Newsfeed of published school requests, newest first, loaded in pages
+ */
+export const getFeed = async (params?: GetFeedParams, options?: Parameters<typeof customFetch>[1]): Promise<FeedPage> => {
+
+  return customFetch<FeedPage>(getGetFeedUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFeedQueryKey = (params?: GetFeedParams,) => {
+    return [
+    `/api/v1/feed`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetFeedQueryOptions = <TData = Awaited<ReturnType<typeof getFeed>>, TError = ErrorType<unknown>>(params?: GetFeedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFeed>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFeedQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFeed>>> = ({ signal }) => getFeed(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFeed>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetFeedQueryResult = NonNullable<Awaited<ReturnType<typeof getFeed>>>
+export type GetFeedQueryError = ErrorType<unknown>
+
+
+export function useGetFeed<TData = Awaited<ReturnType<typeof getFeed>>, TError = ErrorType<unknown>>(
+ params: undefined |  GetFeedParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFeed>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFeed>>,
+          TError,
+          Awaited<ReturnType<typeof getFeed>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetFeed<TData = Awaited<ReturnType<typeof getFeed>>, TError = ErrorType<unknown>>(
+ params?: GetFeedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFeed>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFeed>>,
+          TError,
+          Awaited<ReturnType<typeof getFeed>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetFeed<TData = Awaited<ReturnType<typeof getFeed>>, TError = ErrorType<unknown>>(
+ params?: GetFeedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFeed>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Newsfeed of published school requests, newest first, loaded in pages
+ */
+
+export function useGetFeed<TData = Awaited<ReturnType<typeof getFeed>>, TError = ErrorType<unknown>>(
+ params?: GetFeedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFeed>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetFeedQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSavedRequestsUrl = () => {
+
+
+
+
+  return `/api/v1/saved`
+}
+
+/**
+ * @summary Requests the signed-in donor has saved
+ */
+export const getSavedRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<FeedPost[]> => {
+
+  return customFetch<FeedPost[]>(getGetSavedRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSavedRequestsQueryKey = () => {
+    return [
+    `/api/v1/saved`
+    ] as const;
+    }
+
+
+export const getGetSavedRequestsQueryOptions = <TData = Awaited<ReturnType<typeof getSavedRequests>>, TError = ErrorType<ApiErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSavedRequests>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSavedRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSavedRequests>>> = ({ signal }) => getSavedRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSavedRequests>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetSavedRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof getSavedRequests>>>
+export type GetSavedRequestsQueryError = ErrorType<ApiErrorResponse>
+
+
+export function useGetSavedRequests<TData = Awaited<ReturnType<typeof getSavedRequests>>, TError = ErrorType<ApiErrorResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSavedRequests>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSavedRequests>>,
+          TError,
+          Awaited<ReturnType<typeof getSavedRequests>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetSavedRequests<TData = Awaited<ReturnType<typeof getSavedRequests>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSavedRequests>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSavedRequests>>,
+          TError,
+          Awaited<ReturnType<typeof getSavedRequests>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetSavedRequests<TData = Awaited<ReturnType<typeof getSavedRequests>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSavedRequests>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Requests the signed-in donor has saved
+ */
+
+export function useGetSavedRequests<TData = Awaited<ReturnType<typeof getSavedRequests>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSavedRequests>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetSavedRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveRequestUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/requests/${id}/save`
+}
+
+/**
+ * @summary Save a request for later
+ */
+export const saveRequest = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<SaveState> => {
+
+  return customFetch<SaveState>(getSaveRequestUrl(id),
+  {
+    ...options,
+    method: 'PUT'
+
+
+  }
+);}
+
+
+
+
+
+export const getSaveRequestMutationKey = () => ['saveRequest'] as const;
+
+export const getSaveRequestMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveRequest>>, TError,SaveRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveRequest>>, TError,SaveRequestMutationVariables, TContext> => {
+
+const mutationKey = getSaveRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveRequest>>, SaveRequestMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  saveRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveRequestMutationResult = NonNullable<Awaited<ReturnType<typeof saveRequest>>>
+
+    export type SaveRequestMutationError = ErrorType<ApiErrorResponse>
+    export type SaveRequestMutationVariables = {id: string}
+
+    /**
+ * @summary Save a request for later
+ */
+export const useSaveRequest = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveRequest>>, TError,SaveRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof saveRequest>>,
+        TError,
+        SaveRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveRequestMutationOptions(options), queryClient);
+    }
+
+export const getUnsaveRequestUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/requests/${id}/save`
+}
+
+/**
+ * @summary Remove a request from saved
+ */
+export const unsaveRequest = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<SaveState> => {
+
+  return customFetch<SaveState>(getUnsaveRequestUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getUnsaveRequestMutationKey = () => ['unsaveRequest'] as const;
+
+export const getUnsaveRequestMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unsaveRequest>>, TError,UnsaveRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof unsaveRequest>>, TError,UnsaveRequestMutationVariables, TContext> => {
+
+const mutationKey = getUnsaveRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof unsaveRequest>>, UnsaveRequestMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  unsaveRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UnsaveRequestMutationResult = NonNullable<Awaited<ReturnType<typeof unsaveRequest>>>
+
+    export type UnsaveRequestMutationError = ErrorType<ApiErrorResponse>
+    export type UnsaveRequestMutationVariables = {id: string}
+
+    /**
+ * @summary Remove a request from saved
+ */
+export const useUnsaveRequest = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof unsaveRequest>>, TError,UnsaveRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof unsaveRequest>>,
+        TError,
+        UnsaveRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUnsaveRequestMutationOptions(options), queryClient);
     }
 
 export const getGetRequestUrl = (id: string,) => {
