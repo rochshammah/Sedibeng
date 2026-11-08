@@ -107,6 +107,100 @@ export const CreateRequestResponse = zod.object({
 
 
 /**
+ * @summary Newsfeed of published school requests, newest first, loaded in pages
+ */
+export const getFeedQueryLimitMax = 20;
+
+
+
+export const GetFeedQueryParams = zod.object({
+  "cursor": zod.coerce.string().optional(),
+  "limit": zod.coerce.number().int().min(1).max(getFeedQueryLimitMax).optional(),
+  "search": zod.coerce.string().optional(),
+  "category": zod.coerce.string().optional(),
+  "priority": zod.coerce.string().optional()
+})
+
+export const GetFeedResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "item": zod.string(),
+  "description": zod.string(),
+  "quantity": zod.number().int(),
+  "unit": zod.string(),
+  "location": zod.string(),
+  "schoolName": zod.string(),
+  "priority": zod.enum(['Essential', 'High', 'Standard']),
+  "status": zod.enum(['Open', 'Partially matched', 'Matched', 'Fulfilled']),
+  "imageUrl": zod.string(),
+  "imageAlt": zod.string(),
+  "postedAt": zod.string(),
+  "quantityCovered": zod.number().int(),
+  "quantityPending": zod.number().int(),
+  "myOfferQuantity": zod.number().int(),
+  "isSaved": zod.boolean(),
+  "isSeedData": zod.boolean()
+})),
+  "nextCursor": zod.string().nullable()
+})
+
+
+/**
+ * @summary Requests the signed-in donor has saved
+ */
+export const GetSavedRequestsResponseItem = zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "item": zod.string(),
+  "description": zod.string(),
+  "quantity": zod.number().int(),
+  "unit": zod.string(),
+  "location": zod.string(),
+  "schoolName": zod.string(),
+  "priority": zod.enum(['Essential', 'High', 'Standard']),
+  "status": zod.enum(['Open', 'Partially matched', 'Matched', 'Fulfilled']),
+  "imageUrl": zod.string(),
+  "imageAlt": zod.string(),
+  "postedAt": zod.string(),
+  "quantityCovered": zod.number().int(),
+  "quantityPending": zod.number().int(),
+  "myOfferQuantity": zod.number().int(),
+  "isSaved": zod.boolean(),
+  "isSeedData": zod.boolean()
+})
+export const GetSavedRequestsResponse = zod.array(GetSavedRequestsResponseItem)
+
+
+/**
+ * @summary Save a request for later
+ */
+export const SaveRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SaveRequestResponse = zod.object({
+  "requestId": zod.string(),
+  "isSaved": zod.boolean()
+})
+
+
+/**
+ * @summary Remove a request from saved
+ */
+export const UnsaveRequestParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const UnsaveRequestResponse = zod.object({
+  "requestId": zod.string(),
+  "isSaved": zod.boolean()
+})
+
+
+/**
  * @summary Get a published assistance request
  */
 export const GetRequestParams = zod.object({
