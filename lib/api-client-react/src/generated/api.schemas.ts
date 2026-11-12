@@ -46,6 +46,13 @@ export interface FeedPost {
   status: FeedPostStatus;
   imageUrl: string;
   imageAlt: string;
+  /** @nullable */
+  size: string | null;
+  /** @nullable */
+  conditionRequirement: string | null;
+  /** @nullable */
+  requiredBy: string | null;
+  teacherVerified: boolean;
   postedAt: string;
   quantityCovered: number;
   quantityPending: number;
@@ -78,7 +85,9 @@ export type AssistanceRequestStatus = typeof AssistanceRequestStatus[keyof typeo
 
 
 export const AssistanceRequestStatus = {
+  Draft: 'Draft',
   Pending_moderation: 'Pending moderation',
+  Needs_changes: 'Needs changes',
   Open: 'Open',
   Partially_matched: 'Partially matched',
   Matched: 'Matched',
@@ -100,6 +109,12 @@ export interface AssistanceRequest {
   schoolContext: string;
   priority: AssistanceRequestPriority;
   status: AssistanceRequestStatus;
+  /** @nullable */
+  size: string | null;
+  /** @nullable */
+  conditionRequirement: string | null;
+  /** @nullable */
+  requiredBy: string | null;
   imageUrl: string;
   imageAlt: string;
   updatedLabel: string;
@@ -198,16 +213,18 @@ export interface DonorRegistration {
 }
 
 export type TeacherRegistration = DonorRegistration & {
+  /** A school chosen from the administrator-managed directory. */
+  schoolId?: string;
   /**
      * @minLength 2
      * @maxLength 160
      */
-  schoolName: string;
+  schoolName?: string;
   /**
      * @minLength 2
      * @maxLength 100
      */
-  district: string;
+  district?: string;
   /** @maxLength 100 */
   area?: string;
 };
@@ -285,13 +302,133 @@ export interface TeacherProfileUpdate {
   position: string | null;
 }
 
-export interface School {
+export type VerificationDocumentInfoStage = typeof VerificationDocumentInfoStage[keyof typeof VerificationDocumentInfoStage];
+
+
+export const VerificationDocumentInfoStage = {
+  IDENTITY: 'IDENTITY',
+  PROFESSIONAL: 'PROFESSIONAL',
+} as const;
+
+export interface VerificationDocumentInfo {
+  id: string;
+  stage: VerificationDocumentInfoStage;
+  documentType: string;
+  originalFilename: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+  /** @nullable */
+  recordId: string | null;
+  submitted: boolean;
+}
+
+export type TeacherVerificationStageStage = typeof TeacherVerificationStageStage[keyof typeof TeacherVerificationStageStage];
+
+
+export const TeacherVerificationStageStage = {
+  IDENTITY: 'IDENTITY',
+  PROFESSIONAL: 'PROFESSIONAL',
+} as const;
+
+export type TeacherVerificationStageStatus = typeof TeacherVerificationStageStatus[keyof typeof TeacherVerificationStageStatus];
+
+
+export const TeacherVerificationStageStatus = {
+  NOT_STARTED: 'NOT_STARTED',
+  PENDING: 'PENDING',
+  NEEDS_MORE_INFORMATION: 'NEEDS_MORE_INFORMATION',
+  VERIFIED: 'VERIFIED',
+  REJECTED: 'REJECTED',
+  EXPIRED: 'EXPIRED',
+} as const;
+
+export interface TeacherVerificationStage {
+  stage: TeacherVerificationStageStage;
+  status: TeacherVerificationStageStatus;
+  /** @nullable */
+  submittedAt: string | null;
+  /** @nullable */
+  reviewedAt: string | null;
+  /** @nullable */
+  feedback: string | null;
+  /** @nullable */
+  expiresAt: string | null;
+  canSubmit: boolean;
+  documents: VerificationDocumentInfo[];
+}
+
+/**
+ * @nullable
+ */
+export type TeacherVerificationSchool = {
   id: string;
   name: string;
-  district: string;
+  status: string;
+} | null;
+
+export interface TeacherVerification {
+  eligible: boolean;
+  reasons: string[];
   /** @nullable */
-  area: string | null;
+  school: TeacherVerificationSchool;
+  storageConfigured: boolean;
+  identity: TeacherVerificationStage;
+  professional: TeacherVerificationStage;
 }
+
+export interface TeacherStageSubmission {
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  note?: string | null;
+}
+
+export interface DeletedDocument {
+  id: string;
+}
+
+export interface DocumentAccess {
+  url: string;
+  expiresInSeconds: number;
+  filename: string;
+}
+
+export type AdminVerificationDetailApplicant = {
+  name: string;
+  email: string;
+};
+
+/**
+ * @nullable
+ */
+export type AdminVerificationDetailSchool = {
+  name: string;
+  district: string;
+  status: string;
+} | null;
+
+export type AdminVerificationDetailHistoryItem = {
+  id: string;
+  /** @nullable */
+  stage: string | null;
+  status: string;
+  submittedAt: string;
+  /** @nullable */
+  reviewedAt: string | null;
+  /** @nullable */
+  reviewerName: string | null;
+  /** @nullable */
+  feedback: string | null;
+};
+
+export type AdminVerificationDetailAuditItem = {
+  action: string;
+  /** @nullable */
+  actorName: string | null;
+  createdAt: string;
+};
 
 export type VerificationRecordType = typeof VerificationRecordType[keyof typeof VerificationRecordType];
 
@@ -306,8 +443,21 @@ export type VerificationRecordStatus = typeof VerificationRecordStatus[keyof typ
 
 export const VerificationRecordStatus = {
   PENDING: 'PENDING',
-  APPROVED: 'APPROVED',
+  VERIFIED: 'VERIFIED',
   REJECTED: 'REJECTED',
+  NEEDS_MORE_INFORMATION: 'NEEDS_MORE_INFORMATION',
+  EXPIRED: 'EXPIRED',
+} as const;
+
+/**
+ * @nullable
+ */
+export type VerificationRecordStage = typeof VerificationRecordStage[keyof typeof VerificationRecordStage] | null;
+
+
+export const VerificationRecordStage = {
+  IDENTITY: 'IDENTITY',
+  PROFESSIONAL: 'PROFESSIONAL',
 } as const;
 
 export interface VerificationRecord {
@@ -317,11 +467,119 @@ export interface VerificationRecord {
   type: VerificationRecordType;
   status: VerificationRecordStatus;
   /** @nullable */
+  stage: VerificationRecordStage;
+  /** @nullable */
+  schoolName: string | null;
+  documentCount: number;
+  /** @nullable */
+  feedback: string | null;
+  /** @nullable */
+  expiresAt: string | null;
+  /** @nullable */
   applicantNote: string | null;
   documentProvided: boolean;
   submittedAt: string;
   /** @nullable */
   reviewedAt: string | null;
+}
+
+export interface AdminVerificationDetail {
+  record: VerificationRecord;
+  applicant: AdminVerificationDetailApplicant;
+  /** @nullable */
+  school: AdminVerificationDetailSchool;
+  /** @nullable */
+  privateNotes: string | null;
+  documents: VerificationDocumentInfo[];
+  history: AdminVerificationDetailHistoryItem[];
+  audit: AdminVerificationDetailAuditItem[];
+}
+
+export type OwnRequest = AssistanceRequest & ({
+  /** @nullable */
+  moderationFeedback: string | null;
+  /** @nullable */
+  teacherPrivateNotes: string | null;
+});
+
+/**
+ * @nullable
+ */
+export type SchoolInputSchoolType = typeof SchoolInputSchoolType[keyof typeof SchoolInputSchoolType] | null;
+
+
+export const SchoolInputSchoolType = {
+  PRIMARY: 'PRIMARY',
+  JUNIOR_SECONDARY: 'JUNIOR_SECONDARY',
+  SENIOR_SECONDARY: 'SENIOR_SECONDARY',
+  SPECIAL_NEEDS: 'SPECIAL_NEEDS',
+  OTHER: 'OTHER',
+} as const;
+
+export type SchoolInputStatus = typeof SchoolInputStatus[keyof typeof SchoolInputStatus];
+
+
+export const SchoolInputStatus = {
+  PENDING_REVIEW: 'PENDING_REVIEW',
+  ACTIVE: 'ACTIVE',
+  SUSPENDED: 'SUSPENDED',
+} as const;
+
+export interface SchoolInput {
+  /**
+     * @minLength 2
+     * @maxLength 160
+     */
+  name: string;
+  /** @nullable */
+  schoolType?: SchoolInputSchoolType;
+  /**
+     * @minLength 2
+     * @maxLength 100
+     */
+  district: string;
+  /**
+     * @maxLength 100
+     * @nullable
+     */
+  area?: string | null;
+  /**
+     * @maxLength 200
+     * @nullable
+     */
+  generalLocation?: string | null;
+  status: SchoolInputStatus;
+}
+
+export type AdminSchoolStatus = typeof AdminSchoolStatus[keyof typeof AdminSchoolStatus];
+
+
+export const AdminSchoolStatus = {
+  PENDING_REVIEW: 'PENDING_REVIEW',
+  ACTIVE: 'ACTIVE',
+  SUSPENDED: 'SUSPENDED',
+} as const;
+
+export interface AdminSchool {
+  id: string;
+  name: string;
+  /** @nullable */
+  schoolType: string | null;
+  district: string;
+  /** @nullable */
+  area: string | null;
+  /** @nullable */
+  generalLocation: string | null;
+  status: AdminSchoolStatus;
+  teacherCount: number;
+}
+
+export interface School {
+  id: string;
+  name: string;
+  district: string;
+  /** @nullable */
+  area: string | null;
 }
 
 export interface VerificationSubmission {
@@ -336,6 +594,18 @@ export const RequestInputPriority = {
   STANDARD: 'STANDARD',
   HIGH: 'HIGH',
   ESSENTIAL: 'ESSENTIAL',
+} as const;
+
+/**
+ * @nullable
+ */
+export type RequestInputConditionRequirement = typeof RequestInputConditionRequirement[keyof typeof RequestInputConditionRequirement] | null;
+
+
+export const RequestInputConditionRequirement = {
+  NEW: 'NEW',
+  GENTLY_USED: 'GENTLY_USED',
+  ANY: 'ANY',
 } as const;
 
 export interface RequestInput {
@@ -381,6 +651,23 @@ export interface RequestInput {
      * @maxLength 500
      */
   schoolContext: string;
+  /**
+     * @maxLength 60
+     * @nullable
+     */
+  size?: string | null;
+  /** @nullable */
+  conditionRequirement?: RequestInputConditionRequirement;
+  /** @nullable */
+  requiredBy?: string | null;
+  /**
+     * Visible only to the teacher and administrators.
+     * @maxLength 1000
+     * @nullable
+     */
+  teacherPrivateNotes?: string | null;
+  /** Send for review (needs full verification). False saves a draft. */
+  submit?: boolean;
 }
 
 export interface InventoryInput {
@@ -652,15 +939,23 @@ export type RequestModerationDecision = typeof RequestModerationDecision[keyof t
 export const RequestModerationDecision = {
   APPROVE: 'APPROVE',
   REJECT: 'REJECT',
+  REQUEST_CHANGES: 'REQUEST_CHANGES',
 } as const;
 
 export interface RequestModeration {
   decision: RequestModerationDecision;
   /**
+     * Private administrator notes.
      * @maxLength 1000
      * @nullable
      */
   note?: string | null;
+  /**
+     * Shown to the teacher. Required for REJECT and REQUEST_CHANGES.
+     * @maxLength 1000
+     * @nullable
+     */
+  feedback?: string | null;
 }
 
 export type VerificationDecisionDecision = typeof VerificationDecisionDecision[keyof typeof VerificationDecisionDecision];
@@ -669,15 +964,29 @@ export type VerificationDecisionDecision = typeof VerificationDecisionDecision[k
 export const VerificationDecisionDecision = {
   APPROVE: 'APPROVE',
   REJECT: 'REJECT',
+  REQUEST_INFO: 'REQUEST_INFO',
+  EXPIRE: 'EXPIRE',
 } as const;
 
 export interface VerificationDecision {
   decision: VerificationDecisionDecision;
   /**
+     * Private administrator notes, never shown to the applicant.
      * @maxLength 1000
      * @nullable
      */
   note?: string | null;
+  /**
+     * Shown to the applicant. Required for REJECT and REQUEST_INFO.
+     * @maxLength 1000
+     * @nullable
+     */
+  feedback?: string | null;
+  /**
+     * Optional expiry when approving (for example licence validity).
+     * @nullable
+     */
+  expiresAt?: string | null;
 }
 
 export type ReportDecisionDecision = typeof ReportDecisionDecision[keyof typeof ReportDecisionDecision];
@@ -730,4 +1039,44 @@ search?: string;
  */
 district?: string;
 };
+
+export type ListVerificationQueueParams = {
+scope?: ListVerificationQueueScope;
+};
+
+export type ListVerificationQueueScope = typeof ListVerificationQueueScope[keyof typeof ListVerificationQueueScope];
+
+
+export const ListVerificationQueueScope = {
+  pending: 'pending',
+  all: 'all',
+} as const;
+
+export type UploadVerificationDocumentParams = {
+stage: UploadVerificationDocumentStage;
+documentType: string;
+filename?: string;
+};
+
+export type UploadVerificationDocumentStage = typeof UploadVerificationDocumentStage[keyof typeof UploadVerificationDocumentStage];
+
+
+export const UploadVerificationDocumentStage = {
+  IDENTITY: 'IDENTITY',
+  PROFESSIONAL: 'PROFESSIONAL',
+} as const;
+
+export type ListAdminSchoolsParams = {
+search?: string;
+status?: ListAdminSchoolsStatus;
+};
+
+export type ListAdminSchoolsStatus = typeof ListAdminSchoolsStatus[keyof typeof ListAdminSchoolsStatus];
+
+
+export const ListAdminSchoolsStatus = {
+  PENDING_REVIEW: 'PENDING_REVIEW',
+  ACTIVE: 'ACTIVE',
+  SUSPENDED: 'SUSPENDED',
+} as const;
 
