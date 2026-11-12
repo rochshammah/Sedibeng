@@ -38,7 +38,10 @@ export const GetRequestsResponseItem = zod.object({
   "location": zod.string(),
   "schoolContext": zod.string(),
   "priority": zod.enum(['Essential', 'High', 'Standard']),
-  "status": zod.enum(['Pending moderation', 'Open', 'Partially matched', 'Matched', 'Rejected', 'Cancelled', 'Fulfilled']),
+  "status": zod.enum(['Draft', 'Pending moderation', 'Needs changes', 'Open', 'Partially matched', 'Matched', 'Rejected', 'Cancelled', 'Fulfilled']),
+  "size": zod.string().nullable(),
+  "conditionRequirement": zod.string().nullable(),
+  "requiredBy": zod.string().nullable(),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
   "updatedLabel": zod.string(),
@@ -71,6 +74,10 @@ export const createRequestBodyUnitMax = 40;
 export const createRequestBodySchoolContextMin = 4;
 export const createRequestBodySchoolContextMax = 500;
 
+export const createRequestBodySizeMax = 60;
+
+export const createRequestBodyTeacherPrivateNotesMax = 1000;
+
 
 
 export const CreateRequestBody = zod.object({
@@ -83,7 +90,12 @@ export const CreateRequestBody = zod.object({
   "quantity": zod.number().int().min(1).max(createRequestBodyQuantityMax),
   "unit": zod.string().min(1).max(createRequestBodyUnitMax),
   "priority": zod.enum(['STANDARD', 'HIGH', 'ESSENTIAL']),
-  "schoolContext": zod.string().min(createRequestBodySchoolContextMin).max(createRequestBodySchoolContextMax)
+  "schoolContext": zod.string().min(createRequestBodySchoolContextMin).max(createRequestBodySchoolContextMax),
+  "size": zod.string().max(createRequestBodySizeMax).nullish(),
+  "conditionRequirement": zod.union([zod.literal('NEW'),zod.literal('GENTLY_USED'),zod.literal('ANY'),zod.literal(null)]).nullish(),
+  "requiredBy": zod.coerce.date().nullish(),
+  "teacherPrivateNotes": zod.string().max(createRequestBodyTeacherPrivateNotesMax).nullish().describe('Visible only to the teacher and administrators.'),
+  "submit": zod.boolean().optional().describe('Send for review (needs full verification). False saves a draft.')
 })
 
 export const CreateRequestResponse = zod.object({
@@ -98,7 +110,10 @@ export const CreateRequestResponse = zod.object({
   "location": zod.string(),
   "schoolContext": zod.string(),
   "priority": zod.enum(['Essential', 'High', 'Standard']),
-  "status": zod.enum(['Pending moderation', 'Open', 'Partially matched', 'Matched', 'Rejected', 'Cancelled', 'Fulfilled']),
+  "status": zod.enum(['Draft', 'Pending moderation', 'Needs changes', 'Open', 'Partially matched', 'Matched', 'Rejected', 'Cancelled', 'Fulfilled']),
+  "size": zod.string().nullable(),
+  "conditionRequirement": zod.string().nullable(),
+  "requiredBy": zod.string().nullable(),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
   "updatedLabel": zod.string(),
@@ -136,6 +151,10 @@ export const GetFeedResponse = zod.object({
   "status": zod.enum(['Open', 'Partially matched', 'Matched', 'Fulfilled']),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
+  "size": zod.string().nullable(),
+  "conditionRequirement": zod.string().nullable(),
+  "requiredBy": zod.string().nullable(),
+  "teacherVerified": zod.boolean(),
   "postedAt": zod.string(),
   "quantityCovered": zod.number().int(),
   "quantityPending": zod.number().int(),
@@ -164,6 +183,10 @@ export const GetSavedRequestsResponseItem = zod.object({
   "status": zod.enum(['Open', 'Partially matched', 'Matched', 'Fulfilled']),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
+  "size": zod.string().nullable(),
+  "conditionRequirement": zod.string().nullable(),
+  "requiredBy": zod.string().nullable(),
+  "teacherVerified": zod.boolean(),
   "postedAt": zod.string(),
   "quantityCovered": zod.number().int(),
   "quantityPending": zod.number().int(),
@@ -219,7 +242,10 @@ export const GetRequestResponse = zod.object({
   "location": zod.string(),
   "schoolContext": zod.string(),
   "priority": zod.enum(['Essential', 'High', 'Standard']),
-  "status": zod.enum(['Pending moderation', 'Open', 'Partially matched', 'Matched', 'Rejected', 'Cancelled', 'Fulfilled']),
+  "status": zod.enum(['Draft', 'Pending moderation', 'Needs changes', 'Open', 'Partially matched', 'Matched', 'Rejected', 'Cancelled', 'Fulfilled']),
+  "size": zod.string().nullable(),
+  "conditionRequirement": zod.string().nullable(),
+  "requiredBy": zod.string().nullable(),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
   "updatedLabel": zod.string(),
@@ -255,6 +281,10 @@ export const updateRequestBodyUnitMax = 40;
 export const updateRequestBodySchoolContextMin = 4;
 export const updateRequestBodySchoolContextMax = 500;
 
+export const updateRequestBodySizeMax = 60;
+
+export const updateRequestBodyTeacherPrivateNotesMax = 1000;
+
 
 
 export const UpdateRequestBody = zod.object({
@@ -267,7 +297,12 @@ export const UpdateRequestBody = zod.object({
   "quantity": zod.number().int().min(1).max(updateRequestBodyQuantityMax),
   "unit": zod.string().min(1).max(updateRequestBodyUnitMax),
   "priority": zod.enum(['STANDARD', 'HIGH', 'ESSENTIAL']),
-  "schoolContext": zod.string().min(updateRequestBodySchoolContextMin).max(updateRequestBodySchoolContextMax)
+  "schoolContext": zod.string().min(updateRequestBodySchoolContextMin).max(updateRequestBodySchoolContextMax),
+  "size": zod.string().max(updateRequestBodySizeMax).nullish(),
+  "conditionRequirement": zod.union([zod.literal('NEW'),zod.literal('GENTLY_USED'),zod.literal('ANY'),zod.literal(null)]).nullish(),
+  "requiredBy": zod.coerce.date().nullish(),
+  "teacherPrivateNotes": zod.string().max(updateRequestBodyTeacherPrivateNotesMax).nullish().describe('Visible only to the teacher and administrators.'),
+  "submit": zod.boolean().optional().describe('Send for review (needs full verification). False saves a draft.')
 })
 
 export const UpdateRequestResponse = zod.object({
@@ -282,7 +317,10 @@ export const UpdateRequestResponse = zod.object({
   "location": zod.string(),
   "schoolContext": zod.string(),
   "priority": zod.enum(['Essential', 'High', 'Standard']),
-  "status": zod.enum(['Pending moderation', 'Open', 'Partially matched', 'Matched', 'Rejected', 'Cancelled', 'Fulfilled']),
+  "status": zod.enum(['Draft', 'Pending moderation', 'Needs changes', 'Open', 'Partially matched', 'Matched', 'Rejected', 'Cancelled', 'Fulfilled']),
+  "size": zod.string().nullable(),
+  "conditionRequirement": zod.string().nullable(),
+  "requiredBy": zod.string().nullable(),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
   "updatedLabel": zod.string(),
@@ -477,8 +515,9 @@ export const RegisterTeacherBody = zod.object({
   "email": zod.string().email().max(registerTeacherBodyOneEmailMax),
   "password": zod.string().min(registerTeacherBodyOnePasswordMin).max(registerTeacherBodyOnePasswordMax)
 }).and(zod.object({
-  "schoolName": zod.string().min(registerTeacherBodyTwoSchoolNameMin).max(registerTeacherBodyTwoSchoolNameMax),
-  "district": zod.string().min(registerTeacherBodyTwoDistrictMin).max(registerTeacherBodyTwoDistrictMax),
+  "schoolId": zod.string().uuid().optional().describe('A school chosen from the administrator-managed directory.'),
+  "schoolName": zod.string().min(registerTeacherBodyTwoSchoolNameMin).max(registerTeacherBodyTwoSchoolNameMax).optional(),
+  "district": zod.string().min(registerTeacherBodyTwoDistrictMin).max(registerTeacherBodyTwoDistrictMax).optional(),
   "area": zod.string().max(registerTeacherBodyTwoAreaMax).optional()
 }))
 
@@ -741,7 +780,12 @@ export const GetMyVerificationResponseItem = zod.object({
   "userId": zod.string().uuid(),
   "userName": zod.string(),
   "type": zod.enum(['TEACHER', 'DONOR']),
-  "status": zod.enum(['PENDING', 'APPROVED', 'REJECTED']),
+  "status": zod.enum(['PENDING', 'VERIFIED', 'REJECTED', 'NEEDS_MORE_INFORMATION', 'EXPIRED']),
+  "stage": zod.union([zod.literal('IDENTITY'),zod.literal('PROFESSIONAL'),zod.literal(null)]).nullable(),
+  "schoolName": zod.string().nullable(),
+  "documentCount": zod.number().int(),
+  "feedback": zod.string().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
   "applicantNote": zod.string().nullable(),
   "documentProvided": zod.boolean(),
   "submittedAt": zod.coerce.date(),
@@ -766,7 +810,12 @@ export const SubmitVerificationResponse = zod.object({
   "userId": zod.string().uuid(),
   "userName": zod.string(),
   "type": zod.enum(['TEACHER', 'DONOR']),
-  "status": zod.enum(['PENDING', 'APPROVED', 'REJECTED']),
+  "status": zod.enum(['PENDING', 'VERIFIED', 'REJECTED', 'NEEDS_MORE_INFORMATION', 'EXPIRED']),
+  "stage": zod.union([zod.literal('IDENTITY'),zod.literal('PROFESSIONAL'),zod.literal(null)]).nullable(),
+  "schoolName": zod.string().nullable(),
+  "documentCount": zod.number().int(),
+  "feedback": zod.string().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
   "applicantNote": zod.string().nullable(),
   "documentProvided": zod.boolean(),
   "submittedAt": zod.coerce.date(),
@@ -1181,11 +1230,14 @@ export const ModerateRequestParams = zod.object({
 
 export const moderateRequestBodyNoteMax = 1000;
 
+export const moderateRequestBodyFeedbackMax = 1000;
+
 
 
 export const ModerateRequestBody = zod.object({
-  "decision": zod.enum(['APPROVE', 'REJECT']),
-  "note": zod.string().max(moderateRequestBodyNoteMax).nullish()
+  "decision": zod.enum(['APPROVE', 'REJECT', 'REQUEST_CHANGES']),
+  "note": zod.string().max(moderateRequestBodyNoteMax).nullish().describe('Private administrator notes.'),
+  "feedback": zod.string().max(moderateRequestBodyFeedbackMax).nullish().describe('Shown to the teacher. Required for REJECT and REQUEST_CHANGES.')
 })
 
 export const ModerateRequestResponse = zod.object({
@@ -1200,7 +1252,10 @@ export const ModerateRequestResponse = zod.object({
   "location": zod.string(),
   "schoolContext": zod.string(),
   "priority": zod.enum(['Essential', 'High', 'Standard']),
-  "status": zod.enum(['Pending moderation', 'Open', 'Partially matched', 'Matched', 'Rejected', 'Cancelled', 'Fulfilled']),
+  "status": zod.enum(['Draft', 'Pending moderation', 'Needs changes', 'Open', 'Partially matched', 'Matched', 'Rejected', 'Cancelled', 'Fulfilled']),
+  "size": zod.string().nullable(),
+  "conditionRequirement": zod.string().nullable(),
+  "requiredBy": zod.string().nullable(),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
   "updatedLabel": zod.string(),
@@ -1209,20 +1264,391 @@ export const ModerateRequestResponse = zod.object({
 
 
 /**
- * @summary List pending account verification records
+ * @summary List verification submissions (pending by default)
  */
+export const ListVerificationQueueQueryParams = zod.object({
+  "scope": zod.enum(['pending', 'all']).optional()
+})
+
 export const ListVerificationQueueResponseItem = zod.object({
   "id": zod.string().uuid(),
   "userId": zod.string().uuid(),
   "userName": zod.string(),
   "type": zod.enum(['TEACHER', 'DONOR']),
-  "status": zod.enum(['PENDING', 'APPROVED', 'REJECTED']),
+  "status": zod.enum(['PENDING', 'VERIFIED', 'REJECTED', 'NEEDS_MORE_INFORMATION', 'EXPIRED']),
+  "stage": zod.union([zod.literal('IDENTITY'),zod.literal('PROFESSIONAL'),zod.literal(null)]).nullable(),
+  "schoolName": zod.string().nullable(),
+  "documentCount": zod.number().int(),
+  "feedback": zod.string().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
   "applicantNote": zod.string().nullable(),
   "documentProvided": zod.boolean(),
   "submittedAt": zod.coerce.date(),
   "reviewedAt": zod.coerce.date().nullable()
 })
 export const ListVerificationQueueResponse = zod.array(ListVerificationQueueResponseItem)
+
+
+/**
+ * @summary Full review context for one verification submission
+ */
+export const GetAdminVerificationDetailParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetAdminVerificationDetailResponse = zod.object({
+  "record": zod.object({
+  "id": zod.string().uuid(),
+  "userId": zod.string().uuid(),
+  "userName": zod.string(),
+  "type": zod.enum(['TEACHER', 'DONOR']),
+  "status": zod.enum(['PENDING', 'VERIFIED', 'REJECTED', 'NEEDS_MORE_INFORMATION', 'EXPIRED']),
+  "stage": zod.union([zod.literal('IDENTITY'),zod.literal('PROFESSIONAL'),zod.literal(null)]).nullable(),
+  "schoolName": zod.string().nullable(),
+  "documentCount": zod.number().int(),
+  "feedback": zod.string().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "applicantNote": zod.string().nullable(),
+  "documentProvided": zod.boolean(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable()
+}),
+  "applicant": zod.object({
+  "name": zod.string(),
+  "email": zod.string()
+}),
+  "school": zod.object({
+  "name": zod.string(),
+  "district": zod.string(),
+  "status": zod.string()
+}).nullable(),
+  "privateNotes": zod.string().nullable(),
+  "documents": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "stage": zod.enum(['IDENTITY', 'PROFESSIONAL']),
+  "documentType": zod.string(),
+  "originalFilename": zod.string(),
+  "contentType": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "recordId": zod.string().uuid().nullable(),
+  "submitted": zod.boolean()
+})),
+  "history": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "stage": zod.string().nullable(),
+  "status": zod.string(),
+  "submittedAt": zod.coerce.date(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "reviewerName": zod.string().nullable(),
+  "feedback": zod.string().nullable()
+})),
+  "audit": zod.array(zod.object({
+  "action": zod.string(),
+  "actorName": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Two-stage verification progress for the signed-in teacher
+ */
+export const GetTeacherVerificationResponse = zod.object({
+  "eligible": zod.boolean(),
+  "reasons": zod.array(zod.string()),
+  "school": zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "status": zod.string()
+}).nullable(),
+  "storageConfigured": zod.boolean(),
+  "identity": zod.object({
+  "stage": zod.enum(['IDENTITY', 'PROFESSIONAL']),
+  "status": zod.enum(['NOT_STARTED', 'PENDING', 'NEEDS_MORE_INFORMATION', 'VERIFIED', 'REJECTED', 'EXPIRED']),
+  "submittedAt": zod.coerce.date().nullable(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "feedback": zod.string().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "canSubmit": zod.boolean(),
+  "documents": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "stage": zod.enum(['IDENTITY', 'PROFESSIONAL']),
+  "documentType": zod.string(),
+  "originalFilename": zod.string(),
+  "contentType": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "recordId": zod.string().uuid().nullable(),
+  "submitted": zod.boolean()
+}))
+}),
+  "professional": zod.object({
+  "stage": zod.enum(['IDENTITY', 'PROFESSIONAL']),
+  "status": zod.enum(['NOT_STARTED', 'PENDING', 'NEEDS_MORE_INFORMATION', 'VERIFIED', 'REJECTED', 'EXPIRED']),
+  "submittedAt": zod.coerce.date().nullable(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "feedback": zod.string().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "canSubmit": zod.boolean(),
+  "documents": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "stage": zod.enum(['IDENTITY', 'PROFESSIONAL']),
+  "documentType": zod.string(),
+  "originalFilename": zod.string(),
+  "contentType": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "recordId": zod.string().uuid().nullable(),
+  "submitted": zod.boolean()
+}))
+})
+})
+
+
+/**
+ * @summary Submit one verification stage for review
+ */
+export const SubmitTeacherVerificationStageParams = zod.object({
+  "stage": zod.enum(['IDENTITY', 'PROFESSIONAL'])
+})
+
+export const submitTeacherVerificationStageBodyNoteMax = 500;
+
+
+
+export const SubmitTeacherVerificationStageBody = zod.object({
+  "note": zod.string().max(submitTeacherVerificationStageBodyNoteMax).nullish()
+})
+
+export const SubmitTeacherVerificationStageResponse = zod.object({
+  "stage": zod.enum(['IDENTITY', 'PROFESSIONAL']),
+  "status": zod.enum(['NOT_STARTED', 'PENDING', 'NEEDS_MORE_INFORMATION', 'VERIFIED', 'REJECTED', 'EXPIRED']),
+  "submittedAt": zod.coerce.date().nullable(),
+  "reviewedAt": zod.coerce.date().nullable(),
+  "feedback": zod.string().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "canSubmit": zod.boolean(),
+  "documents": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "stage": zod.enum(['IDENTITY', 'PROFESSIONAL']),
+  "documentType": zod.string(),
+  "originalFilename": zod.string(),
+  "contentType": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "recordId": zod.string().uuid().nullable(),
+  "submitted": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Upload one evidence file (raw PDF, JPEG or PNG body, max 5 MB)
+ */
+export const UploadVerificationDocumentQueryParams = zod.object({
+  "stage": zod.enum(['IDENTITY', 'PROFESSIONAL']),
+  "documentType": zod.coerce.string(),
+  "filename": zod.coerce.string().optional()
+})
+
+export const UploadVerificationDocumentResponse = zod.object({
+  "id": zod.string().uuid(),
+  "stage": zod.enum(['IDENTITY', 'PROFESSIONAL']),
+  "documentType": zod.string(),
+  "originalFilename": zod.string(),
+  "contentType": zod.string(),
+  "sizeBytes": zod.number().int(),
+  "createdAt": zod.coerce.date(),
+  "recordId": zod.string().uuid().nullable(),
+  "submitted": zod.boolean()
+})
+
+
+/**
+ * @summary Remove an unsubmitted attachment
+ */
+export const DeleteVerificationDocumentParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteVerificationDocumentResponse = zod.object({
+  "id": zod.string().uuid()
+})
+
+
+/**
+ * @summary Get a short-lived signed link to open a document (audit-logged)
+ */
+export const AccessVerificationDocumentParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const AccessVerificationDocumentResponse = zod.object({
+  "url": zod.string(),
+  "expiresInSeconds": zod.number().int(),
+  "filename": zod.string()
+})
+
+
+/**
+ * @summary The signed-in teacher's own requests, including drafts and feedback
+ */
+export const GetMyRequestsResponseItem = zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "item": zod.string(),
+  "description": zod.string(),
+  "specifications": zod.string(),
+  "quantity": zod.number().int(),
+  "unit": zod.string(),
+  "location": zod.string(),
+  "schoolContext": zod.string(),
+  "priority": zod.enum(['Essential', 'High', 'Standard']),
+  "status": zod.enum(['Draft', 'Pending moderation', 'Needs changes', 'Open', 'Partially matched', 'Matched', 'Rejected', 'Cancelled', 'Fulfilled']),
+  "size": zod.string().nullable(),
+  "conditionRequirement": zod.string().nullable(),
+  "requiredBy": zod.string().nullable(),
+  "imageUrl": zod.string(),
+  "imageAlt": zod.string(),
+  "updatedLabel": zod.string(),
+  "isSeedData": zod.boolean()
+}).and(zod.object({
+  "moderationFeedback": zod.string().nullable(),
+  "teacherPrivateNotes": zod.string().nullable()
+}))
+export const GetMyRequestsResponse = zod.array(GetMyRequestsResponseItem)
+
+
+/**
+ * @summary Send a draft or revised request for moderation (needs full verification)
+ */
+export const SubmitRequestParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const SubmitRequestResponse = zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "item": zod.string(),
+  "description": zod.string(),
+  "specifications": zod.string(),
+  "quantity": zod.number().int(),
+  "unit": zod.string(),
+  "location": zod.string(),
+  "schoolContext": zod.string(),
+  "priority": zod.enum(['Essential', 'High', 'Standard']),
+  "status": zod.enum(['Draft', 'Pending moderation', 'Needs changes', 'Open', 'Partially matched', 'Matched', 'Rejected', 'Cancelled', 'Fulfilled']),
+  "size": zod.string().nullable(),
+  "conditionRequirement": zod.string().nullable(),
+  "requiredBy": zod.string().nullable(),
+  "imageUrl": zod.string(),
+  "imageAlt": zod.string(),
+  "updatedLabel": zod.string(),
+  "isSeedData": zod.boolean()
+}).and(zod.object({
+  "moderationFeedback": zod.string().nullable(),
+  "teacherPrivateNotes": zod.string().nullable()
+}))
+
+
+/**
+ * @summary School directory including inactive and unconfirmed schools
+ */
+export const ListAdminSchoolsQueryParams = zod.object({
+  "search": zod.coerce.string().optional(),
+  "status": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED']).optional()
+})
+
+export const ListAdminSchoolsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "schoolType": zod.string().nullable(),
+  "district": zod.string(),
+  "area": zod.string().nullable(),
+  "generalLocation": zod.string().nullable(),
+  "status": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED']),
+  "teacherCount": zod.number().int()
+})
+export const ListAdminSchoolsResponse = zod.array(ListAdminSchoolsResponseItem)
+
+
+/**
+ * @summary Add a school to the directory
+ */
+export const createAdminSchoolBodyNameMin = 2;
+export const createAdminSchoolBodyNameMax = 160;
+
+export const createAdminSchoolBodyDistrictMin = 2;
+export const createAdminSchoolBodyDistrictMax = 100;
+
+export const createAdminSchoolBodyAreaMax = 100;
+
+export const createAdminSchoolBodyGeneralLocationMax = 200;
+
+
+
+export const CreateAdminSchoolBody = zod.object({
+  "name": zod.string().min(createAdminSchoolBodyNameMin).max(createAdminSchoolBodyNameMax),
+  "schoolType": zod.union([zod.literal('PRIMARY'),zod.literal('JUNIOR_SECONDARY'),zod.literal('SENIOR_SECONDARY'),zod.literal('SPECIAL_NEEDS'),zod.literal('OTHER'),zod.literal(null)]).nullish(),
+  "district": zod.string().min(createAdminSchoolBodyDistrictMin).max(createAdminSchoolBodyDistrictMax),
+  "area": zod.string().max(createAdminSchoolBodyAreaMax).nullish(),
+  "generalLocation": zod.string().max(createAdminSchoolBodyGeneralLocationMax).nullish(),
+  "status": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED'])
+})
+
+export const CreateAdminSchoolResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "schoolType": zod.string().nullable(),
+  "district": zod.string(),
+  "area": zod.string().nullable(),
+  "generalLocation": zod.string().nullable(),
+  "status": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED']),
+  "teacherCount": zod.number().int()
+})
+
+
+/**
+ * @summary Edit a school or change whether it is active
+ */
+export const UpdateAdminSchoolParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const updateAdminSchoolBodyNameMin = 2;
+export const updateAdminSchoolBodyNameMax = 160;
+
+export const updateAdminSchoolBodyDistrictMin = 2;
+export const updateAdminSchoolBodyDistrictMax = 100;
+
+export const updateAdminSchoolBodyAreaMax = 100;
+
+export const updateAdminSchoolBodyGeneralLocationMax = 200;
+
+
+
+export const UpdateAdminSchoolBody = zod.object({
+  "name": zod.string().min(updateAdminSchoolBodyNameMin).max(updateAdminSchoolBodyNameMax),
+  "schoolType": zod.union([zod.literal('PRIMARY'),zod.literal('JUNIOR_SECONDARY'),zod.literal('SENIOR_SECONDARY'),zod.literal('SPECIAL_NEEDS'),zod.literal('OTHER'),zod.literal(null)]).nullish(),
+  "district": zod.string().min(updateAdminSchoolBodyDistrictMin).max(updateAdminSchoolBodyDistrictMax),
+  "area": zod.string().max(updateAdminSchoolBodyAreaMax).nullish(),
+  "generalLocation": zod.string().max(updateAdminSchoolBodyGeneralLocationMax).nullish(),
+  "status": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED'])
+})
+
+export const UpdateAdminSchoolResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "schoolType": zod.string().nullable(),
+  "district": zod.string(),
+  "area": zod.string().nullable(),
+  "generalLocation": zod.string().nullable(),
+  "status": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED']),
+  "teacherCount": zod.number().int()
+})
 
 
 /**
@@ -1234,11 +1660,15 @@ export const DecideVerificationParams = zod.object({
 
 export const decideVerificationBodyNoteMax = 1000;
 
+export const decideVerificationBodyFeedbackMax = 1000;
+
 
 
 export const DecideVerificationBody = zod.object({
-  "decision": zod.enum(['APPROVE', 'REJECT']),
-  "note": zod.string().max(decideVerificationBodyNoteMax).nullish()
+  "decision": zod.enum(['APPROVE', 'REJECT', 'REQUEST_INFO', 'EXPIRE']),
+  "note": zod.string().max(decideVerificationBodyNoteMax).nullish().describe('Private administrator notes, never shown to the applicant.'),
+  "feedback": zod.string().max(decideVerificationBodyFeedbackMax).nullish().describe('Shown to the applicant. Required for REJECT and REQUEST_INFO.'),
+  "expiresAt": zod.coerce.date().nullish().describe('Optional expiry when approving (for example licence validity).')
 })
 
 export const DecideVerificationResponse = zod.object({
@@ -1246,7 +1676,12 @@ export const DecideVerificationResponse = zod.object({
   "userId": zod.string().uuid(),
   "userName": zod.string(),
   "type": zod.enum(['TEACHER', 'DONOR']),
-  "status": zod.enum(['PENDING', 'APPROVED', 'REJECTED']),
+  "status": zod.enum(['PENDING', 'VERIFIED', 'REJECTED', 'NEEDS_MORE_INFORMATION', 'EXPIRED']),
+  "stage": zod.union([zod.literal('IDENTITY'),zod.literal('PROFESSIONAL'),zod.literal(null)]).nullable(),
+  "schoolName": zod.string().nullable(),
+  "documentCount": zod.number().int(),
+  "feedback": zod.string().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
   "applicantNote": zod.string().nullable(),
   "documentProvided": zod.boolean(),
   "submittedAt": zod.coerce.date(),
