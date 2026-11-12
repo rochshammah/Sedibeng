@@ -19,10 +19,39 @@ export const schoolStatusEnum = pgEnum("school_status", [
   "SUSPENDED",
 ]);
 
+// NOT_STARTED is derived by the API when a stage has no submission yet.
 export const verificationStatusEnum = pgEnum("verification_status", [
   "PENDING",
-  "APPROVED",
+  "VERIFIED",
   "REJECTED",
+  "NEEDS_MORE_INFORMATION",
+  "EXPIRED",
+]);
+
+export const verificationStageEnum = pgEnum("verification_stage", [
+  "IDENTITY",
+  "PROFESSIONAL",
+]);
+
+export const verificationDocumentTypeEnum = pgEnum(
+  "verification_document_type",
+  [
+    "NATIONAL_ID",
+    "PASSPORT",
+    "DRIVING_LICENCE",
+    "TEACHING_LICENCE",
+    "EMPLOYMENT_LETTER",
+    "SCHOOL_CONFIRMATION",
+    "OTHER",
+  ],
+);
+
+export const schoolTypeEnum = pgEnum("school_type", [
+  "PRIMARY",
+  "JUNIOR_SECONDARY",
+  "SENIOR_SECONDARY",
+  "SPECIAL_NEEDS",
+  "OTHER",
 ]);
 
 export const assistanceRequestStatusEnum = pgEnum("assistance_request_status", [
@@ -34,6 +63,7 @@ export const assistanceRequestStatusEnum = pgEnum("assistance_request_status", [
   "FULFILLED",
   "REJECTED",
   "CANCELLED",
+  "NEEDS_MORE_INFORMATION",
 ]);
 
 export const requestPriorityEnum = pgEnum("request_priority", [
