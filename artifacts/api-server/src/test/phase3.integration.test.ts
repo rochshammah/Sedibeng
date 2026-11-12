@@ -10,13 +10,15 @@ import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { after, before, describe, it } from "node:test";
+import { startFakeCloudinary } from "./fake-cloudinary";
 
 const databaseUrl = process.env.INTEGRATION_DATABASE_URL;
 const suite = databaseUrl ? describe : describe.skip;
 
 process.env.NODE_ENV = "test";
 process.env.SESSION_SECRET = "integration-test-session-secret-with-more-than-32-bytes";
-process.env.STORAGE_DRIVER = process.env.STORAGE_DRIVER ?? "local";
+const useFakeCloudinary = process.env.TEST_STORAGE === "cloudinary";
+process.env.STORAGE_DRIVER = useFakeCloudinary ? "cloudinary" : (process.env.STORAGE_DRIVER ?? "local");
 process.env.LOCAL_STORAGE_DIR = process.env.LOCAL_STORAGE_DIR ?? mkdtempSync(path.join(os.tmpdir(), "sedibeng-docs-"));
 delete process.env.NEON_DATABASE_URL;
 if (databaseUrl) process.env.DATABASE_URL = databaseUrl;
@@ -106,7 +108,16 @@ suite("Phase 3: verification, documents and publishing", () => {
     assert.equal(res.status, 200, res.text);
   }
 
+  let fake: Awaited<ReturnType<typeof startFakeCloudinary>> | undefined;
+
   before(async () => {
+    if (useFakeCloudinary) {
+      fake = await startFakeCloudinary({ cloudName: "testcloud", apiKey: "test-key-123", apiSecret: "test-secret-xyz" });
+      Object.assign(process.env, {
+        CLOUDINARY_CLOUD_NAME: "testcloud", CLOUDINARY_API_KEY: "test-key-123", CLOUDINARY_API_SECRET: "test-secret-xyz",
+        CLOUDINARY_FOLDER: "sedibeng", CLOUDINARY_UPLOAD_PREFIX: fake.url,
+      });
+    }
     const [{ default: app }, dbModule, securityModule, orm0] = await Promise.all([
       import("../app"), import("@workspace/db"), import("../lib/security"), import("drizzle-orm"),
     ]);
@@ -133,7 +144,7 @@ suite("Phase 3: verification, documents and publishing", () => {
     await makeUser("t5b", "TEACHER", "A"); // verification lapses after submitting
   });
 
-  after(async () => { await new Promise((resolve) => server?.close(resolve)); process.exit(0); });
+  after(async () => { await new Promise((resolve) => server?.close(resolve)); await fake?.close(); process.exit(0); });
 
   describe("publishing rules", () => {
     it("1. a teacher with no verification cannot send a request for review, but can save a draft", async () => {
@@ -302,6 +313,36 @@ suite("Phase 3: verification, documents and publishing", () => {
       assert.equal(row.sizeBytes, JPEG.length);
       const remove = await as.t4("DELETE", `/teacher/verification/documents/${res.json.id}`);
       assert.equal(remove.status, 200);
+    });
+
+    it("cloudinary: files are private, inside the sedibeng folder, correctly signed, and carry no personal detail", { skip: !useFakeCloudinary }, async () => {
+      const res = await upload("t4", "IDENTITY", "NATIONAL_ID", PDF, "application/pdf");
+      assert.equal(res.status, 201);
+      const [doc] = await db.select().from(tables.verificationDocumentsTable).where(orm.eq(tables.verificationDocumentsTable.id, res.json.id));
+      const publicId = `sedibeng/${doc.objectKey}`;
+      const stored = fake!.assets.get(publicId);
+      assert.ok(stored, `expected ${publicId} in the fake Cloudinary`);
+      assert.equal(stored.type, "authenticated", "uploaded as a private asset");
+      assert.equal(stored.resourceType, "raw");
+      assert.ok(stored.bytes.equals(PDF), "stored bytes match the upload");
+      const upload1 = fake!.receivedFields.find((f) => f.public_id === publicId && f.action === "upload")!;
+      assert.equal(upload1.asset_folder, `sedibeng/verification/${ids.t4}`);
+      const everythingSent = JSON.stringify(fake!.receivedFields);
+      assert.ok(!everythingSent.includes("my doc"), "the person's filename is never sent to Cloudinary");
+      assert.ok(!everythingSent.includes("@phase3.test"), "no email address is sent to Cloudinary");
+      assert.deepEqual(fake!.failures, [], "every request to Cloudinary was correctly signed");
+      // admin views it: the browser link is OUR api, never a Cloudinary URL
+      const link = await as.admin("POST", `/verification/documents/${doc.id}/access`);
+      assert.equal(link.status, 200);
+      assert.ok(link.json.url.includes("/api/v1/documents/view/"), "link goes through the API");
+      assert.ok(!link.json.url.includes("cloudinary") && !link.json.url.includes(fake!.url), "no Cloudinary URL reaches the browser");
+      const served = await fetch(link.json.url);
+      assert.equal(served.status, 200);
+      assert.ok(Buffer.from(await served.arrayBuffer()).equals(PDF));
+      assert.match(served.headers.get("content-disposition") ?? "", /^inline;/);
+      // removing the draft deletes it from Cloudinary too
+      assert.equal((await as.t4("DELETE", `/teacher/verification/documents/${doc.id}`)).status, 200);
+      assert.ok(!fake!.assets.has(publicId), "deleted from Cloudinary");
     });
 
     it("limits the number of attachments per stage", async () => {
