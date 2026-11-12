@@ -1,5 +1,6 @@
 import {
   check,
+  date,
   index,
   pgTable,
   text,
@@ -33,6 +34,11 @@ export const assistanceRequestsTable = pgTable(
     item: text("item").notNull(),
     description: text("description").notNull(),
     specifications: text("specifications"),
+    size: text("size"),
+    conditionRequirement: text("condition_requirement"),
+    requiredBy: date("required_by"),
+    // Visible only to the teacher who wrote it and administrators.
+    teacherPrivateNotes: text("teacher_private_notes"),
     quantity: integer("quantity").notNull(),
     unit: text("unit").notNull(),
     district: text("district").notNull(),
@@ -43,6 +49,8 @@ export const assistanceRequestsTable = pgTable(
       .notNull()
       .default("PENDING_MODERATION"),
     privateModerationNotes: text("private_moderation_notes"),
+    // Shown to the teacher: what to change before it can be published.
+    moderationFeedback: text("moderation_feedback"),
     isSeedData: boolean("is_seed_data").notNull().default(false),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
