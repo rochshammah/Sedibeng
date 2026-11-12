@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { and, count, desc, eq, not } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, not, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import * as Contract from "@workspace/api-zod";
 import {
   assistanceRequestsTable,
@@ -12,11 +13,15 @@ import {
   teacherProfilesTable,
   usersTable,
   userSessionsTable,
+  verificationDocumentsTable,
   verificationRecordsTable,
 } from "@workspace/db";
 import { requireAuth, requireRole } from "../../lib/auth-middleware";
 import { HttpError } from "../../lib/errors";
 import { publicUser } from "../../lib/security";
+import { verificationRecordView, verifiedTeacherIds } from "../../lib/verification";
+import { documentInfo } from "./verification";
+import { toPublicRequest } from "./assistance";
 import type { AuthenticatedPrincipal } from "../../types/auth";
 import { parseBody, responseDate } from "./shared";
 
@@ -149,6 +154,12 @@ router.patch(
   },
 );
 
+const MODERATION = {
+  APPROVE: { status: "OPEN", action: "REQUEST_APPROVED" },
+  REJECT: { status: "REJECTED", action: "REQUEST_REJECTED" },
+  REQUEST_CHANGES: { status: "NEEDS_MORE_INFORMATION", action: "REQUEST_CHANGES_REQUESTED" },
+} as const;
+
 router.patch(
   "/admin/requests/:id/moderation",
   requireAuth,
@@ -165,13 +176,29 @@ router.patch(
       return;
     }
     if (!input) return;
-    const nextStatus =
-      input.decision === "APPROVE" ? "OPEN" : "REJECTED";
+    const feedback = input.feedback?.trim() || null;
+    if (input.decision !== "APPROVE" && (feedback?.length ?? 0) < 5) {
+      throw new HttpError(400, "Tell the teacher what to change so they can fix it.");
+    }
+    const outcome = MODERATION[input.decision];
+    if (input.decision === "APPROVE") {
+      // Verification can lapse after a request was submitted. Never publish for a teacher
+      // who is not fully verified right now.
+      const [pendingRequest] = await requireDb()
+        .select({ teacherUserId: assistanceRequestsTable.teacherUserId })
+        .from(assistanceRequestsTable)
+        .where(eq(assistanceRequestsTable.id, params.data.id))
+        .limit(1);
+      if (pendingRequest && !(await verifiedTeacherIds([pendingRequest.teacherUserId])).has(pendingRequest.teacherUserId)) {
+        throw new HttpError(409, "This teacher's verification is no longer complete. Ask them to renew it, or request changes instead.");
+      }
+    }
     const [row] = await requireDb()
       .update(assistanceRequestsTable)
       .set({
-        status: nextStatus,
+        status: outcome.status,
         privateModerationNotes: input.note?.trim() || null,
+        moderationFeedback: input.decision === "APPROVE" ? null : feedback,
         publishedAt: input.decision === "APPROVE" ? new Date() : null,
         updatedAt: new Date(),
       })
@@ -190,42 +217,27 @@ router.patch(
       title:
         input.decision === "APPROVE"
           ? "Your school request is published"
-          : "Your school request needs changes",
+          : input.decision === "REQUEST_CHANGES"
+            ? "Your school request needs a few changes"
+            : "Your school request was not approved",
       body:
         input.decision === "APPROVE"
           ? `${row.title} is now visible to donors.`
-          : "An administrator reviewed your request. Sign in to see the next steps.",
+          : `${feedback} Open Requests to update and resubmit.`,
     });
     await requireDb().insert(auditLogsTable).values({
       actorUserId: request.authUser!.id,
-      action: input.decision === "APPROVE" ? "REQUEST_APPROVED" : "REQUEST_REJECTED",
+      action: outcome.action,
       targetType: "ASSISTANCE_REQUEST",
       targetId: row.id,
     });
+    const [school] = await requireDb()
+      .select({ name: schoolsTable.name })
+      .from(schoolsTable)
+      .where(eq(schoolsTable.id, row.schoolId))
+      .limit(1);
     response.json(
-      Contract.ModerateRequestResponse.parse({
-        id: row.id,
-        title: row.title,
-        category: row.category,
-        item: row.item,
-        description: row.description,
-        specifications: row.specifications ?? "",
-        quantity: row.quantity,
-        unit: row.unit,
-        location: [row.area, row.district].filter(Boolean).join(" · "),
-        schoolContext: `${row.district} school-level request`,
-        priority:
-          row.priority === "ESSENTIAL"
-            ? "Essential"
-            : row.priority === "HIGH"
-              ? "High"
-              : "Standard",
-        status: nextStatus === "OPEN" ? "Open" : "Rejected",
-        imageUrl: "/images/sedibeng-school-shoes.jpg",
-        imageAlt: `${row.item} for a school assistance request`,
-        updatedLabel: "Updated today",
-        isSeedData: row.isSeedData,
-      }),
+      Contract.ModerateRequestResponse.parse(toPublicRequest(row, school?.name)),
     );
   },
 );
@@ -234,35 +246,153 @@ router.get(
   "/admin/verification",
   requireAuth,
   requireRole("ADMIN"),
-  async (_request, response) => {
+  async (request, response) => {
+    const query = Contract.ListVerificationQueueQueryParams.safeParse(request.query);
+    const scope = query.success ? (query.data.scope ?? "pending") : "pending";
+    const documentCount = sql<number>`(select count(*)::int from verification_documents d where d.user_id = ${verificationRecordsTable.userId} and d.stage = ${verificationRecordsTable.stage})`;
     const rows = await requireDb()
       .select({
-        id: verificationRecordsTable.id,
-        userId: verificationRecordsTable.userId,
+        record: verificationRecordsTable,
         userName: usersTable.name,
-        type: verificationRecordsTable.type,
-        status: verificationRecordsTable.status,
-        applicantNote: verificationRecordsTable.applicantNote,
-        documentProvided: verificationRecordsTable.documentObjectKey,
-        submittedAt: verificationRecordsTable.submittedAt,
-        reviewedAt: verificationRecordsTable.reviewedAt,
+        schoolName: schoolsTable.name,
+        documentCount,
       })
       .from(verificationRecordsTable)
       .innerJoin(usersTable, eq(verificationRecordsTable.userId, usersTable.id))
-      .where(eq(verificationRecordsTable.status, "PENDING"))
-      .orderBy(desc(verificationRecordsTable.submittedAt));
+      .leftJoin(schoolsTable, eq(verificationRecordsTable.schoolId, schoolsTable.id))
+      .where(scope === "all" ? undefined : eq(verificationRecordsTable.status, "PENDING"))
+      .orderBy(desc(verificationRecordsTable.submittedAt))
+      .limit(300);
     response.json(
       Contract.ListVerificationQueueResponse.parse(
-        rows.map((row) => ({
-          ...row,
-          documentProvided: Boolean(row.documentProvided),
-          submittedAt: row.submittedAt.toISOString(),
-          reviewedAt: responseDate(row.reviewedAt),
-        })),
+        rows.map((row) =>
+          verificationRecordView(row.record, row.userName, {
+            schoolName: row.schoolName,
+            documentCount: row.documentCount ?? 0,
+          }),
+        ),
       ),
     );
   },
 );
+
+// Everything an administrator needs to decide: the submission, the applicant's
+// documents, earlier submissions, and the audit trail. Private notes are admin-only.
+router.get(
+  "/admin/verification/:id",
+  requireAuth,
+  requireRole("ADMIN"),
+  async (request, response) => {
+    const params = Contract.GetAdminVerificationDetailParams.safeParse(request.params);
+    if (!params.success) {
+      response.status(400).json({ error: "The verification id is not valid." });
+      return;
+    }
+    const database = requireDb();
+    const [row] = await database
+      .select({ record: verificationRecordsTable, userName: usersTable.name, email: usersTable.email })
+      .from(verificationRecordsTable)
+      .innerJoin(usersTable, eq(verificationRecordsTable.userId, usersTable.id))
+      .where(eq(verificationRecordsTable.id, params.data.id))
+      .limit(1);
+    if (!row) throw new HttpError(404, "The verification record was not found.");
+    const record = row.record;
+    const [school] = record.schoolId
+      ? await database
+          .select({ name: schoolsTable.name, district: schoolsTable.district, status: schoolsTable.status })
+          .from(schoolsTable)
+          .where(eq(schoolsTable.id, record.schoolId))
+          .limit(1)
+      : [];
+    const documents = record.stage
+      ? await database
+          .select()
+          .from(verificationDocumentsTable)
+          .where(
+            and(
+              eq(verificationDocumentsTable.userId, record.userId),
+              eq(verificationDocumentsTable.stage, record.stage),
+            ),
+          )
+          .orderBy(asc(verificationDocumentsTable.createdAt))
+      : [];
+    const reviewer = alias(usersTable, "reviewer");
+    const history = await database
+      .select({ record: verificationRecordsTable, reviewerName: reviewer.name })
+      .from(verificationRecordsTable)
+      .leftJoin(reviewer, eq(verificationRecordsTable.reviewedBy, reviewer.id))
+      .where(eq(verificationRecordsTable.userId, record.userId))
+      .orderBy(asc(verificationRecordsTable.createdAt));
+    const recordIds = history.map((item) => item.record.id);
+    const actor = alias(usersTable, "actor");
+    const audit = recordIds.length
+      ? await database
+          .select({ action: auditLogsTable.action, actorName: actor.name, createdAt: auditLogsTable.createdAt })
+          .from(auditLogsTable)
+          .leftJoin(actor, eq(auditLogsTable.actorUserId, actor.id))
+          .where(
+            and(
+              eq(auditLogsTable.targetType, "VERIFICATION"),
+              inArray(auditLogsTable.targetId, recordIds),
+            ),
+          )
+          .orderBy(asc(auditLogsTable.createdAt))
+      : [];
+    response.json(
+      Contract.GetAdminVerificationDetailResponse.parse({
+        record: verificationRecordView(record, row.userName, {
+          schoolName: school?.name ?? null,
+          documentCount: documents.length,
+        }),
+        applicant: { name: row.userName, email: row.email },
+        school: school ?? null,
+        privateNotes: record.privateReviewNotes,
+        documents: documents.map(documentInfo),
+        history: history.map((item) => ({
+          id: item.record.id,
+          stage: item.record.stage,
+          status: item.record.status,
+          submittedAt: item.record.submittedAt.toISOString(),
+          reviewedAt: item.record.reviewedAt ? item.record.reviewedAt.toISOString() : null,
+          reviewerName: item.reviewerName,
+          feedback: item.record.reviewerFeedback,
+        })),
+        audit: audit.map((item) => ({
+          action: item.action,
+          actorName: item.actorName,
+          createdAt: item.createdAt.toISOString(),
+        })),
+      }),
+    );
+  },
+);
+
+const DECISION_COPY = {
+  APPROVE: {
+    status: "VERIFIED",
+    action: "VERIFICATION_APPROVED",
+    title: "Verification step approved",
+    body: "An administrator approved this step of your verification.",
+  },
+  REJECT: {
+    status: "REJECTED",
+    action: "VERIFICATION_REJECTED",
+    title: "Verification step needs to be redone",
+    body: "An administrator could not approve this step.",
+  },
+  REQUEST_INFO: {
+    status: "NEEDS_MORE_INFORMATION",
+    action: "VERIFICATION_INFO_REQUESTED",
+    title: "More information needed for your verification",
+    body: "An administrator needs a little more information.",
+  },
+  EXPIRE: {
+    status: "EXPIRED",
+    action: "VERIFICATION_EXPIRED",
+    title: "A verification step has expired",
+    body: "Please submit up-to-date evidence to keep publishing requests.",
+  },
+} as const;
 
 router.patch(
   "/admin/verification/:id/decision",
@@ -280,72 +410,89 @@ router.patch(
       return;
     }
     if (!input) return;
+    const feedback = input.feedback?.trim() || null;
+    if ((input.decision === "REJECT" || input.decision === "REQUEST_INFO") && (feedback?.length ?? 0) < 5) {
+      throw new HttpError(400, "Explain your decision so the applicant knows what to do next.");
+    }
+    const copy = DECISION_COPY[input.decision];
     const database = requireDb();
     const row = await database.transaction(async (tx) => {
+      const [current] = await tx
+        .select()
+        .from(verificationRecordsTable)
+        .where(eq(verificationRecordsTable.id, params.data.id))
+        .limit(1);
+      if (!current) throw new HttpError(404, "The verification record was not found.");
+      const expected = input.decision === "EXPIRE" ? "VERIFIED" : "PENDING";
+      if (current.status !== expected) {
+        throw new HttpError(
+          409,
+          input.decision === "EXPIRE"
+            ? "Only a verified record can be marked as expired."
+            : "That submission has already been reviewed.",
+        );
+      }
+      if (current.type === "DONOR" && (input.decision === "REQUEST_INFO" || input.decision === "EXPIRE")) {
+        throw new HttpError(400, "That decision is only available for teacher verification.");
+      }
+      if (input.decision === "APPROVE" && current.type === "TEACHER") {
+        if (current.stage === "PROFESSIONAL") {
+          // Professional approval confirms the teacher's school affiliation, so the
+          // school must already be a confirmed entry in the directory.
+          const [school] = current.schoolId
+            ? await tx.select({ status: schoolsTable.status }).from(schoolsTable).where(eq(schoolsTable.id, current.schoolId)).limit(1)
+            : [];
+          if (!school || school.status !== "ACTIVE") {
+            throw new HttpError(409, "Confirm this school in the school directory first, then approve.");
+          }
+        }
+        const docs = await tx
+          .select({ id: verificationDocumentsTable.id })
+          .from(verificationDocumentsTable)
+          .where(
+            and(
+              eq(verificationDocumentsTable.userId, current.userId),
+              eq(verificationDocumentsTable.stage, current.stage!),
+            ),
+          )
+          .limit(1);
+        if (docs.length === 0) throw new HttpError(409, "There is no evidence on file to approve.");
+      }
       const [record] = await tx
         .update(verificationRecordsTable)
         .set({
-          status: input.decision === "APPROVE" ? "APPROVED" : "REJECTED",
+          status: copy.status,
           reviewedBy: request.authUser!.id,
           reviewedAt: new Date(),
-          privateReviewNotes: input.note?.trim() || null,
+          privateReviewNotes: input.note?.trim() || current.privateReviewNotes,
+          reviewerFeedback: feedback,
+          expiresAt:
+            input.decision === "APPROVE" && input.expiresAt ? new Date(input.expiresAt) : current.expiresAt,
           updatedAt: new Date(),
         })
-        .where(
-          and(
-            eq(verificationRecordsTable.id, params.data.id),
-            eq(verificationRecordsTable.status, "PENDING"),
-          ),
-        )
+        .where(and(eq(verificationRecordsTable.id, current.id), eq(verificationRecordsTable.status, expected)))
         .returning();
-      if (!record || input.decision !== "APPROVE") return record;
-      if (record.type === "TEACHER") {
-        const [profile] = await tx
-          .select({ schoolId: teacherProfilesTable.schoolId })
-          .from(teacherProfilesTable)
-          .where(eq(teacherProfilesTable.userId, record.userId))
-          .limit(1);
-        if (profile) {
-          await tx
-            .update(schoolsTable)
-            .set({ status: "ACTIVE", updatedAt: new Date() })
-            .where(eq(schoolsTable.id, profile.schoolId));
-        }
-      } else {
+      if (!record) throw new HttpError(409, "That submission has already been reviewed.");
+      if (input.decision === "APPROVE" && record.type === "DONOR") {
         await tx
           .update(donorInventoryTable)
           .set({ status: "AVAILABLE", updatedAt: new Date() })
-          .where(
-            and(
-              eq(donorInventoryTable.donorUserId, record.userId),
-              eq(donorInventoryTable.status, "DRAFT"),
-            ),
-          );
+          .where(and(eq(donorInventoryTable.donorUserId, record.userId), eq(donorInventoryTable.status, "DRAFT")));
       }
+      await tx.insert(notificationsTable).values({
+        userId: record.userId,
+        type: "VERIFICATION_DECISION",
+        title: copy.title,
+        body: feedback ? `${copy.body} ${feedback}` : copy.body,
+      });
+      await tx.insert(auditLogsTable).values({
+        actorUserId: request.authUser!.id,
+        action: copy.action,
+        targetType: "VERIFICATION",
+        targetId: record.id,
+        metadata: { type: record.type, stage: record.stage, status: record.status },
+      });
       return record;
-    });
-    if (!row) throw new HttpError(404, "The verification record was not found.");
-    await database.insert(notificationsTable).values({
-      userId: row.userId,
-      type: "VERIFICATION_DECISION",
-      title:
-        input.decision === "APPROVE"
-          ? "Your account verification is complete"
-          : "Your account verification needs attention",
-      body:
-        input.decision === "APPROVE"
-          ? "You can now offer goods and participate in matching."
-          : "An administrator reviewed your verification. Contact support if you need help.",
-    });
-    await database.insert(auditLogsTable).values({
-      actorUserId: request.authUser!.id,
-      action:
-        input.decision === "APPROVE"
-          ? "VERIFICATION_APPROVED"
-          : "VERIFICATION_REJECTED",
-      targetType: "VERIFICATION",
-      targetId: row.id,
-      metadata: { type: row.type },
     });
     const [user] = await database
       .select({ name: usersTable.name })
@@ -353,17 +500,9 @@ router.patch(
       .where(eq(usersTable.id, row.userId))
       .limit(1);
     response.json(
-      Contract.DecideVerificationResponse.parse({
-        id: row.id,
-        userId: row.userId,
-        userName: user?.name ?? "Account",
-        type: row.type,
-        status: row.status,
-        applicantNote: row.applicantNote,
-        documentProvided: Boolean(row.documentObjectKey),
-        submittedAt: row.submittedAt.toISOString(),
-        reviewedAt: responseDate(row.reviewedAt),
-      }),
+      Contract.DecideVerificationResponse.parse(
+        verificationRecordView(row, user?.name ?? "Account"),
+      ),
     );
   },
 );

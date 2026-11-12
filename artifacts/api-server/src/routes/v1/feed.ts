@@ -19,6 +19,7 @@ import {
 } from "@workspace/db";
 import { requireAuth, requireRole } from "../../lib/auth-middleware";
 import { HttpError } from "../../lib/errors";
+import { verifiedTeacherIds } from "../../lib/verification";
 import {
   itemImage,
   likeTerm,
@@ -75,6 +76,8 @@ async function buildPosts(rows: FeedRow[], viewerId: string | undefined) {
   const pending = new Map<string, number>();
   const mine = new Map<string, number>();
   const saved = new Set<string>();
+  // The badge is shown only when the underlying verification records confirm it.
+  const verifiedTeachers = await verifiedTeacherIds([...new Set(rows.map((row) => row.request.teacherUserId))]);
 
   if (ids.length > 0) {
     const sums = await db
@@ -125,6 +128,10 @@ async function buildPosts(rows: FeedRow[], viewerId: string | undefined) {
       status: status as "Open" | "Partially matched" | "Matched" | "Fulfilled",
       imageUrl: itemImage(row.category),
       imageAlt: `${row.item} for a school assistance request`,
+      size: row.size,
+      conditionRequirement: row.conditionRequirement,
+      requiredBy: row.requiredBy,
+      teacherVerified: verifiedTeachers.has(row.teacherUserId),
       postedAt: new Date(postedAtText).toISOString(),
       quantityCovered: isFulfilled
         ? row.quantity
@@ -167,7 +174,9 @@ router.get("/feed", async (request, response) => {
     );
   }
   if (query.data.category) {
-    filters.push(eq(assistanceRequestsTable.category, query.data.category));
+    // One category, or a short comma-separated group (e.g. "Textbooks,Exercise books").
+    const names = query.data.category.split(",").map((name) => name.trim()).filter(Boolean).slice(0, 10);
+    if (names.length > 0) filters.push(inArray(assistanceRequestsTable.category, names));
   }
   if (query.data.priority) {
     const normalized = query.data.priority.toUpperCase();

@@ -10,7 +10,8 @@ import {
 } from "@workspace/db";
 import { requireAuth, requireRole } from "../../lib/auth-middleware";
 import { HttpError } from "../../lib/errors";
-import { parseBody, responseDate } from "./shared";
+import { verificationRecordView } from "../../lib/verification";
+import { parseBody } from "./shared";
 
 const router = Router();
 
@@ -126,17 +127,7 @@ router.get("/verification", requireAuth, async (request, response) => {
     .orderBy(desc(verificationRecordsTable.createdAt));
   response.json(
     Contract.GetMyVerificationResponse.parse(
-      records.map((record) => ({
-        id: record.id,
-        userId: record.userId,
-        userName: request.authUser!.name,
-        type: record.type,
-        status: record.status,
-        applicantNote: record.applicantNote,
-        documentProvided: Boolean(record.documentObjectKey),
-        submittedAt: record.submittedAt.toISOString(),
-        reviewedAt: responseDate(record.reviewedAt),
-      })),
+      records.map((record) => verificationRecordView(record, request.authUser!.name)),
     ),
   );
 });
@@ -152,6 +143,12 @@ router.post(
       response,
     );
     if (!input) return;
+    if (request.authUser!.role === "TEACHER") {
+      throw new HttpError(
+        400,
+        "Teachers verify in two stages, identity and professional. Open Me > Verification to continue.",
+      );
+    }
     const database = requireDb();
     const [existing] = await database
       .select({ id: verificationRecordsTable.id })
@@ -170,7 +167,7 @@ router.post(
       .insert(verificationRecordsTable)
       .values({
         userId: request.authUser!.id,
-        type: request.authUser!.role === "TEACHER" ? "TEACHER" : "DONOR",
+        type: "DONOR",
         status: "PENDING",
         applicantNote: input.note.trim() || null,
       })
@@ -183,17 +180,9 @@ router.post(
       metadata: { type: record.type },
     });
     response.status(201).json(
-      Contract.SubmitVerificationResponse.parse({
-        id: record.id,
-        userId: record.userId,
-        userName: request.authUser!.name,
-        type: record.type,
-        status: record.status,
-        applicantNote: record.applicantNote,
-        documentProvided: false,
-        submittedAt: record.submittedAt.toISOString(),
-        reviewedAt: null,
-      }),
+      Contract.SubmitVerificationResponse.parse(
+        verificationRecordView(record, request.authUser!.name),
+      ),
     );
   },
 );

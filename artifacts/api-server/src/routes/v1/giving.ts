@@ -52,7 +52,7 @@ async function requireApprovedVerification(userId: string) {
     .where(
       and(
         eq(verificationRecordsTable.userId, userId),
-        eq(verificationRecordsTable.status, "APPROVED"),
+        eq(verificationRecordsTable.status, "VERIFIED"),
       ),
     )
     .limit(1);
@@ -95,7 +95,7 @@ router.post(
       .where(
         and(
           eq(verificationRecordsTable.userId, request.authUser!.id),
-          eq(verificationRecordsTable.status, "APPROVED"),
+          eq(verificationRecordsTable.status, "VERIFIED"),
         ),
       )
       .limit(1);
