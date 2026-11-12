@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { Form } from '@/components/ui/form';
 import {
   useGetRequests, useGetRequest, getGetRequestQueryKey, getGetRequestsQueryKey,
-  useGetAuthSession, useRegisterDonor, useRegisterTeacher,
+  useGetAuthSession, getListSchoolsQueryKey, useRegisterDonor, useRegisterTeacher,
   useLogin, useRequestPasswordReset, useResetPassword, useVerifyEmail, useResendVerificationEmail,
   useLogout, useGetDonorDashboard, getGetDonorDashboardQueryKey, useGetTeacherDashboard, getGetTeacherDashboardQueryKey, useGetAdminDashboard, getGetAdminDashboardQueryKey,
   useGetInventory, getGetInventoryQueryKey, useCreateInventory, useUpdateInventory, useDeleteInventory,
@@ -28,22 +28,23 @@ import { DemoTag, ErrorState, LoadingState, PhotoImage, PrivacyNote } from '../c
 
 const heroPhoto = '/images/sedibeng-community-preparation.jpg';
 const itemPhoto = '/images/sedibeng-stationery-kit.jpg';
-const emptyValues = { name:'',email:'',password:'',schoolName:'',district:'',area:'',token:'',newPassword:'',confirmPassword:'',note:'' };
+const emptyValues = { name:'',email:'',password:'',schoolId:'',schoolName:'',district:'',area:'',token:'',newPassword:'',confirmPassword:'',note:'' };
 type AuthKind = 'signin'|'donor'|'teacher'|'forgot'|'reset'|'verify';
 type AuthValues = typeof emptyValues;
 const authSchema = (kind: AuthKind) => z.object({
   name:z.string().optional(), email:z.string().email('Enter a valid email address').optional().or(z.literal('')),
-  password:z.string().optional(),schoolName:z.string().optional(),district:z.string().optional(),area:z.string().optional(),
+  password:z.string().optional(),schoolId:z.string().optional(),schoolName:z.string().optional(),district:z.string().optional(),area:z.string().optional(),
   token:z.string().optional(),newPassword:z.string().optional(),confirmPassword:z.string().optional(),note:z.string().optional(),
 }).superRefine((v,c)=>{
-  const required:Record<AuthKind,string[]>={signin:['email','password'],donor:['name','email','password'],teacher:['name','email','password','schoolName','district'],forgot:['email'],reset:['token','newPassword','confirmPassword'],verify:['token']};
+  const required:Record<AuthKind,string[]>={signin:['email','password'],donor:['name','email','password'],teacher:['name','email','password'],forgot:['email'],reset:['token','newPassword','confirmPassword'],verify:['token']};
   required[kind].forEach((k)=>{if(!v[k as keyof AuthValues]?.trim()) c.addIssue({code:'custom',path:[k],message:'This field is required.'})});
+  if(kind==='teacher'){ if(!v.schoolId) c.addIssue({code:'custom',path:['schoolId'],message:'Please choose your school.'}); else if(v.schoolId==='OTHER'){ if(!v.schoolName?.trim()) c.addIssue({code:'custom',path:['schoolName'],message:'This field is required.'}); if(!v.district?.trim()) c.addIssue({code:'custom',path:['district'],message:'This field is required.'}) } }
   if(['signin','donor','teacher'].includes(kind) && v.password && v.password.length<12)c.addIssue({code:'custom',path:['password'],message:'Use at least 12 characters.'});
   if(kind==='reset' && v.newPassword && v.newPassword.length<12)c.addIssue({code:'custom',path:['newPassword'],message:'Use at least 12 characters.'});
   if(kind==='reset' && v.confirmPassword!==v.newPassword)c.addIssue({code:'custom',path:['confirmPassword'],message:'Passwords do not match.'});
 });
 
-const fieldTitles:Record<string,string>={name:'Full name',email:'Email address',password:'Password',schoolName:'School name',district:'District',area:'Area (optional)',token:'Verification or reset token',newPassword:'New password',confirmPassword:'Confirm password'};
+const fieldTitles:Record<string,string>={name:'Full name',email:'Email address',password:'Password',schoolId:'Your school',schoolName:'School name',district:'District',area:'Area (optional)',token:'Verification or reset token',newPassword:'New password',confirmPassword:'Confirm password'};
 const textInputType=(name:string)=>name.toLowerCase().includes('password')?'password':name==='email'?'email':'text';
 const authMeta:Record<AuthKind,{title:string;copy:string;submit:string}>={
   signin:{title:'Welcome back.',copy:'Sign in to continue your work with Sedibeng.',submit:'Sign in'},
@@ -58,6 +59,7 @@ export function AuthPage({kind}:{kind:AuthKind}) {
   const handledToken=useRef('');
   const form=useForm<AuthValues>({resolver:zodResolver(authSchema(kind)),defaultValues:emptyValues});
   const registerDonor=useRegisterDonor(); const registerTeacher=useRegisterTeacher(); const login=useLogin(); const forgot=useRequestPasswordReset(); const reset=useResetPassword(); const verify=useVerifyEmail(); const resend=useResendVerificationEmail();
+  const schools=useListSchools({},{query:{enabled:kind==='teacher',queryKey:getListSchoolsQueryKey({})}}); const chosenSchool=form.watch('schoolId');
   const busy=registerDonor.isPending||registerTeacher.isPending||login.isPending||forgot.isPending||reset.isPending||verify.isPending||resend.isPending;
   const submit=(v:AuthValues)=>{
     setFailure('');setStatus('');
@@ -65,7 +67,7 @@ export function AuthPage({kind}:{kind:AuthKind}) {
     const fail=(e:unknown)=>setFailure(e instanceof Error?e.message:'Something went wrong. Please try again.');
     if(kind==='signin') login.mutate({data:{email:v.email!,password:v.password!}},{onSuccess:(result)=>done('You’re signed in.',result.user?.role==='ADMIN'?'/admin':result.user?.role==='TEACHER'?'/teacher':result.user?.role==='DONOR'?'/donor':'/'),onError:fail});
     if(kind==='donor') registerDonor.mutate({data:{name:v.name!,email:v.email!,password:v.password!}},{onSuccess:()=>done('Account created. Check your inbox to verify your email.'),onError:fail});
-    if(kind==='teacher') registerTeacher.mutate({data:{name:v.name!,email:v.email!,password:v.password!,schoolName:v.schoolName!,district:v.district!,area:v.area||undefined}},{onSuccess:()=>done('Account created. Check your inbox to verify your email.'),onError:fail});
+    if(kind==='teacher') registerTeacher.mutate({data:v.schoolId&&v.schoolId!=='OTHER'?{name:v.name!,email:v.email!,password:v.password!,schoolId:v.schoolId}:{name:v.name!,email:v.email!,password:v.password!,schoolName:v.schoolName!,district:v.district!,area:v.area||undefined}},{onSuccess:()=>done('Account created. Check your inbox to verify your email.'),onError:fail});
     if(kind==='forgot') forgot.mutate({data:{email:v.email!}},{onSuccess:()=>done('If the address is registered, reset instructions are on their way.'),onError:fail});
     if(kind==='reset') reset.mutate({data:{token:v.token!,newPassword:v.newPassword!}},{onSuccess:()=>done('Password updated. You can now sign in.','/sign-in'),onError:fail});
     if(kind==='verify') verify.mutate({data:{token:v.token!}},{onSuccess:()=>done('Email verified.','/sign-in'),onError:fail});
@@ -82,7 +84,7 @@ export function AuthPage({kind}:{kind:AuthKind}) {
   return <main className="auth-page"><section className="auth-art"><PhotoImage src={heroPhoto} alt="A classroom prepared with learning materials"/><div className="auth-art-shade"/><div className="auth-art-copy"><span className="eyebrow">Sedibeng · Botswana</span><h2>Care, made practical.</h2><p>Physical school essentials, offered with dignity and care.</p></div></section>
     <section className="auth-form-wrap"><div className="auth-card"><span className="eyebrow">Your Sedibeng account</span><h1 data-testid="text-auth-title">{meta.title}</h1><p>{meta.copy}</p>
       <Form {...form}><form onSubmit={form.handleSubmit(submit)} data-testid={`form-auth-${kind}`}>
-      {(kind==='signin'?['email','password']:kind==='donor'?['name','email','password']:kind==='teacher'?['name','email','schoolName','district','area','password']:kind==='forgot'?['email']:kind==='reset'?['token','newPassword','confirmPassword']:['token']).map(name=><label className="field" key={name}>{fieldTitles[name]}{['schoolName','district','area'].includes(name)&&kind==='teacher'&&<span className="required-mark">{name!=='area'?' *':''}</span>}<input className="auth-input" type={textInputType(name)} autoComplete={name==='email'?'email':kind==='signin'&&name==='password'?'current-password':name.toLowerCase().includes('password')?'new-password':'off'} {...form.register(name as keyof AuthValues)} data-testid={`input-auth-${name}`}/><small className="field-error">{form.formState.errors[name as keyof AuthValues]?.message as string}</small></label>)}
+      {(kind==='signin'?['email','password']:kind==='donor'?['name','email','password']:kind==='teacher'?['name','email','schoolId','schoolName','district','area','password']:kind==='forgot'?['email']:kind==='reset'?['token','newPassword','confirmPassword']:['token']).map(name=>{ if(kind==='teacher'&&name==='schoolId') return <label className="field" key={name}>{fieldTitles[name]}<span className="required-mark"> *</span><select className="auth-input" {...form.register('schoolId')} data-testid="select-auth-school"><option value="">Choose your school</option>{(schools.data??[]).map(sc=><option key={sc.id} value={sc.id}>{sc.name} · {sc.district}</option>)}<option value="OTHER">My school isn’t listed</option></select><small className="field-error">{form.formState.errors.schoolId?.message as string}</small></label>; if(kind==='teacher'&&['schoolName','district','area'].includes(name)&&chosenSchool!=='OTHER') return null; return <label className="field" key={name}>{fieldTitles[name]}{['schoolName','district','area'].includes(name)&&kind==='teacher'&&<span className="required-mark">{name!=='area'?' *':''}</span>}<input className="auth-input" type={textInputType(name)} autoComplete={name==='email'?'email':kind==='signin'&&name==='password'?'current-password':name.toLowerCase().includes('password')?'new-password':'off'} {...form.register(name as keyof AuthValues)} data-testid={`input-auth-${name}`}/><small className="field-error">{form.formState.errors[name as keyof AuthValues]?.message as string}</small></label>})}
       {kind==='signin'&&<div className="auth-links"><Link href="/forgot-password" data-testid="link-forgot-password">Forgot password?</Link><Link href="/verify-email" data-testid="link-verify-email">Verify email</Link></div>}
       {failure&&<div className="alert alert-error" role="alert" data-testid="state-auth-error">{failure}</div>}
       {status&&<div className="alert alert-success" role="status" data-testid="state-auth-success">{status}</div>}
