@@ -16,10 +16,10 @@ export function VerificationCard({ kind }: { kind: 'donor' | 'teacher' }) {
   const form = useForm<{ note: string }>({ defaultValues: { note: '' } });
   const [feedback, setFeedback] = useState<{ ok?: string; error?: unknown }>({});
   const status = verification.data?.[0]?.status;
-  const locked = submit.isPending || status === 'PENDING' || status === 'APPROVED';
+  const locked = submit.isPending || status === 'PENDING' || status === 'VERIFIED';
   return (
     <Card title="Verification" hint={kind === 'donor' ? 'A quick check so schools can trust offers.' : 'A quick check of your school affiliation.'}>
-      {status === 'APPROVED' ? <Notice tone="good"><ShieldCheck size={16} /> You’re verified. Thank you!</Notice> : status === 'PENDING' ? <Notice>We’re reviewing your details. We’ll notify you as soon as it’s done.</Notice> : (
+      {status === 'VERIFIED' ? <Notice tone="good"><ShieldCheck size={16} /> You’re verified. Thank you!</Notice> : status === 'PENDING' ? <Notice>We’re reviewing your details. We’ll notify you as soon as it’s done.</Notice> : (
         <form className="ws-form" onSubmit={form.handleSubmit((v) => { setFeedback({}); submit.mutate({ data: v }, { onSuccess: () => { setFeedback({ ok: 'Sent for review.' }); void client.invalidateQueries({ queryKey: getGetMyVerificationQueryKey() }); }, onError: (error) => setFeedback({ error }) }); })}>
           {status === 'REJECTED' && <Notice tone="warn">Your last submission wasn’t approved. Add more context and try again.</Notice>}
           <label className="ws-field">Tell us a little about {kind === 'donor' ? 'yourself or your organisation' : 'your role at the school'}

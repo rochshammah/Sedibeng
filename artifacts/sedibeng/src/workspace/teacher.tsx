@@ -1,18 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { ArrowLeft, ClipboardList, Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-react';
+import { ArrowLeft, ClipboardList, Pencil, Plus, Send, ShieldCheck, Trash2 } from 'lucide-react';
 import {
-  type AssistanceRequest, type RequestInput,
-  getGetNotificationsQueryKey, getGetOrdersQueryKey, getGetRequestQueryKey, getGetRequestsQueryKey, getGetSponsorshipsQueryKey, getGetTeacherDashboardQueryKey,
-  useCreateRequest, useDecideSponsorship, useDeleteRequest, useGetAuthSession, useGetOrders, useGetRequest, useGetRequests, useGetSponsorships,
-  useGetTeacherDashboard, useGetTeacherProfile, useListSchools, useUpdateOrderStatus, useUpdateRequest,
+  type OwnRequest, type RequestInput,
+  getGetMyRequestsQueryKey, getGetNotificationsQueryKey, getGetOrdersQueryKey, getGetRequestsQueryKey, getGetSponsorshipsQueryKey, getGetTeacherDashboardQueryKey,
+  useCreateRequest, useDecideSponsorship, useDeleteRequest, useGetAuthSession, useGetMyRequests, useGetOrders, useGetSponsorships,
+  useGetTeacherDashboard, useGetTeacherProfile, useGetTeacherVerification, useSubmitRequest, useUpdateOrderStatus, useUpdateRequest,
 } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
 import { ErrorState } from '../components/site';
-import { VerificationCard } from './common';
-import { useIsVerified } from './feed';
+import { TeacherVerificationPanel } from './teacher-verification';
 import { Avatar, Card, EmptyState, Feedback, ListRows, Notice, PageHeader, Segmented, StatCards, greet } from './ui';
 
 export function TeacherHome() {
@@ -24,7 +23,7 @@ export function TeacherHome() {
   const orders = useGetOrders();
   const decide = useDecideSponsorship();
   const updateOrder = useUpdateOrderStatus();
-  const { verified, loading } = useIsVerified();
+  const verification = useGetTeacherVerification();
   const refreshAll = () => {
     void client.invalidateQueries({ queryKey: getGetSponsorshipsQueryKey() });
     void client.invalidateQueries({ queryKey: getGetOrdersQueryKey() });
@@ -48,7 +47,9 @@ export function TeacherHome() {
         </div>
       </section>
 
-      {!loading && !verified && <Notice tone="warn"><ShieldCheck size={16} /> Your school verification isn’t complete yet. You can draft requests, but they’re only published once you’re verified. <Link href="/teacher/me">Finish verification</Link></Notice>}
+      {verification.data && !verification.data.eligible && (
+        <Notice tone="warn"><ShieldCheck size={16} /> You’ve completed {[verification.data.identity, verification.data.professional].filter((stage) => stage.status === 'VERIFIED').length} of 2 verification steps. You can save drafts now, and send requests for review once both are confirmed. <Link href="/teacher/me">Continue verification</Link></Notice>
+      )}
 
       <StatCards counts={dash.data?.counts ?? []} />
 
@@ -78,43 +79,70 @@ export function TeacherHome() {
   );
 }
 
-type Bucket = 'all' | 'pending' | 'live' | 'closed';
-const bucketOf = (status: string): Bucket => (status === 'Pending moderation' ? 'pending' : ['Open', 'Partially matched', 'Matched'].includes(status) ? 'live' : 'closed');
+type Bucket = 'all' | 'live' | 'review' | 'attention' | 'closed';
+const bucketOf = (status: string): Bucket => {
+  if (status === 'Pending moderation') return 'review';
+  if (['Draft', 'Needs changes', 'Rejected'].includes(status)) return 'attention';
+  if (['Open', 'Partially matched', 'Matched'].includes(status)) return 'live';
+  return 'closed';
+};
+const canEdit = (status: string) => ['Draft', 'Pending moderation', 'Needs changes', 'Rejected'].includes(status);
+const canSendForReview = (status: string) => ['Draft', 'Needs changes', 'Rejected'].includes(status);
+const canCancel = (status: string) => ['Draft', 'Pending moderation', 'Needs changes'].includes(status);
 
 export function TeacherRequests() {
   const client = useQueryClient();
   const { toast } = useToast();
-  const profile = useGetTeacherProfile();
-  const requests = useGetRequests({});
+  const requests = useGetMyRequests();
+  const verification = useGetTeacherVerification();
   const remove = useDeleteRequest();
+  const submit = useSubmitRequest();
   const [bucket, setBucket] = useState<Bucket>('all');
 
-  const mine = useMemo(() => (requests.data ?? []).filter((r) => profile.data?.schoolName && r.schoolContext.includes(profile.data.schoolName)), [requests.data, profile.data]);
+  const mine = requests.data ?? [];
   const shown = bucket === 'all' ? mine : mine.filter((r) => bucketOf(r.status) === bucket);
   const count = (b: Bucket) => mine.filter((r) => bucketOf(r.status) === b).length;
+  const eligible = verification.data?.eligible ?? false;
+  const refresh = () => {
+    void client.invalidateQueries({ queryKey: getGetMyRequestsQueryKey() });
+    void client.invalidateQueries({ queryKey: getGetRequestsQueryKey() });
+    void client.invalidateQueries({ queryKey: getGetTeacherDashboardQueryKey() });
+  };
 
   return (
     <div className="ws-col ws-col-wide">
-      <PageHeader title="Requests" subtitle="Everything your school has asked for." action={<Link href="/teacher/requests/new" className="ws-btn ws-btn-primary"><Plus size={16} />Post a need</Link>} />
-      <Segmented value={bucket} onChange={setBucket} options={[{ value: 'all', label: 'All', count: mine.length }, { value: 'live', label: 'Live', count: count('live') }, { value: 'pending', label: 'In review', count: count('pending') }, { value: 'closed', label: 'Closed', count: count('closed') }]} />
+      <PageHeader title="Requests" subtitle="Everything you’ve asked for." action={<Link href="/teacher/requests/new" className="ws-btn ws-btn-primary"><Plus size={16} />Post a need</Link>} />
+      <Segmented value={bucket} onChange={setBucket} options={[
+        { value: 'all', label: 'All', count: mine.length }, { value: 'live', label: 'Live', count: count('live') },
+        { value: 'review', label: 'In review', count: count('review') }, { value: 'attention', label: 'Needs you', count: count('attention') },
+        { value: 'closed', label: 'Closed', count: count('closed') },
+      ]} />
       {requests.isError ? <ErrorState onRetry={() => void requests.refetch()} /> : !requests.isLoading && mine.length === 0 ? (
         <EmptyState icon={<ClipboardList size={26} />} title="No requests yet" text="Share what your school needs and donors will see it in their feed." action={{ href: '/teacher/requests/new', label: 'Post your first need' }} />
       ) : (
         <Card><ListRows empty={requests.isLoading ? 'Loading requests…' : 'Nothing in this tab.'}
           items={shown.map((r) => ({
-            id: r.id, title: r.title, status: r.status, detail: `${r.quantity} ${r.unit} · ${r.location}`,
-            right: ['Pending moderation', 'Rejected'].includes(r.status) ? <>
-              <Link href={`/teacher/requests/${r.id}/edit`} className="ws-btn ws-btn-ghost ws-btn-sm"><Pencil size={14} />Edit</Link>
-              {r.status === 'Pending moderation' && <button className="ws-btn ws-btn-danger ws-btn-sm" onClick={() => { if (confirm(`Cancel “${r.title}”?`)) remove.mutate({ id: r.id }, { onSuccess: () => { toast({ title: 'Request cancelled' }); void client.invalidateQueries({ queryKey: getGetRequestsQueryKey() }); void client.invalidateQueries({ queryKey: getGetTeacherDashboardQueryKey() }); } }); }}><Trash2 size={14} />Cancel</button>}
-            </> : undefined,
+            id: r.id, title: r.title, status: r.status,
+            detail: `${r.quantity} ${r.unit}${r.size ? ` · ${r.size}` : ''} · ${r.location}${r.moderationFeedback && ['Needs changes', 'Rejected', 'Draft'].includes(r.status) ? ` — Reviewer: “${r.moderationFeedback}”` : ''}`,
+            right: <>
+              {canSendForReview(r.status) && <button className="ws-btn ws-btn-primary ws-btn-sm" disabled={!eligible || submit.isPending} title={eligible ? undefined : 'Finish both verification steps first'}
+                onClick={() => submit.mutate({ id: r.id }, { onSuccess: () => { toast({ title: 'Sent for review', description: 'We’ll publish it once it’s approved.' }); refresh(); }, onError: (e) => toast({ title: 'Couldn’t send it yet', description: e instanceof Error ? e.message : undefined, variant: 'destructive' }) })} data-testid={`button-send-${r.id}`}><Send size={14} />Send for review</button>}
+              {canEdit(r.status) && <Link href={`/teacher/requests/${r.id}/edit`} className="ws-btn ws-btn-ghost ws-btn-sm"><Pencil size={14} />Edit</Link>}
+              {canCancel(r.status) && <button className="ws-btn ws-btn-danger ws-btn-sm" onClick={() => { if (confirm(`Cancel “${r.title}”?`)) remove.mutate({ id: r.id }, { onSuccess: () => { toast({ title: 'Request cancelled' }); refresh(); } }); }}><Trash2 size={14} />Cancel</button>}
+            </>,
           }))} /></Card>
       )}
     </div>
   );
 }
 
-const emptyRequest: RequestInput = { schoolId: '', title: '', category: '', item: '', description: '', specifications: '', quantity: 1, unit: 'items', priority: 'STANDARD', schoolContext: '' };
-const categorySuggestions = ['School shoes', 'Books & stationery', 'Bags', 'Uniforms'];
+const categories = ['School shoes', 'School uniforms', 'School bags', 'Stationery', 'Exercise books', 'Textbooks', 'Learning materials', 'Other educational essentials'];
+const emptyRequest: RequestInput = { schoolId: '', title: '', category: categories[0], item: '', description: '', specifications: '', size: '', conditionRequirement: null, requiredBy: '', teacherPrivateNotes: '', quantity: 1, unit: 'items', priority: 'STANDARD', schoolContext: '' };
+const fromOwn = (r: OwnRequest, schoolId: string): RequestInput => ({
+  schoolId, title: r.title, category: r.category, item: r.item, description: r.description, specifications: r.specifications, size: r.size ?? '',
+  conditionRequirement: (r.conditionRequirement as RequestInput['conditionRequirement']) ?? null, requiredBy: r.requiredBy ?? '', teacherPrivateNotes: r.teacherPrivateNotes ?? '',
+  quantity: r.quantity, unit: r.unit, priority: r.priority.toUpperCase() as RequestInput['priority'], schoolContext: r.schoolContext,
+});
 
 export function TeacherRequestForm() {
   const { id } = useParams<{ id?: string }>();
@@ -123,59 +151,76 @@ export function TeacherRequestForm() {
   const { toast } = useToast();
   const [, navigate] = useLocation();
   const profile = useGetTeacherProfile();
-  const schools = useListSchools({});
-  const existing = useGetRequest(id ?? '', { query: { enabled: editing, queryKey: getGetRequestQueryKey(id ?? '') } });
+  const verification = useGetTeacherVerification();
+  const mine = useGetMyRequests();
   const create = useCreateRequest();
   const update = useUpdateRequest();
   const [error, setError] = useState<unknown>(null);
   const form = useForm<RequestInput>({ defaultValues: emptyRequest });
+  const existing = editing ? mine.data?.find((r) => r.id === id) : undefined;
+  const eligible = verification.data?.eligible ?? false;
+  const schoolId = profile.data?.schoolId ?? '';
 
-  useEffect(() => {
-    if (editing && existing.data) {
-      const r: AssistanceRequest = existing.data;
-      form.reset({ schoolId: profile.data?.schoolId || '', title: r.title, category: r.category, item: r.item, description: r.description, specifications: r.specifications, quantity: r.quantity, unit: r.unit, priority: r.priority.toUpperCase() as RequestInput['priority'], schoolContext: r.schoolContext });
-    }
-  }, [editing, existing.data, profile.data?.schoolId, form]);
-  useEffect(() => { if (!editing && profile.data?.schoolId && !form.getValues('schoolId')) form.setValue('schoolId', profile.data.schoolId); }, [editing, profile.data?.schoolId, form]);
+  useEffect(() => { if (existing && schoolId) form.reset(fromOwn(existing, schoolId)); }, [existing, schoolId, form]);
 
-  const finish = () => {
-    toast({ title: editing ? 'Request updated' : 'Request submitted 🎉', description: editing ? undefined : 'We’ll review it and publish it to donors shortly.' });
+  const finish = (sent: boolean) => {
+    toast({ title: sent ? 'Sent for review 🎉' : 'Draft saved', description: sent ? 'We’ll publish it to donors once it’s approved.' : 'You can send it for review any time.' });
+    void client.invalidateQueries({ queryKey: getGetMyRequestsQueryKey() });
     void client.invalidateQueries({ queryKey: getGetRequestsQueryKey() });
     void client.invalidateQueries({ queryKey: getGetTeacherDashboardQueryKey() });
     navigate('/teacher/requests');
   };
-  const submit = form.handleSubmit((values) => {
+  const save = (sendForReview: boolean) => form.handleSubmit((values) => {
     setError(null);
-    if (editing) update.mutate({ id: id!, data: values }, { onSuccess: finish, onError: setError });
-    else create.mutate({ data: values }, { onSuccess: finish, onError: setError });
+    const data: RequestInput = {
+      ...values, schoolId, submit: sendForReview,
+      size: values.size?.trim() || null, specifications: values.specifications?.trim() || null,
+      requiredBy: values.requiredBy || null, teacherPrivateNotes: values.teacherPrivateNotes?.trim() || null,
+      conditionRequirement: values.conditionRequirement || null,
+      schoolContext: values.schoolContext?.trim() || `${profile.data?.schoolName ?? 'School'} · ${profile.data?.district ?? ''}`,
+    };
+    const options = { onSuccess: () => finish(sendForReview), onError: setError };
+    if (editing) update.mutate({ id: id!, data }, options);
+    else create.mutate({ data }, options);
   });
+  const busy = create.isPending || update.isPending;
+  const categoryOptions = existing && !categories.includes(existing.category) ? [existing.category, ...categories] : categories;
 
   return (
     <div className="ws-col ws-col-wide">
       <Link href="/teacher/requests" className="ws-back"><ArrowLeft size={15} />Back to requests</Link>
-      <PageHeader title={editing ? 'Edit request' : 'Post a need'} subtitle="Describe what your school needs. Please don’t include any learner’s name or personal details." />
+      <PageHeader title={editing ? 'Edit request' : 'Post a need'} subtitle="Tell donors what your school needs. Please don’t include any learner’s name, photo or home address." />
+      {existing?.moderationFeedback && ['Needs changes', 'Rejected', 'Draft'].includes(existing.status) && (
+        <div className="ws-feedback-box" role="note"><b>Message from the reviewer</b><p>{existing.moderationFeedback}</p></div>
+      )}
+      {verification.data && !eligible && (
+        <Notice tone="warn"><ShieldCheck size={16} /> You can save this as a draft now. Once both verification steps are approved you’ll be able to send it for review. <Link href="/teacher/me">Continue verification</Link></Notice>
+      )}
       <Card>
-        <form className="ws-form ws-grid-2" onSubmit={submit}>
-          <label className="ws-field ws-span">School
-            <select className="ws-input" {...form.register('schoolId')} data-testid="select-request-school">
-              <option value="">Choose a school</option>
-              {(schools.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name} · {s.district}</option>)}
-            </select>
-          </label>
+        <form className="ws-form ws-grid-2" onSubmit={(event) => { event.preventDefault(); void save(eligible)(); }}>
+          {profile.data && <p className="ws-muted ws-span">For <b>{profile.data.schoolName}</b>, {profile.data.district}</p>}
           <label className="ws-field ws-span">Headline<input className="ws-input" placeholder="e.g. 30 exercise books for Grade 4" {...form.register('title')} data-testid="input-request-title" /></label>
-          <label className="ws-field">Category<input className="ws-input" list="ws-categories" {...form.register('category')} data-testid="input-request-category" /><datalist id="ws-categories">{categorySuggestions.map((c) => <option key={c} value={c} />)}</datalist></label>
-          <label className="ws-field">Item<input className="ws-input" {...form.register('item')} data-testid="input-request-item" /></label>
-          <label className="ws-field">Quantity<input className="ws-input" type="number" min={1} {...form.register('quantity', { valueAsNumber: true })} data-testid="input-request-quantity" /></label>
-          <label className="ws-field">Unit<input className="ws-input" {...form.register('unit')} data-testid="input-request-unit" /></label>
-          <label className="ws-field">How urgent is it?
-            <select className="ws-input" {...form.register('priority')}><option value="STANDARD">Standard</option><option value="HIGH">High</option><option value="ESSENTIAL">Urgent</option></select>
+          <label className="ws-field">Category
+            <select className="ws-input" {...form.register('category')} data-testid="select-request-category">{categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}</select>
           </label>
+          <label className="ws-field">Item<input className="ws-input" placeholder="e.g. A4 exercise books" {...form.register('item')} data-testid="input-request-item" /></label>
+          <label className="ws-field">How many?<input className="ws-input" type="number" min={1} {...form.register('quantity', { valueAsNumber: true })} data-testid="input-request-quantity" /></label>
+          <label className="ws-field">Unit<input className="ws-input" placeholder="books, pairs, sets…" {...form.register('unit')} data-testid="input-request-unit" /></label>
+          <label className="ws-field">Size <span className="ws-muted">(if it matters)</span><input className="ws-input" placeholder="e.g. Sizes 4–6, A4" {...form.register('size')} data-testid="input-request-size" /></label>
+          <label className="ws-field">Condition
+            <select className="ws-input" {...form.register('conditionRequirement', { setValueAs: (v) => v || null })} data-testid="select-request-condition"><option value="">No preference</option><option value="NEW">New only</option><option value="GENTLY_USED">Gently used is fine</option><option value="ANY">Any condition</option></select>
+          </label>
+          <label className="ws-field">How urgent is it?
+            <select className="ws-input" {...form.register('priority')} data-testid="select-request-priority"><option value="STANDARD">Standard</option><option value="HIGH">High</option><option value="ESSENTIAL">Urgent</option></select>
+          </label>
+          <label className="ws-field">Needed by <span className="ws-muted">(optional)</span><input className="ws-input" type="date" min={new Date().toISOString().slice(0, 10)} {...form.register('requiredBy')} data-testid="input-request-requiredBy" /></label>
           <label className="ws-field ws-span">Why it’s needed<textarea className="ws-input" rows={3} {...form.register('description')} data-testid="input-request-description" /></label>
-          <label className="ws-field ws-span">Specifications <span className="ws-muted">(sizes, colours…)</span><textarea className="ws-input" rows={2} {...form.register('specifications')} data-testid="input-request-specifications" /></label>
-          <label className="ws-field ws-span">About the school <span className="ws-muted">(optional context)</span><textarea className="ws-input" rows={2} {...form.register('schoolContext')} data-testid="input-request-schoolContext" /></label>
+          <label className="ws-field ws-span">Specifications <span className="ws-muted">(colours, brand, anything donors should know)</span><textarea className="ws-input" rows={2} {...form.register('specifications')} data-testid="input-request-specifications" /></label>
+          <label className="ws-field ws-span">Private note for reviewers <span className="ws-muted">(never shown to donors)</span><textarea className="ws-input" rows={2} maxLength={1000} {...form.register('teacherPrivateNotes')} data-testid="input-request-privateNotes" /></label>
           <div className="ws-span"><Feedback error={error} /></div>
           <div className="ws-form-actions ws-span">
-            <button className="ws-btn ws-btn-primary" disabled={create.isPending || update.isPending} data-testid="button-save-request">{editing ? 'Save changes' : 'Submit request'}</button>
+            {eligible && <button type="submit" className="ws-btn ws-btn-primary" disabled={busy} data-testid="button-send-request"><Send size={15} />{busy ? 'Saving…' : 'Send for review'}</button>}
+            <button type="button" className={`ws-btn ${eligible ? 'ws-btn-ghost' : 'ws-btn-primary'}`} disabled={busy} onClick={() => void save(false)()} data-testid="button-save-draft">Save draft</button>
             <Link href="/teacher/requests" className="ws-btn ws-btn-ghost">Cancel</Link>
           </div>
         </form>
@@ -242,7 +287,7 @@ export function TeacherMe() {
           </div>
         </div>
       </Card>
-      <VerificationCard kind="teacher" />
+      <TeacherVerificationPanel />
     </div>
   );
 }

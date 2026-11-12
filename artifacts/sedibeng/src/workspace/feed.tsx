@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'wouter';
 import { type InfiniteData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { Bookmark, CheckCircle2, Gift, MapPin, Share2, Sparkles } from 'lucide-react';
+import { BadgeCheck, Bookmark, CalendarClock, CheckCircle2, Gift, MapPin, Share2, Sparkles } from 'lucide-react';
 import {
   type FeedPage, type FeedPost, type GetFeedParams,
   getFeed, getGetDonorDashboardQueryKey, getGetMyVerificationQueryKey, getGetSavedRequestsQueryKey, getGetSponsorshipsQueryKey,
@@ -28,7 +28,7 @@ export function useFeed(filters: FeedFilters) {
 
 export function useIsVerified() {
   const verification = useGetMyVerification({ query: { queryKey: getGetMyVerificationQueryKey() } });
-  return { loading: verification.isLoading, verified: verification.data?.some((record) => record.status === 'APPROVED') ?? false, record: verification.data?.[0] };
+  return { loading: verification.isLoading, verified: verification.data?.some((record) => record.status === 'VERIFIED') ?? false, record: verification.data?.[0] };
 }
 
 function patchPost(client: ReturnType<typeof useQueryClient>, id: string, changes: Partial<FeedPost>) {
@@ -51,6 +51,12 @@ export function useToggleSave() {
       onError: () => { patchPost(client, post.id, { isSaved: !next }); toast({ title: 'Couldn’t update your saved list', description: 'Please try again.', variant: 'destructive' }); },
     });
   };
+}
+
+const conditionLabels: Record<string, string> = { NEW: 'New only', GENTLY_USED: 'Gently used is fine', ANY: 'Any condition' };
+
+function neededBy(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 function shareLink(post: FeedPost) {
@@ -79,7 +85,7 @@ export function FeedPostCard({ post, onOffer, onToggleSave }: { post: FeedPost; 
       <header className="ws-post-head">
         <Avatar name={post.schoolName} />
         <div className="ws-post-who">
-          <b>{post.schoolName}</b>
+          <b>{post.schoolName}{post.teacherVerified && <span className="ws-verified" title="This teacher’s identity and school have been verified"><BadgeCheck size={14} />Verified teacher</span>}</b>
           <span><MapPin size={12} />{post.location || 'Botswana'} · {timeAgo(post.postedAt)}</span>
         </div>
         {fulfilled
@@ -92,6 +98,14 @@ export function FeedPostCard({ post, onOffer, onToggleSave }: { post: FeedPost; 
         <p className={expanded ? '' : 'is-clamped'}>{post.description}</p>
         {long && <button className="ws-link-btn" onClick={() => setExpanded((v) => !v)}>{expanded ? 'Show less' : 'See more'}</button>}
       </div>
+
+      {(post.size || post.conditionRequirement || post.requiredBy) && (
+        <div className="ws-facts ws-post-facts">
+          {post.size && <span>Size: <b>{post.size}</b></span>}
+          {post.conditionRequirement && <span>{conditionLabels[post.conditionRequirement] ?? post.conditionRequirement}</span>}
+          {post.requiredBy && <span><CalendarClock size={14} />Needed by <b>{neededBy(post.requiredBy)}</b></span>}
+        </div>
+      )}
 
       <Link href={detail} className="ws-post-photo" aria-label={`Open ${post.title}`}>
         <PhotoImage src={post.imageUrl} alt={post.imageAlt} loading="lazy" />

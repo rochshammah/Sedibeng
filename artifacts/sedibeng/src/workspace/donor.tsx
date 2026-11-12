@@ -19,9 +19,9 @@ const chips: { label: string; filters: FeedFilters }[] = [
   { label: 'All', filters: {} },
   { label: 'Urgent', filters: { priority: 'Essential' } },
   { label: 'School shoes', filters: { category: 'School shoes' } },
-  { label: 'Books & stationery', filters: { category: 'Books & stationery' } },
-  { label: 'Bags', filters: { category: 'Bags' } },
-  { label: 'Uniforms', filters: { category: 'Uniforms' } },
+  { label: 'Books & stationery', filters: { category: 'Books & stationery,Stationery,Exercise books,Textbooks,Learning materials' } },
+  { label: 'Bags', filters: { category: 'Bags,School bags' } },
+  { label: 'Uniforms', filters: { category: 'Uniforms,School uniforms' } },
 ];
 
 function useDebounced<T>(value: T, delay = 350) {

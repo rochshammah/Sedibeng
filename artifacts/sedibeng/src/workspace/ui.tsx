@@ -70,10 +70,10 @@ export function Card({ title, hint, action, children }: { title?: string; hint?:
 }
 
 const statusTone: Record<string, string> = {
-  APPROVED: 'good', ACTIVE: 'good', OPEN: 'good', FULFILLED: 'good', RESOLVED: 'good', AVAILABLE: 'good', Open: 'good', Fulfilled: 'good',
+  VERIFIED: 'good', APPROVED: 'good', ACTIVE: 'good', OPEN: 'good', FULFILLED: 'good', RESOLVED: 'good', AVAILABLE: 'good', Open: 'good', Fulfilled: 'good',
   PENDING: 'warn', PENDING_TEACHER_REVIEW: 'warn', AWAITING_TEACHER_APPROVAL: 'warn', PENDING_MODERATION: 'warn', 'Pending moderation': 'warn',
   UNDER_REVIEW: 'warn', PREPARING: 'warn', READY_FOR_HANDOFF: 'warn', New: 'warn', PARTIALLY_MATCHED: 'warn', 'Partially matched': 'warn',
-  REJECTED: 'bad', CANCELLED: 'bad', SUSPENDED: 'bad', WITHDRAWN: 'bad', Rejected: 'bad', Cancelled: 'bad', DISMISSED: 'muted', Read: 'muted',
+  REJECTED: 'bad', CANCELLED: 'bad', SUSPENDED: 'bad', EXPIRED: 'bad', NEEDS_MORE_INFORMATION: 'warn', 'Needs changes': 'warn', NOT_STARTED: 'muted', Draft: 'muted', WITHDRAWN: 'bad', Rejected: 'bad', Cancelled: 'bad', DISMISSED: 'muted', Read: 'muted',
 };
 
 export function StatusPill({ status }: { status: string }) {
