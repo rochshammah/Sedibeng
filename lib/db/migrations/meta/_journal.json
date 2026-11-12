@@ -22,6 +22,13 @@
       "when": 1793876004555,
       "tag": "0002_bored_argent",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794150706716,
+      "tag": "0003_lonely_betty_brant",
+      "breakpoints": true
     }
   ]
 }
