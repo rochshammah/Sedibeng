@@ -180,41 +180,47 @@ async function registerAccount(
       .returning();
 
     if (role === "TEACHER") {
-      if (!("schoolName" in input)) {
-        throw new HttpError(400, "Teacher registration details are required.");
-      }
       const teacherInput = input as unknown as {
-        schoolName: string;
-        district: string;
+        schoolId?: string;
+        schoolName?: string;
+        district?: string;
         area?: string;
       };
-      const schoolName = teacherInput.schoolName.trim();
-      const district = teacherInput.district.trim();
-      const area = teacherInput.area?.trim() || null;
-      const [existingSchool] = await tx
-        .select({ id: schoolsTable.id })
-        .from(schoolsTable)
-        .where(
-          sql`lower(${schoolsTable.name}) = ${schoolName.toLowerCase()}
-            and lower(${schoolsTable.district}) = ${district.toLowerCase()}
-            and lower(coalesce(${schoolsTable.area}, '')) = ${(
-              area ?? ""
-            ).toLowerCase()}`,
-        )
-        .limit(1);
-
-      let schoolId = existingSchool?.id;
-      if (!schoolId) {
-        const [school] = await tx
-          .insert(schoolsTable)
-          .values({
-            name: schoolName,
-            district,
-            area,
-            status: "PENDING_REVIEW",
-          })
-          .returning({ id: schoolsTable.id });
-        schoolId = school.id;
+      let schoolId: string | undefined;
+      if (teacherInput.schoolId) {
+        // Preferred: pick a school from the administrator-managed directory.
+        const [chosen] = await tx
+          .select({ id: schoolsTable.id })
+          .from(schoolsTable)
+          .where(sql`${schoolsTable.id} = ${teacherInput.schoolId} and ${schoolsTable.status} = 'ACTIVE'`)
+          .limit(1);
+        if (!chosen) throw new HttpError(400, "Please choose a school from the list.");
+        schoolId = chosen.id;
+      } else {
+        if (!teacherInput.schoolName?.trim() || !teacherInput.district?.trim()) {
+          throw new HttpError(400, "Choose your school, or enter its name and district.");
+        }
+        const schoolName = teacherInput.schoolName.trim();
+        const district = teacherInput.district.trim();
+        const area = teacherInput.area?.trim() || null;
+        const [existingSchool] = await tx
+          .select({ id: schoolsTable.id })
+          .from(schoolsTable)
+          .where(
+            sql`lower(${schoolsTable.name}) = ${schoolName.toLowerCase()}
+              and lower(${schoolsTable.district}) = ${district.toLowerCase()}
+              and lower(coalesce(${schoolsTable.area}, '')) = ${(area ?? "").toLowerCase()}`,
+          )
+          .limit(1);
+        schoolId = existingSchool?.id;
+        if (!schoolId) {
+          // A school that is not in the directory yet waits for an administrator to confirm it.
+          const [school] = await tx
+            .insert(schoolsTable)
+            .values({ name: schoolName, district, area, status: "PENDING_REVIEW" })
+            .returning({ id: schoolsTable.id });
+          schoolId = school.id;
+        }
       }
       await tx.insert(teacherProfilesTable).values({
         userId: createdUser.id,
@@ -222,11 +228,15 @@ async function registerAccount(
       });
     }
 
-    await tx.insert(verificationRecordsTable).values({
-      userId: createdUser.id,
-      type: role,
-      status: "PENDING",
-    });
+    // Donors start a single verification request. Teachers verify in two stages
+    // (identity, then professional) which they submit later with documents.
+    if (role === "DONOR") {
+      await tx.insert(verificationRecordsTable).values({
+        userId: createdUser.id,
+        type: "DONOR",
+        status: "PENDING",
+      });
+    }
     await tx.insert(emailVerificationTokensTable).values({
       userId: createdUser.id,
       tokenHash,
