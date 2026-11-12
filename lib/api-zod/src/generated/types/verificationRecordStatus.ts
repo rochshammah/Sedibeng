@@ -11,6 +11,8 @@ export type VerificationRecordStatus = typeof VerificationRecordStatus[keyof typ
 
 export const VerificationRecordStatus = {
   PENDING: 'PENDING',
-  APPROVED: 'APPROVED',
+  VERIFIED: 'VERIFIED',
   REJECTED: 'REJECTED',
+  NEEDS_MORE_INFORMATION: 'NEEDS_MORE_INFORMATION',
+  EXPIRED: 'EXPIRED',
 } as const;

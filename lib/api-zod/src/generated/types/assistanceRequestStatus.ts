@@ -10,7 +10,9 @@ export type AssistanceRequestStatus = typeof AssistanceRequestStatus[keyof typeo
 
 
 export const AssistanceRequestStatus = {
+  Draft: 'Draft',
   Pending_moderation: 'Pending moderation',
+  Needs_changes: 'Needs changes',
   Open: 'Open',
   Partially_matched: 'Partially matched',
   Matched: 'Matched',

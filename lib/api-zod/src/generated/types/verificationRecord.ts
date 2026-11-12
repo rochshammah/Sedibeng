@@ -5,6 +5,7 @@
  * Secure, role-based school assistance API for Sedibeng
  * OpenAPI spec version: 0.1.0
  */
+import type { VerificationRecordStage } from './verificationRecordStage';
 import type { VerificationRecordStatus } from './verificationRecordStatus';
 import type { VerificationRecordType } from './verificationRecordType';
 
@@ -14,6 +15,15 @@ export interface VerificationRecord {
   userName: string;
   type: VerificationRecordType;
   status: VerificationRecordStatus;
+  /** @nullable */
+  stage: VerificationRecordStage;
+  /** @nullable */
+  schoolName: string | null;
+  documentCount: number;
+  /** @nullable */
+  feedback: string | null;
+  /** @nullable */
+  expiresAt: Date | null;
   /** @nullable */
   applicantNote: string | null;
   documentProvided: boolean;

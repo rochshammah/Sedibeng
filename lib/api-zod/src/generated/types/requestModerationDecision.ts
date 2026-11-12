@@ -12,4 +12,5 @@ export type RequestModerationDecision = typeof RequestModerationDecision[keyof t
 export const RequestModerationDecision = {
   APPROVE: 'APPROVE',
   REJECT: 'REJECT',
+  REQUEST_CHANGES: 'REQUEST_CHANGES',
 } as const;

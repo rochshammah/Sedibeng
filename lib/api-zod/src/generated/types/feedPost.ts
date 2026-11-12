@@ -22,6 +22,13 @@ export interface FeedPost {
   status: FeedPostStatus;
   imageUrl: string;
   imageAlt: string;
+  /** @nullable */
+  size: string | null;
+  /** @nullable */
+  conditionRequirement: string | null;
+  /** @nullable */
+  requiredBy: string | null;
+  teacherVerified: boolean;
   postedAt: string;
   quantityCovered: number;
   quantityPending: number;

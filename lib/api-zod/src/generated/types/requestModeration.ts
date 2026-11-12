@@ -10,8 +10,15 @@ import type { RequestModerationDecision } from './requestModerationDecision';
 export interface RequestModeration {
   decision: RequestModerationDecision;
   /**
+     * Private administrator notes.
      * @maxLength 1000
      * @nullable
      */
   note?: string | null;
+  /**
+     * Shown to the teacher. Required for REJECT and REQUEST_CHANGES.
+     * @maxLength 1000
+     * @nullable
+     */
+  feedback?: string | null;
 }

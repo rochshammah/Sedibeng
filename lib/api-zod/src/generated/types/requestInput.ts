@@ -5,6 +5,7 @@
  * Secure, role-based school assistance API for Sedibeng
  * OpenAPI spec version: 0.1.0
  */
+import type { RequestInputConditionRequirement } from './requestInputConditionRequirement';
 import type { RequestInputPriority } from './requestInputPriority';
 
 export interface RequestInput {
@@ -50,4 +51,21 @@ export interface RequestInput {
      * @maxLength 500
      */
   schoolContext: string;
+  /**
+     * @maxLength 60
+     * @nullable
+     */
+  size?: string | null;
+  /** @nullable */
+  conditionRequirement?: RequestInputConditionRequirement;
+  /** @nullable */
+  requiredBy?: Date | null;
+  /**
+     * Visible only to the teacher and administrators.
+     * @maxLength 1000
+     * @nullable
+     */
+  teacherPrivateNotes?: string | null;
+  /** Send for review (needs full verification). False saves a draft. */
+  submit?: boolean;
 }

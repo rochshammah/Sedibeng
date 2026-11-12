@@ -12,4 +12,6 @@ export type VerificationDecisionDecision = typeof VerificationDecisionDecision[k
 export const VerificationDecisionDecision = {
   APPROVE: 'APPROVE',
   REJECT: 'REJECT',
+  REQUEST_INFO: 'REQUEST_INFO',
+  EXPIRE: 'EXPIRE',
 } as const;

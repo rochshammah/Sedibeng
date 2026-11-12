@@ -21,6 +21,12 @@ export interface AssistanceRequest {
   schoolContext: string;
   priority: AssistanceRequestPriority;
   status: AssistanceRequestStatus;
+  /** @nullable */
+  size: string | null;
+  /** @nullable */
+  conditionRequirement: string | null;
+  /** @nullable */
+  requiredBy: string | null;
   imageUrl: string;
   imageAlt: string;
   updatedLabel: string;

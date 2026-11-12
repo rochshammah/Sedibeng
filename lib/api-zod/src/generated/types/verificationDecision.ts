@@ -10,8 +10,20 @@ import type { VerificationDecisionDecision } from './verificationDecisionDecisio
 export interface VerificationDecision {
   decision: VerificationDecisionDecision;
   /**
+     * Private administrator notes, never shown to the applicant.
      * @maxLength 1000
      * @nullable
      */
   note?: string | null;
+  /**
+     * Shown to the applicant. Required for REJECT and REQUEST_INFO.
+     * @maxLength 1000
+     * @nullable
+     */
+  feedback?: string | null;
+  /**
+     * Optional expiry when approving (for example licence validity).
+     * @nullable
+     */
+  expiresAt?: Date | null;
 }

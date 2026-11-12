@@ -8,16 +8,18 @@
 import type { DonorRegistration } from './donorRegistration';
 
 export type TeacherRegistration = DonorRegistration & {
+  /** A school chosen from the administrator-managed directory. */
+  schoolId?: string;
   /**
      * @minLength 2
      * @maxLength 160
      */
-  schoolName: string;
+  schoolName?: string;
   /**
      * @minLength 2
      * @maxLength 100
      */
-  district: string;
+  district?: string;
   /** @maxLength 100 */
   area?: string;
 };
