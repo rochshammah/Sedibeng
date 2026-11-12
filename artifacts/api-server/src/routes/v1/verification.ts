@@ -16,8 +16,7 @@ import {
   documentUrlTtlSeconds,
   getStorage,
   newObjectKey,
-  readLocalObject,
-  verifyLocalToken,
+  verifyViewToken,
 } from "../../lib/storage";
 import {
   ALLOWED_DOCUMENT_TYPES,
@@ -356,7 +355,9 @@ router.post("/verification/documents/:id/access", requireAuth, async (request, r
   }
   const storage = getStorage();
   if (!storage) throw new HttpError(503, "Document storage is not configured on this server.");
-  const baseUrl = `${request.protocol}://${request.get("host")}`;
+  // The public host the browser used (honours the proxy in front of the API).
+  const publicHost = request.get("x-forwarded-host")?.split(",")[0]?.trim() || request.get("host");
+  const baseUrl = `${request.protocol}://${publicHost}`;
   const url = await storage.signedGetUrl({
     key: doc.objectKey,
     filename: doc.originalFilename,
@@ -380,16 +381,13 @@ router.post("/verification/documents/:id/access", requireAuth, async (request, r
   );
 });
 
-// Development-only: serves files for the local storage driver via a signed, expiring token.
-router.get("/documents/local/:token", async (request, response) => {
+// Serves a file for drivers that go through this API (Cloudinary, local development).
+// The link is signed and expires; it carries no cookies, so it works in a new tab.
+router.get("/documents/view/:token", async (request, response) => {
   const storage = getStorage();
-  const claims = storage?.driver === "local" ? verifyLocalToken(String(request.params.token)) : null;
-  if (!claims) {
-    response.status(404).json({ error: "That link has expired or is not valid." });
-    return;
-  }
-  const bytes = await readLocalObject(claims.k).catch(() => null);
-  if (!bytes) {
+  const claims = storage?.proxied ? verifyViewToken(String(request.params.token)) : null;
+  const bytes = claims && storage?.read ? await storage.read(claims.k).catch(() => null) : null;
+  if (!claims || !bytes) {
     response.status(404).json({ error: "That link has expired or is not valid." });
     return;
   }
