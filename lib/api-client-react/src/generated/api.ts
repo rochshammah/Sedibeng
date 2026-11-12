@@ -27,6 +27,8 @@ import type {
 import type {
   AdminBootstrap,
   AdminDashboard,
+  AdminSchool,
+  AdminVerificationDetail,
   ApiError,
   ApiErrorResponse,
   AssistanceRequest,
@@ -34,6 +36,8 @@ import type {
   AuthSession,
   AuthUser,
   CsrfToken,
+  DeletedDocument,
+  DocumentAccess,
   DonorDashboard,
   DonorRegistration,
   EmailRequest,
@@ -45,10 +49,13 @@ import type {
   HealthStatus,
   InventoryInput,
   InventoryItem,
+  ListAdminSchoolsParams,
   ListSchoolsParams,
+  ListVerificationQueueParams,
   LoginRequest,
   Notification,
   OrderStatusUpdate,
+  OwnRequest,
   PasswordReset,
   ProfileUpdate,
   Report,
@@ -58,6 +65,7 @@ import type {
   RequestModeration,
   SaveState,
   School,
+  SchoolInput,
   Sponsorship,
   SponsorshipDecision,
   SponsorshipInput,
@@ -65,9 +73,14 @@ import type {
   TeacherProfile,
   TeacherProfileUpdate,
   TeacherRegistration,
+  TeacherStageSubmission,
+  TeacherVerification,
+  TeacherVerificationStage,
   TokenRequest,
+  UploadVerificationDocumentParams,
   UserStatusUpdate,
   VerificationDecision,
+  VerificationDocumentInfo,
   VerificationRecord,
   VerificationSubmission
 } from './api.schemas';
@@ -4439,20 +4452,27 @@ export const useModerateRequest = <TError = ErrorType<ApiErrorResponse>,
       return useMutation(getModerateRequestMutationOptions(options), queryClient);
     }
 
-export const getListVerificationQueueUrl = () => {
+export const getListVerificationQueueUrl = (params?: ListVerificationQueueParams,) => {
+  const normalizedParams = new URLSearchParams();
 
+  Object.entries(params || {}).forEach(([key, value]) => {
 
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
 
+  const stringifiedParams = normalizedParams.toString();
 
-  return `/api/v1/admin/verification`
+  return stringifiedParams.length > 0 ? `/api/v1/admin/verification?${stringifiedParams}` : `/api/v1/admin/verification`
 }
 
 /**
- * @summary List pending account verification records
+ * @summary List verification submissions (pending by default)
  */
-export const listVerificationQueue = async ( options?: Parameters<typeof customFetch>[1]): Promise<VerificationRecord[]> => {
+export const listVerificationQueue = async (params?: ListVerificationQueueParams, options?: Parameters<typeof customFetch>[1]): Promise<VerificationRecord[]> => {
 
-  return customFetch<VerificationRecord[]>(getListVerificationQueueUrl(),
+  return customFetch<VerificationRecord[]>(getListVerificationQueueUrl(params),
   {
     ...options,
     method: 'GET'
@@ -4465,23 +4485,23 @@ export const listVerificationQueue = async ( options?: Parameters<typeof customF
 
 
 
-export const getListVerificationQueueQueryKey = () => {
+export const getListVerificationQueueQueryKey = (params?: ListVerificationQueueParams,) => {
     return [
-    `/api/v1/admin/verification`
+    `/api/v1/admin/verification`, ...(params ? [params] : [])
     ] as const;
     }
 
 
-export const getListVerificationQueueQueryOptions = <TData = Awaited<ReturnType<typeof listVerificationQueue>>, TError = ErrorType<ApiErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVerificationQueue>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+export const getListVerificationQueueQueryOptions = <TData = Awaited<ReturnType<typeof listVerificationQueue>>, TError = ErrorType<ApiErrorResponse>>(params?: ListVerificationQueueParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVerificationQueue>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListVerificationQueueQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListVerificationQueueQueryKey(params);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listVerificationQueue>>> = ({ signal }) => listVerificationQueue({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listVerificationQueue>>> = ({ signal }) => listVerificationQueue(params, { signal, ...requestOptions });
 
 
 
@@ -4495,7 +4515,7 @@ export type ListVerificationQueueQueryError = ErrorType<ApiErrorResponse>
 
 
 export function useListVerificationQueue<TData = Awaited<ReturnType<typeof listVerificationQueue>>, TError = ErrorType<ApiErrorResponse>>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVerificationQueue>>, TError, TData>> & Pick<
+ params: undefined |  ListVerificationQueueParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVerificationQueue>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listVerificationQueue>>,
           TError,
@@ -4505,7 +4525,7 @@ export function useListVerificationQueue<TData = Awaited<ReturnType<typeof listV
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useListVerificationQueue<TData = Awaited<ReturnType<typeof listVerificationQueue>>, TError = ErrorType<ApiErrorResponse>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVerificationQueue>>, TError, TData>> & Pick<
+ params?: ListVerificationQueueParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVerificationQueue>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listVerificationQueue>>,
           TError,
@@ -4515,19 +4535,19 @@ export function useListVerificationQueue<TData = Awaited<ReturnType<typeof listV
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useListVerificationQueue<TData = Awaited<ReturnType<typeof listVerificationQueue>>, TError = ErrorType<ApiErrorResponse>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVerificationQueue>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ params?: ListVerificationQueueParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVerificationQueue>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary List pending account verification records
+ * @summary List verification submissions (pending by default)
  */
 
 export function useListVerificationQueue<TData = Awaited<ReturnType<typeof listVerificationQueue>>, TError = ErrorType<ApiErrorResponse>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVerificationQueue>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ params?: ListVerificationQueueParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listVerificationQueue>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getListVerificationQueueQueryOptions(options)
+  const queryOptions = getListVerificationQueueQueryOptions(params,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
@@ -4539,6 +4559,1001 @@ export function useListVerificationQueue<TData = Awaited<ReturnType<typeof listV
 
 
 
+
+export const getGetAdminVerificationDetailUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/admin/verification/${id}`
+}
+
+/**
+ * @summary Full review context for one verification submission
+ */
+export const getAdminVerificationDetail = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AdminVerificationDetail> => {
+
+  return customFetch<AdminVerificationDetail>(getGetAdminVerificationDetailUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAdminVerificationDetailQueryKey = (id: string,) => {
+    return [
+    `/api/v1/admin/verification/${id}`
+    ] as const;
+    }
+
+
+export const getGetAdminVerificationDetailQueryOptions = <TData = Awaited<ReturnType<typeof getAdminVerificationDetail>>, TError = ErrorType<ApiErrorResponse>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminVerificationDetail>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminVerificationDetailQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminVerificationDetail>>> = ({ signal }) => getAdminVerificationDetail(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminVerificationDetail>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAdminVerificationDetailQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminVerificationDetail>>>
+export type GetAdminVerificationDetailQueryError = ErrorType<ApiErrorResponse>
+
+
+export function useGetAdminVerificationDetail<TData = Awaited<ReturnType<typeof getAdminVerificationDetail>>, TError = ErrorType<ApiErrorResponse>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminVerificationDetail>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminVerificationDetail>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminVerificationDetail>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAdminVerificationDetail<TData = Awaited<ReturnType<typeof getAdminVerificationDetail>>, TError = ErrorType<ApiErrorResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminVerificationDetail>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminVerificationDetail>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminVerificationDetail>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAdminVerificationDetail<TData = Awaited<ReturnType<typeof getAdminVerificationDetail>>, TError = ErrorType<ApiErrorResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminVerificationDetail>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Full review context for one verification submission
+ */
+
+export function useGetAdminVerificationDetail<TData = Awaited<ReturnType<typeof getAdminVerificationDetail>>, TError = ErrorType<ApiErrorResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminVerificationDetail>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAdminVerificationDetailQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTeacherVerificationUrl = () => {
+
+
+
+
+  return `/api/v1/teacher/verification`
+}
+
+/**
+ * @summary Two-stage verification progress for the signed-in teacher
+ */
+export const getTeacherVerification = async ( options?: Parameters<typeof customFetch>[1]): Promise<TeacherVerification> => {
+
+  return customFetch<TeacherVerification>(getGetTeacherVerificationUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTeacherVerificationQueryKey = () => {
+    return [
+    `/api/v1/teacher/verification`
+    ] as const;
+    }
+
+
+export const getGetTeacherVerificationQueryOptions = <TData = Awaited<ReturnType<typeof getTeacherVerification>>, TError = ErrorType<ApiErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeacherVerification>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTeacherVerificationQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeacherVerification>>> = ({ signal }) => getTeacherVerification({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTeacherVerification>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTeacherVerificationQueryResult = NonNullable<Awaited<ReturnType<typeof getTeacherVerification>>>
+export type GetTeacherVerificationQueryError = ErrorType<ApiErrorResponse>
+
+
+export function useGetTeacherVerification<TData = Awaited<ReturnType<typeof getTeacherVerification>>, TError = ErrorType<ApiErrorResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeacherVerification>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTeacherVerification>>,
+          TError,
+          Awaited<ReturnType<typeof getTeacherVerification>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTeacherVerification<TData = Awaited<ReturnType<typeof getTeacherVerification>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeacherVerification>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTeacherVerification>>,
+          TError,
+          Awaited<ReturnType<typeof getTeacherVerification>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTeacherVerification<TData = Awaited<ReturnType<typeof getTeacherVerification>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeacherVerification>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Two-stage verification progress for the signed-in teacher
+ */
+
+export function useGetTeacherVerification<TData = Awaited<ReturnType<typeof getTeacherVerification>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeacherVerification>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTeacherVerificationQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubmitTeacherVerificationStageUrl = (stage: 'IDENTITY' | 'PROFESSIONAL',) => {
+
+
+
+
+  return `/api/v1/teacher/verification/${stage}/submit`
+}
+
+/**
+ * @summary Submit one verification stage for review
+ */
+export const submitTeacherVerificationStage = async (stage: 'IDENTITY' | 'PROFESSIONAL',
+    teacherStageSubmission: TeacherStageSubmission, options?: Parameters<typeof customFetch>[1]): Promise<TeacherVerificationStage> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TeacherVerificationStage>(getSubmitTeacherVerificationStageUrl(stage),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(teacherStageSubmission)
+  }
+);}
+
+
+
+
+
+export const getSubmitTeacherVerificationStageMutationKey = () => ['submitTeacherVerificationStage'] as const;
+
+export const getSubmitTeacherVerificationStageMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitTeacherVerificationStage>>, TError,SubmitTeacherVerificationStageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitTeacherVerificationStage>>, TError,SubmitTeacherVerificationStageMutationVariables, TContext> => {
+
+const mutationKey = getSubmitTeacherVerificationStageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitTeacherVerificationStage>>, SubmitTeacherVerificationStageMutationVariables> = (props) => {
+          const {stage,data} = props ?? {};
+
+          return  submitTeacherVerificationStage(stage,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitTeacherVerificationStageMutationResult = NonNullable<Awaited<ReturnType<typeof submitTeacherVerificationStage>>>
+    export type SubmitTeacherVerificationStageMutationBody = BodyType<TeacherStageSubmission>
+    export type SubmitTeacherVerificationStageMutationError = ErrorType<ApiErrorResponse>
+    export type SubmitTeacherVerificationStageMutationVariables = {stage: 'IDENTITY' | 'PROFESSIONAL';data: BodyType<TeacherStageSubmission>}
+
+    /**
+ * @summary Submit one verification stage for review
+ */
+export const useSubmitTeacherVerificationStage = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitTeacherVerificationStage>>, TError,SubmitTeacherVerificationStageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof submitTeacherVerificationStage>>,
+        TError,
+        SubmitTeacherVerificationStageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSubmitTeacherVerificationStageMutationOptions(options), queryClient);
+    }
+
+export const getUploadVerificationDocumentUrl = (params: UploadVerificationDocumentParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/teacher/verification/documents?${stringifiedParams}` : `/api/v1/teacher/verification/documents`
+}
+
+/**
+ * @summary Upload one evidence file (raw PDF, JPEG or PNG body, max 5 MB)
+ */
+export const uploadVerificationDocument = async (uploadVerificationDocumentBody: Blob,
+    params: UploadVerificationDocumentParams, options?: Parameters<typeof customFetch>[1]): Promise<VerificationDocumentInfo> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<VerificationDocumentInfo>(getUploadVerificationDocumentUrl(params),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/pdf', ...getHeaders(options?.headers) },
+    body: uploadVerificationDocumentBody
+  }
+);}
+
+
+
+
+
+export const getUploadVerificationDocumentMutationKey = () => ['uploadVerificationDocument'] as const;
+
+export const getUploadVerificationDocumentMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadVerificationDocument>>, TError,UploadVerificationDocumentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadVerificationDocument>>, TError,UploadVerificationDocumentMutationVariables, TContext> => {
+
+const mutationKey = getUploadVerificationDocumentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadVerificationDocument>>, UploadVerificationDocumentMutationVariables> = (props) => {
+          const {data,params} = props ?? {};
+
+          return  uploadVerificationDocument(data,params,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadVerificationDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof uploadVerificationDocument>>>
+    export type UploadVerificationDocumentMutationBody = BodyType<Blob>
+    export type UploadVerificationDocumentMutationError = ErrorType<ApiErrorResponse>
+    export type UploadVerificationDocumentMutationVariables = {data: BodyType<Blob>;params: UploadVerificationDocumentParams}
+
+    /**
+ * @summary Upload one evidence file (raw PDF, JPEG or PNG body, max 5 MB)
+ */
+export const useUploadVerificationDocument = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadVerificationDocument>>, TError,UploadVerificationDocumentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof uploadVerificationDocument>>,
+        TError,
+        UploadVerificationDocumentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUploadVerificationDocumentMutationOptions(options), queryClient);
+    }
+
+export const getDeleteVerificationDocumentUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/teacher/verification/documents/${id}`
+}
+
+/**
+ * @summary Remove an unsubmitted attachment
+ */
+export const deleteVerificationDocument = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<DeletedDocument> => {
+
+  return customFetch<DeletedDocument>(getDeleteVerificationDocumentUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteVerificationDocumentMutationKey = () => ['deleteVerificationDocument'] as const;
+
+export const getDeleteVerificationDocumentMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVerificationDocument>>, TError,DeleteVerificationDocumentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteVerificationDocument>>, TError,DeleteVerificationDocumentMutationVariables, TContext> => {
+
+const mutationKey = getDeleteVerificationDocumentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteVerificationDocument>>, DeleteVerificationDocumentMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteVerificationDocument(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteVerificationDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof deleteVerificationDocument>>>
+
+    export type DeleteVerificationDocumentMutationError = ErrorType<ApiErrorResponse>
+    export type DeleteVerificationDocumentMutationVariables = {id: string}
+
+    /**
+ * @summary Remove an unsubmitted attachment
+ */
+export const useDeleteVerificationDocument = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteVerificationDocument>>, TError,DeleteVerificationDocumentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteVerificationDocument>>,
+        TError,
+        DeleteVerificationDocumentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteVerificationDocumentMutationOptions(options), queryClient);
+    }
+
+export const getAccessVerificationDocumentUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/verification/documents/${id}/access`
+}
+
+/**
+ * @summary Get a short-lived signed link to open a document (audit-logged)
+ */
+export const accessVerificationDocument = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<DocumentAccess> => {
+
+  return customFetch<DocumentAccess>(getAccessVerificationDocumentUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAccessVerificationDocumentMutationKey = () => ['accessVerificationDocument'] as const;
+
+export const getAccessVerificationDocumentMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof accessVerificationDocument>>, TError,AccessVerificationDocumentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof accessVerificationDocument>>, TError,AccessVerificationDocumentMutationVariables, TContext> => {
+
+const mutationKey = getAccessVerificationDocumentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof accessVerificationDocument>>, AccessVerificationDocumentMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  accessVerificationDocument(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AccessVerificationDocumentMutationResult = NonNullable<Awaited<ReturnType<typeof accessVerificationDocument>>>
+
+    export type AccessVerificationDocumentMutationError = ErrorType<ApiErrorResponse>
+    export type AccessVerificationDocumentMutationVariables = {id: string}
+
+    /**
+ * @summary Get a short-lived signed link to open a document (audit-logged)
+ */
+export const useAccessVerificationDocument = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof accessVerificationDocument>>, TError,AccessVerificationDocumentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof accessVerificationDocument>>,
+        TError,
+        AccessVerificationDocumentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAccessVerificationDocumentMutationOptions(options), queryClient);
+    }
+
+export const getGetMyRequestsUrl = () => {
+
+
+
+
+  return `/api/v1/teacher/requests`
+}
+
+/**
+ * @summary The signed-in teacher's own requests, including drafts and feedback
+ */
+export const getMyRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<OwnRequest[]> => {
+
+  return customFetch<OwnRequest[]>(getGetMyRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyRequestsQueryKey = () => {
+    return [
+    `/api/v1/teacher/requests`
+    ] as const;
+    }
+
+
+export const getGetMyRequestsQueryOptions = <TData = Awaited<ReturnType<typeof getMyRequests>>, TError = ErrorType<ApiErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyRequests>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyRequests>>> = ({ signal }) => getMyRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyRequests>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMyRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof getMyRequests>>>
+export type GetMyRequestsQueryError = ErrorType<ApiErrorResponse>
+
+
+export function useGetMyRequests<TData = Awaited<ReturnType<typeof getMyRequests>>, TError = ErrorType<ApiErrorResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyRequests>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyRequests>>,
+          TError,
+          Awaited<ReturnType<typeof getMyRequests>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMyRequests<TData = Awaited<ReturnType<typeof getMyRequests>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyRequests>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyRequests>>,
+          TError,
+          Awaited<ReturnType<typeof getMyRequests>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMyRequests<TData = Awaited<ReturnType<typeof getMyRequests>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyRequests>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary The signed-in teacher's own requests, including drafts and feedback
+ */
+
+export function useGetMyRequests<TData = Awaited<ReturnType<typeof getMyRequests>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyRequests>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMyRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubmitRequestUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/requests/${id}/submit`
+}
+
+/**
+ * @summary Send a draft or revised request for moderation (needs full verification)
+ */
+export const submitRequest = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<OwnRequest> => {
+
+  return customFetch<OwnRequest>(getSubmitRequestUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSubmitRequestMutationKey = () => ['submitRequest'] as const;
+
+export const getSubmitRequestMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitRequest>>, TError,SubmitRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitRequest>>, TError,SubmitRequestMutationVariables, TContext> => {
+
+const mutationKey = getSubmitRequestMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitRequest>>, SubmitRequestMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  submitRequest(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitRequestMutationResult = NonNullable<Awaited<ReturnType<typeof submitRequest>>>
+
+    export type SubmitRequestMutationError = ErrorType<ApiErrorResponse>
+    export type SubmitRequestMutationVariables = {id: string}
+
+    /**
+ * @summary Send a draft or revised request for moderation (needs full verification)
+ */
+export const useSubmitRequest = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitRequest>>, TError,SubmitRequestMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof submitRequest>>,
+        TError,
+        SubmitRequestMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSubmitRequestMutationOptions(options), queryClient);
+    }
+
+export const getListAdminSchoolsUrl = (params?: ListAdminSchoolsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/admin/schools?${stringifiedParams}` : `/api/v1/admin/schools`
+}
+
+/**
+ * @summary School directory including inactive and unconfirmed schools
+ */
+export const listAdminSchools = async (params?: ListAdminSchoolsParams, options?: Parameters<typeof customFetch>[1]): Promise<AdminSchool[]> => {
+
+  return customFetch<AdminSchool[]>(getListAdminSchoolsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminSchoolsQueryKey = (params?: ListAdminSchoolsParams,) => {
+    return [
+    `/api/v1/admin/schools`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListAdminSchoolsQueryOptions = <TData = Awaited<ReturnType<typeof listAdminSchools>>, TError = ErrorType<ApiErrorResponse>>(params?: ListAdminSchoolsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdminSchools>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminSchoolsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminSchools>>> = ({ signal }) => listAdminSchools(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminSchools>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListAdminSchoolsQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminSchools>>>
+export type ListAdminSchoolsQueryError = ErrorType<ApiErrorResponse>
+
+
+export function useListAdminSchools<TData = Awaited<ReturnType<typeof listAdminSchools>>, TError = ErrorType<ApiErrorResponse>>(
+ params: undefined |  ListAdminSchoolsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdminSchools>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminSchools>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminSchools>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAdminSchools<TData = Awaited<ReturnType<typeof listAdminSchools>>, TError = ErrorType<ApiErrorResponse>>(
+ params?: ListAdminSchoolsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdminSchools>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminSchools>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminSchools>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAdminSchools<TData = Awaited<ReturnType<typeof listAdminSchools>>, TError = ErrorType<ApiErrorResponse>>(
+ params?: ListAdminSchoolsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdminSchools>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary School directory including inactive and unconfirmed schools
+ */
+
+export function useListAdminSchools<TData = Awaited<ReturnType<typeof listAdminSchools>>, TError = ErrorType<ApiErrorResponse>>(
+ params?: ListAdminSchoolsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdminSchools>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListAdminSchoolsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateAdminSchoolUrl = () => {
+
+
+
+
+  return `/api/v1/admin/schools`
+}
+
+/**
+ * @summary Add a school to the directory
+ */
+export const createAdminSchool = async (schoolInput: SchoolInput, options?: Parameters<typeof customFetch>[1]): Promise<AdminSchool> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AdminSchool>(getCreateAdminSchoolUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(schoolInput)
+  }
+);}
+
+
+
+
+
+export const getCreateAdminSchoolMutationKey = () => ['createAdminSchool'] as const;
+
+export const getCreateAdminSchoolMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminSchool>>, TError,CreateAdminSchoolMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAdminSchool>>, TError,CreateAdminSchoolMutationVariables, TContext> => {
+
+const mutationKey = getCreateAdminSchoolMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAdminSchool>>, CreateAdminSchoolMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAdminSchool(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAdminSchoolMutationResult = NonNullable<Awaited<ReturnType<typeof createAdminSchool>>>
+    export type CreateAdminSchoolMutationBody = BodyType<SchoolInput>
+    export type CreateAdminSchoolMutationError = ErrorType<ApiErrorResponse>
+    export type CreateAdminSchoolMutationVariables = {data: BodyType<SchoolInput>}
+
+    /**
+ * @summary Add a school to the directory
+ */
+export const useCreateAdminSchool = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminSchool>>, TError,CreateAdminSchoolMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createAdminSchool>>,
+        TError,
+        CreateAdminSchoolMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateAdminSchoolMutationOptions(options), queryClient);
+    }
+
+export const getUpdateAdminSchoolUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/admin/schools/${id}`
+}
+
+/**
+ * @summary Edit a school or change whether it is active
+ */
+export const updateAdminSchool = async (id: string,
+    schoolInput: SchoolInput, options?: Parameters<typeof customFetch>[1]): Promise<AdminSchool> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AdminSchool>(getUpdateAdminSchoolUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(schoolInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateAdminSchoolMutationKey = () => ['updateAdminSchool'] as const;
+
+export const getUpdateAdminSchoolMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminSchool>>, TError,UpdateAdminSchoolMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAdminSchool>>, TError,UpdateAdminSchoolMutationVariables, TContext> => {
+
+const mutationKey = getUpdateAdminSchoolMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAdminSchool>>, UpdateAdminSchoolMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateAdminSchool(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAdminSchoolMutationResult = NonNullable<Awaited<ReturnType<typeof updateAdminSchool>>>
+    export type UpdateAdminSchoolMutationBody = BodyType<SchoolInput>
+    export type UpdateAdminSchoolMutationError = ErrorType<ApiErrorResponse>
+    export type UpdateAdminSchoolMutationVariables = {id: string;data: BodyType<SchoolInput>}
+
+    /**
+ * @summary Edit a school or change whether it is active
+ */
+export const useUpdateAdminSchool = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAdminSchool>>, TError,UpdateAdminSchoolMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateAdminSchool>>,
+        TError,
+        UpdateAdminSchoolMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateAdminSchoolMutationOptions(options), queryClient);
+    }
 
 export const getDecideVerificationUrl = (id: string,) => {
 
