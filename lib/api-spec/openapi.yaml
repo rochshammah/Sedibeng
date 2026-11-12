@@ -926,7 +926,14 @@ paths:
     get:
       operationId: listVerificationQueue
       tags: [administration]
-      summary: List pending account verification records
+      summary: List verification submissions (pending by default)
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, all]
       responses:
         "200":
           description: Pending verification metadata
@@ -937,6 +944,256 @@ paths:
                 items:
                   $ref: "#/components/schemas/VerificationRecord"
         "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/verification/{id}:
+    get:
+      operationId: getAdminVerificationDetail
+      tags: [administration]
+      summary: Full review context for one verification submission
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Submission, documents, history and audit trail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminVerificationDetail"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/teacher/verification:
+    get:
+      operationId: getTeacherVerification
+      tags: [verification]
+      summary: Two-stage verification progress for the signed-in teacher
+      responses:
+        "200":
+          description: Stage statuses, feedback, documents and publishing eligibility
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherVerification"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/teacher/verification/{stage}/submit:
+    post:
+      operationId: submitTeacherVerificationStage
+      tags: [verification]
+      summary: Submit one verification stage for review
+      parameters:
+        - name: stage
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [IDENTITY, PROFESSIONAL]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherStageSubmission"
+      responses:
+        "201":
+          description: The stage is now pending review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherVerificationStage"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/teacher/verification/documents:
+    post:
+      operationId: uploadVerificationDocument
+      tags: [verification]
+      summary: Upload one evidence file (raw PDF, JPEG or PNG body, max 5 MB)
+      parameters:
+        - name: stage
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [IDENTITY, PROFESSIONAL]
+        - name: documentType
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: filename
+          in: query
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: Stored privately as an unsubmitted attachment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationDocumentInfo"
+        "413":
+          $ref: "#/components/responses/ApiError"
+        "415":
+          $ref: "#/components/responses/ApiError"
+        "503":
+          $ref: "#/components/responses/ApiError"
+  /v1/teacher/verification/documents/{id}:
+    delete:
+      operationId: deleteVerificationDocument
+      tags: [verification]
+      summary: Remove an unsubmitted attachment
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedDocument"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/verification/documents/{id}/access:
+    post:
+      operationId: accessVerificationDocument
+      tags: [verification]
+      summary: Get a short-lived signed link to open a document (audit-logged)
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Signed link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentAccess"
+        "404":
+          $ref: "#/components/responses/ApiError"
+        "503":
+          $ref: "#/components/responses/ApiError"
+  /v1/teacher/requests:
+    get:
+      operationId: getMyRequests
+      tags: [assistance]
+      summary: The signed-in teacher's own requests, including drafts and feedback
+      responses:
+        "200":
+          description: Own requests only
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OwnRequest"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/requests/{id}/submit:
+    post:
+      operationId: submitRequest
+      tags: [assistance]
+      summary: Send a draft or revised request for moderation (needs full verification)
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Submitted for review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnRequest"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/schools:
+    get:
+      operationId: listAdminSchools
+      tags: [administration]
+      summary: School directory including inactive and unconfirmed schools
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING_REVIEW, ACTIVE, SUSPENDED]
+      responses:
+        "200":
+          description: Schools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminSchool"
+        "403":
+          $ref: "#/components/responses/ApiError"
+    post:
+      operationId: createAdminSchool
+      tags: [administration]
+      summary: Add a school to the directory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchoolInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSchool"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/schools/{id}:
+    patch:
+      operationId: updateAdminSchool
+      tags: [administration]
+      summary: Edit a school or change whether it is active
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchoolInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSchool"
+        "404":
+          $ref: "#/components/responses/ApiError"
+        "409":
           $ref: "#/components/responses/ApiError"
   /v1/admin/verification/{id}/decision:
     patch:
@@ -1068,6 +1325,14 @@ components:
           type: string
         imageAlt:
           type: string
+        size:
+          type: [string, "null"]
+        conditionRequirement:
+          type: [string, "null"]
+        requiredBy:
+          type: [string, "null"]
+        teacherVerified:
+          type: boolean
         postedAt:
           type: string
         quantityCovered:
@@ -1094,6 +1359,10 @@ components:
         - status
         - imageUrl
         - imageAlt
+        - size
+        - conditionRequirement
+        - requiredBy
+        - teacherVerified
         - postedAt
         - quantityCovered
         - quantityPending
@@ -1148,13 +1417,21 @@ components:
         status:
           type: string
           enum:
+            - Draft
             - Pending moderation
+            - Needs changes
             - Open
             - Partially matched
             - Matched
             - Rejected
             - Cancelled
             - Fulfilled
+        size:
+          type: [string, "null"]
+        conditionRequirement:
+          type: [string, "null"]
+        requiredBy:
+          type: [string, "null"]
         imageUrl:
           type: string
         imageAlt:
@@ -1164,6 +1441,9 @@ components:
         isSeedData:
           type: boolean
       required:
+        - size
+        - conditionRequirement
+        - requiredBy
         - id
         - title
         - category
@@ -1309,6 +1589,10 @@ components:
         - $ref: "#/components/schemas/DonorRegistration"
         - type: object
           properties:
+            schoolId:
+              type: string
+              format: uuid
+              description: A school chosen from the administrator-managed directory.
             schoolName:
               type: string
               minLength: 2
@@ -1320,7 +1604,6 @@ components:
             area:
               type: string
               maxLength: 100
-          required: [schoolName, district]
     LoginRequest:
       type: object
       properties:
@@ -1397,6 +1680,231 @@ components:
           type: [string, "null"]
           maxLength: 100
       required: [position]
+    VerificationDocumentInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        stage:
+          type: string
+          enum: [IDENTITY, PROFESSIONAL]
+        documentType:
+          type: string
+        originalFilename:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        recordId:
+          type: [string, "null"]
+          format: uuid
+        submitted:
+          type: boolean
+      required: [id, stage, documentType, originalFilename, contentType, sizeBytes, createdAt, recordId, submitted]
+    TeacherVerificationStage:
+      type: object
+      properties:
+        stage:
+          type: string
+          enum: [IDENTITY, PROFESSIONAL]
+        status:
+          type: string
+          enum: [NOT_STARTED, PENDING, NEEDS_MORE_INFORMATION, VERIFIED, REJECTED, EXPIRED]
+        submittedAt:
+          type: [string, "null"]
+          format: date-time
+        reviewedAt:
+          type: [string, "null"]
+          format: date-time
+        feedback:
+          type: [string, "null"]
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+        canSubmit:
+          type: boolean
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationDocumentInfo"
+      required: [stage, status, submittedAt, reviewedAt, feedback, expiresAt, canSubmit, documents]
+    TeacherVerification:
+      type: object
+      properties:
+        eligible:
+          type: boolean
+        reasons:
+          type: array
+          items:
+            type: string
+        school:
+          type: [object, "null"]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            status:
+              type: string
+          required: [id, name, status]
+        storageConfigured:
+          type: boolean
+        identity:
+          $ref: "#/components/schemas/TeacherVerificationStage"
+        professional:
+          $ref: "#/components/schemas/TeacherVerificationStage"
+      required: [eligible, reasons, school, storageConfigured, identity, professional]
+    TeacherStageSubmission:
+      type: object
+      properties:
+        note:
+          type: [string, "null"]
+          maxLength: 500
+    DeletedDocument:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+      required: [id]
+    DocumentAccess:
+      type: object
+      properties:
+        url:
+          type: string
+        expiresInSeconds:
+          type: integer
+        filename:
+          type: string
+      required: [url, expiresInSeconds, filename]
+    AdminVerificationDetail:
+      type: object
+      properties:
+        record:
+          $ref: "#/components/schemas/VerificationRecord"
+        applicant:
+          type: object
+          properties:
+            name:
+              type: string
+            email:
+              type: string
+          required: [name, email]
+        school:
+          type: [object, "null"]
+          properties:
+            name:
+              type: string
+            district:
+              type: string
+            status:
+              type: string
+          required: [name, district, status]
+        privateNotes:
+          type: [string, "null"]
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationDocumentInfo"
+        history:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              stage:
+                type: [string, "null"]
+              status:
+                type: string
+              submittedAt:
+                type: string
+                format: date-time
+              reviewedAt:
+                type: [string, "null"]
+                format: date-time
+              reviewerName:
+                type: [string, "null"]
+              feedback:
+                type: [string, "null"]
+            required: [id, stage, status, submittedAt, reviewedAt, reviewerName, feedback]
+        audit:
+          type: array
+          items:
+            type: object
+            properties:
+              action:
+                type: string
+              actorName:
+                type: [string, "null"]
+              createdAt:
+                type: string
+                format: date-time
+            required: [action, actorName, createdAt]
+      required: [record, applicant, school, privateNotes, documents, history, audit]
+    OwnRequest:
+      allOf:
+        - $ref: "#/components/schemas/AssistanceRequest"
+        - type: object
+          properties:
+            moderationFeedback:
+              type: [string, "null"]
+            teacherPrivateNotes:
+              type: [string, "null"]
+          required: [moderationFeedback, teacherPrivateNotes]
+    SchoolInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 160
+        schoolType:
+          type: [string, "null"]
+          enum: [PRIMARY, JUNIOR_SECONDARY, SENIOR_SECONDARY, SPECIAL_NEEDS, OTHER, null]
+        district:
+          type: string
+          minLength: 2
+          maxLength: 100
+        area:
+          type: [string, "null"]
+          maxLength: 100
+        generalLocation:
+          type: [string, "null"]
+          maxLength: 200
+        status:
+          type: string
+          enum: [PENDING_REVIEW, ACTIVE, SUSPENDED]
+      required: [name, district, status]
+    AdminSchool:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        schoolType:
+          type: [string, "null"]
+        district:
+          type: string
+        area:
+          type: [string, "null"]
+        generalLocation:
+          type: [string, "null"]
+        status:
+          type: string
+          enum: [PENDING_REVIEW, ACTIVE, SUSPENDED]
+        teacherCount:
+          type: integer
+      required: [id, name, schoolType, district, area, generalLocation, status, teacherCount]
     School:
       type: object
       properties:
@@ -1426,7 +1934,19 @@ components:
           enum: [TEACHER, DONOR]
         status:
           type: string
-          enum: [PENDING, APPROVED, REJECTED]
+          enum: [PENDING, VERIFIED, REJECTED, NEEDS_MORE_INFORMATION, EXPIRED]
+        stage:
+          type: [string, "null"]
+          enum: [IDENTITY, PROFESSIONAL, null]
+        schoolName:
+          type: [string, "null"]
+        documentCount:
+          type: integer
+        feedback:
+          type: [string, "null"]
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
         applicantNote:
           type: [string, "null"]
         documentProvided:
@@ -1437,7 +1957,7 @@ components:
         reviewedAt:
           type: [string, "null"]
           format: date-time
-      required: [id, userId, userName, type, status, applicantNote, documentProvided, submittedAt, reviewedAt]
+      required: [id, userId, userName, type, status, stage, schoolName, documentCount, feedback, expiresAt, applicantNote, documentProvided, submittedAt, reviewedAt]
     VerificationSubmission:
       type: object
       properties:
@@ -1485,6 +2005,22 @@ components:
           type: string
           minLength: 4
           maxLength: 500
+        size:
+          type: [string, "null"]
+          maxLength: 60
+        conditionRequirement:
+          type: [string, "null"]
+          enum: [NEW, GENTLY_USED, ANY, null]
+        requiredBy:
+          type: [string, "null"]
+          format: date
+        teacherPrivateNotes:
+          type: [string, "null"]
+          maxLength: 1000
+          description: Visible only to the teacher and administrators.
+        submit:
+          type: boolean
+          description: Send for review (needs full verification). False saves a draft.
       required: [schoolId, title, category, item, description, quantity, unit, priority, schoolContext]
     InventoryInput:
       type: object
@@ -1721,20 +2257,34 @@ components:
       properties:
         decision:
           type: string
-          enum: [APPROVE, REJECT]
+          enum: [APPROVE, REJECT, REQUEST_CHANGES]
         note:
           type: [string, "null"]
           maxLength: 1000
+          description: Private administrator notes.
+        feedback:
+          type: [string, "null"]
+          maxLength: 1000
+          description: Shown to the teacher. Required for REJECT and REQUEST_CHANGES.
       required: [decision]
     VerificationDecision:
       type: object
       properties:
         decision:
           type: string
-          enum: [APPROVE, REJECT]
+          enum: [APPROVE, REJECT, REQUEST_INFO, EXPIRE]
         note:
           type: [string, "null"]
           maxLength: 1000
+          description: Private administrator notes, never shown to the applicant.
+        feedback:
+          type: [string, "null"]
+          maxLength: 1000
+          description: Shown to the applicant. Required for REJECT and REQUEST_INFO.
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+          description: Optional expiry when approving (for example licence validity).
       required: [decision]
     ReportDecision:
       type: object
