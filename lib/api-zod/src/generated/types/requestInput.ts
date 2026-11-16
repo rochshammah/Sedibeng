@@ -66,6 +66,11 @@ export interface RequestInput {
      * @nullable
      */
   teacherPrivateNotes?: string | null;
+  /**
+     * Where the goods are needed. Defaults to the school's location.
+     * @nullable
+     */
+  locationId?: string | null;
   /** Send for review (needs full verification). False saves a draft. */
   submit?: boolean;
 }

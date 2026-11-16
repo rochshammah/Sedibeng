@@ -17,4 +17,8 @@ export interface TeacherProfile {
   /** @nullable */
   position: string | null;
   schoolStatus: TeacherProfileSchoolStatus;
+  /** @nullable */
+  locationId: string | null;
+  /** @nullable */
+  locationName: string | null;
 }

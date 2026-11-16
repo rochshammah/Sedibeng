@@ -5,6 +5,7 @@
  * Secure, role-based school assistance API for Sedibeng
  * OpenAPI spec version: 0.1.0
  */
+import type { GetFeedCategoryGroup } from './getFeedCategoryGroup';
 
 export type GetFeedParams = {
 cursor?: string;
@@ -16,4 +17,6 @@ limit?: number;
 search?: string;
 category?: string;
 priority?: string;
+serviceAreaId?: string;
+categoryGroup?: GetFeedCategoryGroup;
 };

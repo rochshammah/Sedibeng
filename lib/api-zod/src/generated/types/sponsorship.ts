@@ -12,6 +12,8 @@ export interface Sponsorship {
   requestId: string;
   requestTitle: string;
   donorName: string;
+  /** @nullable */
+  inventoryTitle: string | null;
   quantity: number;
   status: SponsorshipStatus;
   createdAt: Date;

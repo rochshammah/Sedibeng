@@ -8,8 +8,8 @@
 
 export interface SponsorshipInput {
   requestId: string;
-  /** @nullable */
-  inventoryId?: string | null;
+  /** Which of your goods you are offering. The category must suit the request. */
+  inventoryId: string;
   /**
      * @minimum 1
      * @maximum 10000

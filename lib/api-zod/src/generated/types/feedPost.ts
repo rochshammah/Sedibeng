@@ -5,6 +5,7 @@
  * Secure, role-based school assistance API for Sedibeng
  * OpenAPI spec version: 0.1.0
  */
+import type { FeedPostCategoryGroup } from './feedPostCategoryGroup';
 import type { FeedPostPriority } from './feedPostPriority';
 import type { FeedPostStatus } from './feedPostStatus';
 
@@ -29,6 +30,17 @@ export interface FeedPost {
   /** @nullable */
   requiredBy: string | null;
   teacherVerified: boolean;
+  /** @nullable */
+  locationId: string | null;
+  /** @nullable */
+  locationName: string | null;
+  /** @nullable */
+  serviceAreaId: string | null;
+  /** @nullable */
+  serviceAreaName: string | null;
+  categoryGroup: FeedPostCategoryGroup;
+  /** For donors - the donor has goods in this service area in a relevant category. */
+  localMatch: boolean;
   postedAt: string;
   quantityCovered: number;
   quantityPending: number;

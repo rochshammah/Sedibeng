@@ -5,10 +5,12 @@
  * Secure, role-based school assistance API for Sedibeng
  * OpenAPI spec version: 0.1.0
  */
+import type { InventoryInputCondition } from './inventoryInputCondition';
 
 export interface InventoryInput {
   /**
-     * @minLength 4
+     * The item name donors and teachers see.
+     * @minLength 2
      * @maxLength 160
      */
   title: string;
@@ -18,11 +20,7 @@ export interface InventoryInput {
      */
   category: string;
   /**
-     * @minLength 2
-     * @maxLength 160
-     */
-  item: string;
-  /**
+     * Include useful details such as sizes. Sizes are not matched automatically.
      * @minLength 4
      * @maxLength 1000
      */
@@ -42,14 +40,7 @@ export interface InventoryInput {
      * @maxLength 40
      */
   unit: string;
-  /**
-     * @minLength 2
-     * @maxLength 100
-     */
-  district: string;
-  /**
-     * @maxLength 100
-     * @nullable
-     */
-  area?: string | null;
+  condition: InventoryInputCondition;
+  /** Where the goods are available. Must be an active location. */
+  locationId: string;
 }

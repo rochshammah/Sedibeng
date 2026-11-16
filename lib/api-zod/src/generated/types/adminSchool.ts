@@ -17,6 +17,10 @@ export interface AdminSchool {
   area: string | null;
   /** @nullable */
   generalLocation: string | null;
+  /** @nullable */
+  locationId: string | null;
+  /** @nullable */
+  locationName: string | null;
   status: AdminSchoolStatus;
   teacherCount: number;
 }

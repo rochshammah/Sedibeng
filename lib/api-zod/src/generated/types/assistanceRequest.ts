@@ -5,6 +5,7 @@
  * Secure, role-based school assistance API for Sedibeng
  * OpenAPI spec version: 0.1.0
  */
+import type { AssistanceRequestCategoryGroup } from './assistanceRequestCategoryGroup';
 import type { AssistanceRequestPriority } from './assistanceRequestPriority';
 import type { AssistanceRequestStatus } from './assistanceRequestStatus';
 
@@ -27,6 +28,15 @@ export interface AssistanceRequest {
   conditionRequirement: string | null;
   /** @nullable */
   requiredBy: string | null;
+  /** @nullable */
+  locationId: string | null;
+  /** @nullable */
+  locationName: string | null;
+  /** @nullable */
+  serviceAreaId: string | null;
+  /** @nullable */
+  serviceAreaName: string | null;
+  categoryGroup: AssistanceRequestCategoryGroup;
   imageUrl: string;
   imageAlt: string;
   updatedLabel: string;

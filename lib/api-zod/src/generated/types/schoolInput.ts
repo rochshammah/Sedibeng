@@ -31,5 +31,7 @@ export interface SchoolInput {
      * @nullable
      */
   generalLocation?: string | null;
+  /** @nullable */
+  locationId?: string | null;
   status: SchoolInputStatus;
 }
