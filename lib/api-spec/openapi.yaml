@@ -120,6 +120,18 @@ paths:
           required: false
           schema:
             type: string
+        - name: serviceAreaId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: categoryGroup
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [SHOES, UNIFORMS, BAGS, BOOKS_STATIONERY, LEARNING_MATERIALS, OTHER]
       responses:
         "200":
           description: One page of feed posts
@@ -630,6 +642,299 @@ paths:
               schema:
                 $ref: "#/components/schemas/InventoryItem"
         "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/locations:
+    get:
+      operationId: getLocations
+      tags: [accounts]
+      summary: Active service areas with their locations
+      responses:
+        "200":
+          description: Service areas and locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceAreaOption"
+  /v1/admin/locations:
+    get:
+      operationId: listAdminLocations
+      tags: [administration]
+      summary: All service areas and locations, including inactive ones
+      responses:
+        "200":
+          description: Service areas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminServiceArea"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/service-areas:
+    post:
+      operationId: createServiceArea
+      tags: [administration]
+      summary: Add a service area
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceAreaInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminServiceArea"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/service-areas/{id}:
+    patch:
+      operationId: updateServiceArea
+      tags: [administration]
+      summary: Rename or activate/deactivate a service area
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceAreaInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminServiceArea"
+        "404":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/locations/create:
+    post:
+      operationId: createLocation
+      tags: [administration]
+      summary: Add a location to a service area
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationOption"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/locations/{id}:
+    patch:
+      operationId: updateLocation
+      tags: [administration]
+      summary: Rename, move or activate/deactivate a location
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationOption"
+        "404":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/me/service-area:
+    get:
+      operationId: getMyServiceArea
+      tags: [accounts]
+      summary: The service area used by default when browsing
+      responses:
+        "200":
+          description: Chosen or derived service area
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceAreaPreference"
+    put:
+      operationId: setMyServiceArea
+      tags: [accounts]
+      summary: Choose the service area to browse by default (null clears it)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceAreaPreferenceInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceAreaPreference"
+  /v1/inventory/bulk:
+    post:
+      operationId: createInventoryBulk
+      tags: [giving]
+      summary: Add several goods at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkInventoryInput"
+      responses:
+        "201":
+          description: Items created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+  /v1/inventory/{id}/photo:
+    post:
+      operationId: uploadInventoryPhoto
+      tags: [giving]
+      summary: Upload or replace an item photo (raw JPEG or PNG body, max 5 MB)
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Photo stored privately and waiting for approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "404":
+          $ref: "#/components/responses/ApiError"
+        "413":
+          $ref: "#/components/responses/ApiError"
+        "415":
+          $ref: "#/components/responses/ApiError"
+    delete:
+      operationId: deleteInventoryPhoto
+      tags: [giving]
+      summary: Remove an item photo
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/goods:
+    get:
+      operationId: getGoods
+      tags: [giving]
+      summary: Goods donors have available (teachers), filtered by service area and category
+      parameters:
+        - name: serviceAreaId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: locationId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: categoryGroup
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [SHOES, UNIFORMS, BAGS, BOOKS_STATIONERY, LEARNING_MATERIALS, OTHER]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GoodsListing"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/goods-photos:
+    get:
+      operationId: listGoodsPhotosForReview
+      tags: [administration]
+      summary: Item photos waiting for approval
+      responses:
+        "200":
+          description: Pending photos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GoodsPhotoReviewItem"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/goods-photos/{id}/decision:
+    post:
+      operationId: decideGoodsPhoto
+      tags: [administration]
+      summary: Approve or reject an item photo
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoodsPhotoDecision"
+      responses:
+        "200":
+          description: Decided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoodsPhotoReviewItem"
+        "404":
           $ref: "#/components/responses/ApiError"
   /v1/inventory/{id}:
     patch:
@@ -1333,6 +1638,22 @@ components:
           type: [string, "null"]
         teacherVerified:
           type: boolean
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        locationName:
+          type: [string, "null"]
+        serviceAreaId:
+          type: [string, "null"]
+          format: uuid
+        serviceAreaName:
+          type: [string, "null"]
+        categoryGroup:
+          type: string
+          enum: [SHOES, UNIFORMS, BAGS, BOOKS_STATIONERY, LEARNING_MATERIALS, OTHER]
+        localMatch:
+          type: boolean
+          description: For donors - the donor has goods in this service area in a relevant category.
         postedAt:
           type: string
         quantityCovered:
@@ -1363,6 +1684,12 @@ components:
         - conditionRequirement
         - requiredBy
         - teacherVerified
+        - locationId
+        - locationName
+        - serviceAreaId
+        - serviceAreaName
+        - categoryGroup
+        - localMatch
         - postedAt
         - quantityCovered
         - quantityPending
@@ -1432,6 +1759,19 @@ components:
           type: [string, "null"]
         requiredBy:
           type: [string, "null"]
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        locationName:
+          type: [string, "null"]
+        serviceAreaId:
+          type: [string, "null"]
+          format: uuid
+        serviceAreaName:
+          type: [string, "null"]
+        categoryGroup:
+          type: string
+          enum: [SHOES, UNIFORMS, BAGS, BOOKS_STATIONERY, LEARNING_MATERIALS, OTHER]
         imageUrl:
           type: string
         imageAlt:
@@ -1444,6 +1784,11 @@ components:
         - size
         - conditionRequirement
         - requiredBy
+        - locationId
+        - locationName
+        - serviceAreaId
+        - serviceAreaName
+        - categoryGroup
         - id
         - title
         - category
@@ -1672,7 +2017,12 @@ components:
         schoolStatus:
           type: string
           enum: [PENDING_REVIEW, ACTIVE, SUSPENDED]
-      required: [id, schoolId, schoolName, district, area, position, schoolStatus]
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        locationName:
+          type: [string, "null"]
+      required: [id, schoolId, schoolName, district, area, position, schoolStatus, locationId, locationName]
     TeacherProfileUpdate:
       type: object
       properties:
@@ -1879,6 +2229,9 @@ components:
         generalLocation:
           type: [string, "null"]
           maxLength: 200
+        locationId:
+          type: [string, "null"]
+          format: uuid
         status:
           type: string
           enum: [PENDING_REVIEW, ACTIVE, SUSPENDED]
@@ -1899,12 +2252,132 @@ components:
           type: [string, "null"]
         generalLocation:
           type: [string, "null"]
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        locationName:
+          type: [string, "null"]
         status:
           type: string
           enum: [PENDING_REVIEW, ACTIVE, SUSPENDED]
         teacherCount:
           type: integer
-      required: [id, name, schoolType, district, area, generalLocation, status, teacherCount]
+      required: [id, name, schoolType, district, area, generalLocation, locationId, locationName, status, teacherCount]
+    LocationOption:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required: [id, name]
+    ServiceAreaOption:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocationOption"
+      required: [id, name, locations]
+    AdminServiceArea:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        isActive:
+          type: boolean
+        locations:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              isActive:
+                type: boolean
+            required: [id, name, isActive]
+      required: [id, name, isActive, locations]
+    ServiceAreaInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        isActive:
+          type: boolean
+      required: [name, isActive]
+    LocationInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        serviceAreaId:
+          type: string
+          format: uuid
+        isActive:
+          type: boolean
+      required: [name, serviceAreaId, isActive]
+    ServiceAreaPreference:
+      type: object
+      properties:
+        serviceAreaId:
+          type: [string, "null"]
+          format: uuid
+        serviceAreaName:
+          type: [string, "null"]
+        source:
+          type: string
+          enum: [CHOSEN, SCHOOL, YOUR_GOODS, NONE]
+      required: [serviceAreaId, serviceAreaName, source]
+    ServiceAreaPreferenceInput:
+      type: object
+      properties:
+        serviceAreaId:
+          type: [string, "null"]
+          format: uuid
+      required: [serviceAreaId]
+    GoodsPhotoReviewItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        category:
+          type: string
+        donorName:
+          type: string
+        locationName:
+          type: [string, "null"]
+        photoVersion:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, title, category, donorName, locationName, photoVersion, createdAt]
+    GoodsPhotoDecision:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [APPROVE, REJECT]
+      required: [decision]
     School:
       type: object
       properties:
@@ -2018,6 +2491,10 @@ components:
           type: [string, "null"]
           maxLength: 1000
           description: Visible only to the teacher and administrators.
+        locationId:
+          type: [string, "null"]
+          format: uuid
+          description: Where the goods are needed. Defaults to the school's location.
         submit:
           type: boolean
           description: Send for review (needs full verification). False saves a draft.
@@ -2027,20 +2504,18 @@ components:
       properties:
         title:
           type: string
-          minLength: 4
+          minLength: 2
           maxLength: 160
+          description: The item name donors and teachers see.
         category:
           type: string
           minLength: 2
           maxLength: 60
-        item:
-          type: string
-          minLength: 2
-          maxLength: 160
         description:
           type: string
           minLength: 4
           maxLength: 1000
+          description: Include useful details such as sizes. Sizes are not matched automatically.
         specifications:
           type: [string, "null"]
           maxLength: 1000
@@ -2052,14 +2527,24 @@ components:
           type: string
           minLength: 1
           maxLength: 40
-        district:
+        condition:
           type: string
-          minLength: 2
-          maxLength: 100
-        area:
-          type: [string, "null"]
-          maxLength: 100
-      required: [title, category, item, description, quantityAvailable, unit, district]
+          enum: [NEW, GOOD, FAIR]
+        locationId:
+          type: string
+          format: uuid
+          description: Where the goods are available. Must be an active location.
+      required: [title, category, description, quantityAvailable, unit, condition, locationId]
+    BulkInventoryInput:
+      type: object
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/InventoryInput"
+      required: [items]
     InventoryItem:
       type: object
       properties:
@@ -2070,6 +2555,9 @@ components:
           type: string
         category:
           type: string
+        categoryGroup:
+          type: string
+          enum: [SHOES, UNIFORMS, BAGS, BOOKS_STATIONERY, LEARNING_MATERIALS, OTHER]
         item:
           type: string
         description:
@@ -2080,16 +2568,79 @@ components:
           type: integer
         unit:
           type: string
+        condition:
+          type: [string, "null"]
         district:
           type: string
         area:
           type: [string, "null"]
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        locationName:
+          type: [string, "null"]
+        serviceAreaName:
+          type: [string, "null"]
+        photoStatus:
+          type: string
+          enum: [NONE, PENDING, APPROVED, REJECTED]
+        photoVersion:
+          type: [string, "null"]
+          description: Changes when the photo is replaced (use as a cache key).
+        offerCount:
+          type: integer
+        pendingOfferCount:
+          type: integer
         status:
           type: string
           enum: [DRAFT, AVAILABLE, RESERVED, WITHDRAWN]
         isSeedData:
           type: boolean
-      required: [id, title, category, item, description, specifications, quantityAvailable, unit, district, area, status, isSeedData]
+      required: [id, title, category, categoryGroup, item, description, specifications, quantityAvailable, unit, condition, district, area, locationId, locationName, serviceAreaName, photoStatus, photoVersion, offerCount, pendingOfferCount, status, isSeedData]
+    GoodsListing:
+      type: object
+      description: Goods a donor has available, as shown to teachers. No donor details.
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        category:
+          type: string
+        categoryGroup:
+          type: string
+          enum: [SHOES, UNIFORMS, BAGS, BOOKS_STATIONERY, LEARNING_MATERIALS, OTHER]
+        description:
+          type: string
+        quantityAvailable:
+          type: integer
+        unit:
+          type: string
+        condition:
+          type: [string, "null"]
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        locationName:
+          type: string
+        serviceAreaId:
+          type: [string, "null"]
+          format: uuid
+        serviceAreaName:
+          type: [string, "null"]
+        photoVersion:
+          type: [string, "null"]
+          description: Set only when an approved photo exists.
+        postedAt:
+          type: string
+          format: date-time
+        inMyServiceArea:
+          type: boolean
+        localMatch:
+          type: boolean
+          description: Same service area as one of the teacher's live requests, in a relevant category.
+      required: [id, title, category, categoryGroup, description, quantityAvailable, unit, condition, locationId, locationName, serviceAreaId, serviceAreaName, photoVersion, postedAt, inMyServiceArea, localMatch]
     SponsorshipInput:
       type: object
       properties:
@@ -2097,8 +2648,9 @@ components:
           type: string
           format: uuid
         inventoryId:
-          type: [string, "null"]
+          type: string
           format: uuid
+          description: Which of your goods you are offering. The category must suit the request.
         quantity:
           type: integer
           minimum: 1
@@ -2106,7 +2658,7 @@ components:
         donorMessage:
           type: [string, "null"]
           maxLength: 500
-      required: [requestId, quantity]
+      required: [requestId, inventoryId, quantity]
     Sponsorship:
       type: object
       properties:
@@ -2120,6 +2672,8 @@ components:
           type: string
         donorName:
           type: string
+        inventoryTitle:
+          type: [string, "null"]
         quantity:
           type: integer
         status:
@@ -2128,7 +2682,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required: [id, requestId, requestTitle, donorName, quantity, status, createdAt]
+      required: [id, requestId, requestTitle, donorName, inventoryTitle, quantity, status, createdAt]
     SponsorshipDecision:
       type: object
       properties:
