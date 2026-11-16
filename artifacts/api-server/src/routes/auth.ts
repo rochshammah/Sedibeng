@@ -39,7 +39,7 @@ import {
 } from "@workspace/db";
 import type { AuthenticatedPrincipal, UserRole } from "../types/auth";
 import { loadSession, requireAuth } from "../lib/auth-middleware";
-import { emailIsConfigured, sendPasswordResetEmail, sendVerificationEmail } from "../lib/email";
+import { emailIsConfigured, sendPasswordResetEmail, sendVerificationEmail, unverifiedSignupAllowed } from "../lib/email";
 import { HttpError } from "../lib/errors";
 import {
   clearSessionCookie,
@@ -148,7 +148,8 @@ async function registerAccount(
   if (!isDatabaseConfigured) {
     throw new HttpError(503, "The service is not connected to its database.");
   }
-  if (!emailIsConfigured()) {
+  const skipEmail = unverifiedSignupAllowed();
+  if (!emailIsConfigured() && !skipEmail) {
     throw new HttpError(503, "Email delivery is not configured on this server.");
   }
 
@@ -175,7 +176,8 @@ async function registerAccount(
         email,
         passwordHash,
         role,
-        status: "PENDING_VERIFICATION",
+        status: skipEmail ? "ACTIVE" : "PENDING_VERIFICATION",
+        emailVerifiedAt: skipEmail ? now : null,
       })
       .returning();
 
@@ -237,14 +239,16 @@ async function registerAccount(
         status: "PENDING",
       });
     }
-    await tx.insert(emailVerificationTokensTable).values({
-      userId: createdUser.id,
-      tokenHash,
-      expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
-    });
+    if (!skipEmail) {
+      await tx.insert(emailVerificationTokensTable).values({
+        userId: createdUser.id,
+        tokenHash,
+        expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+      });
+    }
     await tx.insert(auditLogsTable).values({
       actorUserId: createdUser.id,
-      action: "ACCOUNT_REGISTERED",
+      action: skipEmail ? "ACCOUNT_REGISTERED_UNVERIFIED_EMAIL" : "ACCOUNT_REGISTERED",
       targetType: "USER",
       targetId: createdUser.id,
       metadata: { role },
@@ -252,19 +256,25 @@ async function registerAccount(
     return [createdUser] as const;
   });
 
-  try {
-    await sendVerificationEmail(
-      { to: user.email, name: user.name, token },
-      requestOrigin(request),
-    );
-  } catch {
-    throw new HttpError(
-      503,
-      "Your account was created, but its verification email could not be sent. Request another verification email.",
-    );
+  if (!skipEmail) {
+    try {
+      await sendVerificationEmail(
+        { to: user.email, name: user.name, token },
+        requestOrigin(request),
+      );
+    } catch {
+      throw new HttpError(
+        503,
+        "Your account was created, but its verification email could not be sent. Request another verification email.",
+      );
+    }
   }
 
-  const result = { message: "Check your email to verify your account." };
+  const result = {
+    message: skipEmail
+      ? "Your account is ready. You can sign in now."
+      : "Check your email to verify your account.",
+  };
   const contract =
     role === "DONOR" ? RegisterDonorResponse : RegisterTeacherResponse;
   response.status(201).json(contract.parse(result));
