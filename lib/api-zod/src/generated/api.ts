@@ -42,6 +42,11 @@ export const GetRequestsResponseItem = zod.object({
   "size": zod.string().nullable(),
   "conditionRequirement": zod.string().nullable(),
   "requiredBy": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaId": zod.string().uuid().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
   "updatedLabel": zod.string(),
@@ -95,6 +100,7 @@ export const CreateRequestBody = zod.object({
   "conditionRequirement": zod.union([zod.literal('NEW'),zod.literal('GENTLY_USED'),zod.literal('ANY'),zod.literal(null)]).nullish(),
   "requiredBy": zod.coerce.date().nullish(),
   "teacherPrivateNotes": zod.string().max(createRequestBodyTeacherPrivateNotesMax).nullish().describe('Visible only to the teacher and administrators.'),
+  "locationId": zod.string().uuid().nullish().describe('Where the goods are needed. Defaults to the school\'s location.'),
   "submit": zod.boolean().optional().describe('Send for review (needs full verification). False saves a draft.')
 })
 
@@ -114,6 +120,11 @@ export const CreateRequestResponse = zod.object({
   "size": zod.string().nullable(),
   "conditionRequirement": zod.string().nullable(),
   "requiredBy": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaId": zod.string().uuid().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
   "updatedLabel": zod.string(),
@@ -133,7 +144,9 @@ export const GetFeedQueryParams = zod.object({
   "limit": zod.coerce.number().int().min(1).max(getFeedQueryLimitMax).optional(),
   "search": zod.coerce.string().optional(),
   "category": zod.coerce.string().optional(),
-  "priority": zod.coerce.string().optional()
+  "priority": zod.coerce.string().optional(),
+  "serviceAreaId": zod.coerce.string().uuid().optional(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']).optional()
 })
 
 export const GetFeedResponse = zod.object({
@@ -155,6 +168,12 @@ export const GetFeedResponse = zod.object({
   "conditionRequirement": zod.string().nullable(),
   "requiredBy": zod.string().nullable(),
   "teacherVerified": zod.boolean(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaId": zod.string().uuid().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
+  "localMatch": zod.boolean().describe('For donors - the donor has goods in this service area in a relevant category.'),
   "postedAt": zod.string(),
   "quantityCovered": zod.number().int(),
   "quantityPending": zod.number().int(),
@@ -187,6 +206,12 @@ export const GetSavedRequestsResponseItem = zod.object({
   "conditionRequirement": zod.string().nullable(),
   "requiredBy": zod.string().nullable(),
   "teacherVerified": zod.boolean(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaId": zod.string().uuid().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
+  "localMatch": zod.boolean().describe('For donors - the donor has goods in this service area in a relevant category.'),
   "postedAt": zod.string(),
   "quantityCovered": zod.number().int(),
   "quantityPending": zod.number().int(),
@@ -246,6 +271,11 @@ export const GetRequestResponse = zod.object({
   "size": zod.string().nullable(),
   "conditionRequirement": zod.string().nullable(),
   "requiredBy": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaId": zod.string().uuid().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
   "updatedLabel": zod.string(),
@@ -302,6 +332,7 @@ export const UpdateRequestBody = zod.object({
   "conditionRequirement": zod.union([zod.literal('NEW'),zod.literal('GENTLY_USED'),zod.literal('ANY'),zod.literal(null)]).nullish(),
   "requiredBy": zod.coerce.date().nullish(),
   "teacherPrivateNotes": zod.string().max(updateRequestBodyTeacherPrivateNotesMax).nullish().describe('Visible only to the teacher and administrators.'),
+  "locationId": zod.string().uuid().nullish().describe('Where the goods are needed. Defaults to the school\'s location.'),
   "submit": zod.boolean().optional().describe('Send for review (needs full verification). False saves a draft.')
 })
 
@@ -321,6 +352,11 @@ export const UpdateRequestResponse = zod.object({
   "size": zod.string().nullable(),
   "conditionRequirement": zod.string().nullable(),
   "requiredBy": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaId": zod.string().uuid().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
   "updatedLabel": zod.string(),
@@ -723,7 +759,9 @@ export const GetTeacherProfileResponse = zod.object({
   "district": zod.string(),
   "area": zod.string().nullable(),
   "position": zod.string().nullable(),
-  "schoolStatus": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED'])
+  "schoolStatus": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED']),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable()
 })
 
 
@@ -745,7 +783,9 @@ export const UpdateTeacherProfileResponse = zod.object({
   "district": zod.string(),
   "area": zod.string().nullable(),
   "position": zod.string().nullable(),
-  "schoolStatus": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED'])
+  "schoolStatus": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED']),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable()
 })
 
 
@@ -830,13 +870,22 @@ export const GetInventoryResponseItem = zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
   "category": zod.string(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
   "item": zod.string(),
   "description": zod.string(),
   "specifications": zod.string().nullable(),
   "quantityAvailable": zod.number().int(),
   "unit": zod.string(),
+  "condition": zod.string().nullable(),
   "district": zod.string(),
   "area": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "photoStatus": zod.enum(['NONE', 'PENDING', 'APPROVED', 'REJECTED']),
+  "photoVersion": zod.string().nullable().describe('Changes when the photo is replaced (use as a cache key).'),
+  "offerCount": zod.number().int(),
+  "pendingOfferCount": zod.number().int(),
   "status": zod.enum(['DRAFT', 'AVAILABLE', 'RESERVED', 'WITHDRAWN']),
   "isSeedData": zod.boolean()
 })
@@ -846,14 +895,11 @@ export const GetInventoryResponse = zod.array(GetInventoryResponseItem)
 /**
  * @summary Add goods to donor inventory
  */
-export const createInventoryBodyTitleMin = 4;
+export const createInventoryBodyTitleMin = 2;
 export const createInventoryBodyTitleMax = 160;
 
 export const createInventoryBodyCategoryMin = 2;
 export const createInventoryBodyCategoryMax = 60;
-
-export const createInventoryBodyItemMin = 2;
-export const createInventoryBodyItemMax = 160;
 
 export const createInventoryBodyDescriptionMin = 4;
 export const createInventoryBodyDescriptionMax = 1000;
@@ -864,38 +910,390 @@ export const createInventoryBodyQuantityAvailableMax = 10000;
 
 export const createInventoryBodyUnitMax = 40;
 
-export const createInventoryBodyDistrictMin = 2;
-export const createInventoryBodyDistrictMax = 100;
-
-export const createInventoryBodyAreaMax = 100;
-
 
 
 export const CreateInventoryBody = zod.object({
-  "title": zod.string().min(createInventoryBodyTitleMin).max(createInventoryBodyTitleMax),
+  "title": zod.string().min(createInventoryBodyTitleMin).max(createInventoryBodyTitleMax).describe('The item name donors and teachers see.'),
   "category": zod.string().min(createInventoryBodyCategoryMin).max(createInventoryBodyCategoryMax),
-  "item": zod.string().min(createInventoryBodyItemMin).max(createInventoryBodyItemMax),
-  "description": zod.string().min(createInventoryBodyDescriptionMin).max(createInventoryBodyDescriptionMax),
+  "description": zod.string().min(createInventoryBodyDescriptionMin).max(createInventoryBodyDescriptionMax).describe('Include useful details such as sizes. Sizes are not matched automatically.'),
   "specifications": zod.string().max(createInventoryBodySpecificationsMax).nullish(),
   "quantityAvailable": zod.number().int().min(1).max(createInventoryBodyQuantityAvailableMax),
   "unit": zod.string().min(1).max(createInventoryBodyUnitMax),
-  "district": zod.string().min(createInventoryBodyDistrictMin).max(createInventoryBodyDistrictMax),
-  "area": zod.string().max(createInventoryBodyAreaMax).nullish()
+  "condition": zod.enum(['NEW', 'GOOD', 'FAIR']),
+  "locationId": zod.string().uuid().describe('Where the goods are available. Must be an active location.')
 })
 
 export const CreateInventoryResponse = zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
   "category": zod.string(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
   "item": zod.string(),
   "description": zod.string(),
   "specifications": zod.string().nullable(),
   "quantityAvailable": zod.number().int(),
   "unit": zod.string(),
+  "condition": zod.string().nullable(),
   "district": zod.string(),
   "area": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "photoStatus": zod.enum(['NONE', 'PENDING', 'APPROVED', 'REJECTED']),
+  "photoVersion": zod.string().nullable().describe('Changes when the photo is replaced (use as a cache key).'),
+  "offerCount": zod.number().int(),
+  "pendingOfferCount": zod.number().int(),
   "status": zod.enum(['DRAFT', 'AVAILABLE', 'RESERVED', 'WITHDRAWN']),
   "isSeedData": zod.boolean()
+})
+
+
+/**
+ * @summary Active service areas with their locations
+ */
+export const GetLocationsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "locations": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string()
+}))
+})
+export const GetLocationsResponse = zod.array(GetLocationsResponseItem)
+
+
+/**
+ * @summary All service areas and locations, including inactive ones
+ */
+export const ListAdminLocationsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "isActive": zod.boolean(),
+  "locations": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "isActive": zod.boolean()
+}))
+})
+export const ListAdminLocationsResponse = zod.array(ListAdminLocationsResponseItem)
+
+
+/**
+ * @summary Add a service area
+ */
+export const createServiceAreaBodyNameMin = 2;
+export const createServiceAreaBodyNameMax = 100;
+
+
+
+export const CreateServiceAreaBody = zod.object({
+  "name": zod.string().min(createServiceAreaBodyNameMin).max(createServiceAreaBodyNameMax),
+  "isActive": zod.boolean()
+})
+
+export const CreateServiceAreaResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "isActive": zod.boolean(),
+  "locations": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "isActive": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Rename or activate/deactivate a service area
+ */
+export const UpdateServiceAreaParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const updateServiceAreaBodyNameMin = 2;
+export const updateServiceAreaBodyNameMax = 100;
+
+
+
+export const UpdateServiceAreaBody = zod.object({
+  "name": zod.string().min(updateServiceAreaBodyNameMin).max(updateServiceAreaBodyNameMax),
+  "isActive": zod.boolean()
+})
+
+export const UpdateServiceAreaResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "isActive": zod.boolean(),
+  "locations": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "isActive": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Add a location to a service area
+ */
+export const createLocationBodyNameMin = 2;
+export const createLocationBodyNameMax = 100;
+
+
+
+export const CreateLocationBody = zod.object({
+  "name": zod.string().min(createLocationBodyNameMin).max(createLocationBodyNameMax),
+  "serviceAreaId": zod.string().uuid(),
+  "isActive": zod.boolean()
+})
+
+export const CreateLocationResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string()
+})
+
+
+/**
+ * @summary Rename, move or activate/deactivate a location
+ */
+export const UpdateLocationParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const updateLocationBodyNameMin = 2;
+export const updateLocationBodyNameMax = 100;
+
+
+
+export const UpdateLocationBody = zod.object({
+  "name": zod.string().min(updateLocationBodyNameMin).max(updateLocationBodyNameMax),
+  "serviceAreaId": zod.string().uuid(),
+  "isActive": zod.boolean()
+})
+
+export const UpdateLocationResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string()
+})
+
+
+/**
+ * @summary The service area used by default when browsing
+ */
+export const GetMyServiceAreaResponse = zod.object({
+  "serviceAreaId": zod.string().uuid().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "source": zod.enum(['CHOSEN', 'SCHOOL', 'YOUR_GOODS', 'NONE'])
+})
+
+
+/**
+ * @summary Choose the service area to browse by default (null clears it)
+ */
+export const SetMyServiceAreaBody = zod.object({
+  "serviceAreaId": zod.string().uuid().nullable()
+})
+
+export const SetMyServiceAreaResponse = zod.object({
+  "serviceAreaId": zod.string().uuid().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "source": zod.enum(['CHOSEN', 'SCHOOL', 'YOUR_GOODS', 'NONE'])
+})
+
+
+/**
+ * @summary Add several goods at once
+ */
+export const createInventoryBulkBodyItemsItemTitleMin = 2;
+export const createInventoryBulkBodyItemsItemTitleMax = 160;
+
+export const createInventoryBulkBodyItemsItemCategoryMin = 2;
+export const createInventoryBulkBodyItemsItemCategoryMax = 60;
+
+export const createInventoryBulkBodyItemsItemDescriptionMin = 4;
+export const createInventoryBulkBodyItemsItemDescriptionMax = 1000;
+
+export const createInventoryBulkBodyItemsItemSpecificationsMax = 1000;
+
+export const createInventoryBulkBodyItemsItemQuantityAvailableMax = 10000;
+
+export const createInventoryBulkBodyItemsItemUnitMax = 40;
+
+export const createInventoryBulkBodyItemsMax = 10;
+
+
+
+export const CreateInventoryBulkBody = zod.object({
+  "items": zod.array(zod.object({
+  "title": zod.string().min(createInventoryBulkBodyItemsItemTitleMin).max(createInventoryBulkBodyItemsItemTitleMax).describe('The item name donors and teachers see.'),
+  "category": zod.string().min(createInventoryBulkBodyItemsItemCategoryMin).max(createInventoryBulkBodyItemsItemCategoryMax),
+  "description": zod.string().min(createInventoryBulkBodyItemsItemDescriptionMin).max(createInventoryBulkBodyItemsItemDescriptionMax).describe('Include useful details such as sizes. Sizes are not matched automatically.'),
+  "specifications": zod.string().max(createInventoryBulkBodyItemsItemSpecificationsMax).nullish(),
+  "quantityAvailable": zod.number().int().min(1).max(createInventoryBulkBodyItemsItemQuantityAvailableMax),
+  "unit": zod.string().min(1).max(createInventoryBulkBodyItemsItemUnitMax),
+  "condition": zod.enum(['NEW', 'GOOD', 'FAIR']),
+  "locationId": zod.string().uuid().describe('Where the goods are available. Must be an active location.')
+})).min(1).max(createInventoryBulkBodyItemsMax)
+})
+
+export const CreateInventoryBulkResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
+  "item": zod.string(),
+  "description": zod.string(),
+  "specifications": zod.string().nullable(),
+  "quantityAvailable": zod.number().int(),
+  "unit": zod.string(),
+  "condition": zod.string().nullable(),
+  "district": zod.string(),
+  "area": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "photoStatus": zod.enum(['NONE', 'PENDING', 'APPROVED', 'REJECTED']),
+  "photoVersion": zod.string().nullable().describe('Changes when the photo is replaced (use as a cache key).'),
+  "offerCount": zod.number().int(),
+  "pendingOfferCount": zod.number().int(),
+  "status": zod.enum(['DRAFT', 'AVAILABLE', 'RESERVED', 'WITHDRAWN']),
+  "isSeedData": zod.boolean()
+})
+export const CreateInventoryBulkResponse = zod.array(CreateInventoryBulkResponseItem)
+
+
+/**
+ * @summary Upload or replace an item photo (raw JPEG or PNG body, max 5 MB)
+ */
+export const UploadInventoryPhotoParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const UploadInventoryPhotoResponse = zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
+  "item": zod.string(),
+  "description": zod.string(),
+  "specifications": zod.string().nullable(),
+  "quantityAvailable": zod.number().int(),
+  "unit": zod.string(),
+  "condition": zod.string().nullable(),
+  "district": zod.string(),
+  "area": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "photoStatus": zod.enum(['NONE', 'PENDING', 'APPROVED', 'REJECTED']),
+  "photoVersion": zod.string().nullable().describe('Changes when the photo is replaced (use as a cache key).'),
+  "offerCount": zod.number().int(),
+  "pendingOfferCount": zod.number().int(),
+  "status": zod.enum(['DRAFT', 'AVAILABLE', 'RESERVED', 'WITHDRAWN']),
+  "isSeedData": zod.boolean()
+})
+
+
+/**
+ * @summary Remove an item photo
+ */
+export const DeleteInventoryPhotoParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteInventoryPhotoResponse = zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
+  "item": zod.string(),
+  "description": zod.string(),
+  "specifications": zod.string().nullable(),
+  "quantityAvailable": zod.number().int(),
+  "unit": zod.string(),
+  "condition": zod.string().nullable(),
+  "district": zod.string(),
+  "area": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "photoStatus": zod.enum(['NONE', 'PENDING', 'APPROVED', 'REJECTED']),
+  "photoVersion": zod.string().nullable().describe('Changes when the photo is replaced (use as a cache key).'),
+  "offerCount": zod.number().int(),
+  "pendingOfferCount": zod.number().int(),
+  "status": zod.enum(['DRAFT', 'AVAILABLE', 'RESERVED', 'WITHDRAWN']),
+  "isSeedData": zod.boolean()
+})
+
+
+/**
+ * @summary Goods donors have available (teachers), filtered by service area and category
+ */
+export const getGoodsQueryLimitMax = 50;
+
+
+
+export const GetGoodsQueryParams = zod.object({
+  "serviceAreaId": zod.coerce.string().uuid().optional(),
+  "locationId": zod.coerce.string().uuid().optional(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']).optional(),
+  "limit": zod.coerce.number().int().min(1).max(getGoodsQueryLimitMax).optional()
+})
+
+export const GetGoodsResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
+  "description": zod.string(),
+  "quantityAvailable": zod.number().int(),
+  "unit": zod.string(),
+  "condition": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string(),
+  "serviceAreaId": zod.string().uuid().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "photoVersion": zod.string().nullable().describe('Set only when an approved photo exists.'),
+  "postedAt": zod.coerce.date(),
+  "inMyServiceArea": zod.boolean(),
+  "localMatch": zod.boolean().describe('Same service area as one of the teacher\'s live requests, in a relevant category.')
+}).describe('Goods a donor has available, as shown to teachers. No donor details.')
+export const GetGoodsResponse = zod.array(GetGoodsResponseItem)
+
+
+/**
+ * @summary Item photos waiting for approval
+ */
+export const ListGoodsPhotosForReviewResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "donorName": zod.string(),
+  "locationName": zod.string().nullable(),
+  "photoVersion": zod.string(),
+  "createdAt": zod.coerce.date()
+})
+export const ListGoodsPhotosForReviewResponse = zod.array(ListGoodsPhotosForReviewResponseItem)
+
+
+/**
+ * @summary Approve or reject an item photo
+ */
+export const DecideGoodsPhotoParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DecideGoodsPhotoBody = zod.object({
+  "decision": zod.enum(['APPROVE', 'REJECT'])
+})
+
+export const DecideGoodsPhotoResponse = zod.object({
+  "id": zod.string().uuid(),
+  "title": zod.string(),
+  "category": zod.string(),
+  "donorName": zod.string(),
+  "locationName": zod.string().nullable(),
+  "photoVersion": zod.string(),
+  "createdAt": zod.coerce.date()
 })
 
 
@@ -906,14 +1304,11 @@ export const UpdateInventoryParams = zod.object({
   "id": zod.coerce.string().uuid()
 })
 
-export const updateInventoryBodyTitleMin = 4;
+export const updateInventoryBodyTitleMin = 2;
 export const updateInventoryBodyTitleMax = 160;
 
 export const updateInventoryBodyCategoryMin = 2;
 export const updateInventoryBodyCategoryMax = 60;
-
-export const updateInventoryBodyItemMin = 2;
-export const updateInventoryBodyItemMax = 160;
 
 export const updateInventoryBodyDescriptionMin = 4;
 export const updateInventoryBodyDescriptionMax = 1000;
@@ -924,36 +1319,39 @@ export const updateInventoryBodyQuantityAvailableMax = 10000;
 
 export const updateInventoryBodyUnitMax = 40;
 
-export const updateInventoryBodyDistrictMin = 2;
-export const updateInventoryBodyDistrictMax = 100;
-
-export const updateInventoryBodyAreaMax = 100;
-
 
 
 export const UpdateInventoryBody = zod.object({
-  "title": zod.string().min(updateInventoryBodyTitleMin).max(updateInventoryBodyTitleMax),
+  "title": zod.string().min(updateInventoryBodyTitleMin).max(updateInventoryBodyTitleMax).describe('The item name donors and teachers see.'),
   "category": zod.string().min(updateInventoryBodyCategoryMin).max(updateInventoryBodyCategoryMax),
-  "item": zod.string().min(updateInventoryBodyItemMin).max(updateInventoryBodyItemMax),
-  "description": zod.string().min(updateInventoryBodyDescriptionMin).max(updateInventoryBodyDescriptionMax),
+  "description": zod.string().min(updateInventoryBodyDescriptionMin).max(updateInventoryBodyDescriptionMax).describe('Include useful details such as sizes. Sizes are not matched automatically.'),
   "specifications": zod.string().max(updateInventoryBodySpecificationsMax).nullish(),
   "quantityAvailable": zod.number().int().min(1).max(updateInventoryBodyQuantityAvailableMax),
   "unit": zod.string().min(1).max(updateInventoryBodyUnitMax),
-  "district": zod.string().min(updateInventoryBodyDistrictMin).max(updateInventoryBodyDistrictMax),
-  "area": zod.string().max(updateInventoryBodyAreaMax).nullish()
+  "condition": zod.enum(['NEW', 'GOOD', 'FAIR']),
+  "locationId": zod.string().uuid().describe('Where the goods are available. Must be an active location.')
 })
 
 export const UpdateInventoryResponse = zod.object({
   "id": zod.string().uuid(),
   "title": zod.string(),
   "category": zod.string(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
   "item": zod.string(),
   "description": zod.string(),
   "specifications": zod.string().nullable(),
   "quantityAvailable": zod.number().int(),
   "unit": zod.string(),
+  "condition": zod.string().nullable(),
   "district": zod.string(),
   "area": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "photoStatus": zod.enum(['NONE', 'PENDING', 'APPROVED', 'REJECTED']),
+  "photoVersion": zod.string().nullable().describe('Changes when the photo is replaced (use as a cache key).'),
+  "offerCount": zod.number().int(),
+  "pendingOfferCount": zod.number().int(),
   "status": zod.enum(['DRAFT', 'AVAILABLE', 'RESERVED', 'WITHDRAWN']),
   "isSeedData": zod.boolean()
 })
@@ -977,6 +1375,7 @@ export const GetSponsorshipsResponseItem = zod.object({
   "requestId": zod.string().uuid(),
   "requestTitle": zod.string(),
   "donorName": zod.string(),
+  "inventoryTitle": zod.string().nullable(),
   "quantity": zod.number().int(),
   "status": zod.enum(['PENDING_TEACHER_REVIEW', 'APPROVED', 'REJECTED', 'CANCELLED', 'FULFILLED']),
   "createdAt": zod.coerce.date()
@@ -995,7 +1394,7 @@ export const createSponsorshipBodyDonorMessageMax = 500;
 
 export const CreateSponsorshipBody = zod.object({
   "requestId": zod.string().uuid(),
-  "inventoryId": zod.string().uuid().nullish(),
+  "inventoryId": zod.string().uuid().describe('Which of your goods you are offering. The category must suit the request.'),
   "quantity": zod.number().int().min(1).max(createSponsorshipBodyQuantityMax),
   "donorMessage": zod.string().max(createSponsorshipBodyDonorMessageMax).nullish()
 })
@@ -1005,6 +1404,7 @@ export const CreateSponsorshipResponse = zod.object({
   "requestId": zod.string().uuid(),
   "requestTitle": zod.string(),
   "donorName": zod.string(),
+  "inventoryTitle": zod.string().nullable(),
   "quantity": zod.number().int(),
   "status": zod.enum(['PENDING_TEACHER_REVIEW', 'APPROVED', 'REJECTED', 'CANCELLED', 'FULFILLED']),
   "createdAt": zod.coerce.date()
@@ -1027,6 +1427,7 @@ export const DecideSponsorshipResponse = zod.object({
   "requestId": zod.string().uuid(),
   "requestTitle": zod.string(),
   "donorName": zod.string(),
+  "inventoryTitle": zod.string().nullable(),
   "quantity": zod.number().int(),
   "status": zod.enum(['PENDING_TEACHER_REVIEW', 'APPROVED', 'REJECTED', 'CANCELLED', 'FULFILLED']),
   "createdAt": zod.coerce.date()
@@ -1256,6 +1657,11 @@ export const ModerateRequestResponse = zod.object({
   "size": zod.string().nullable(),
   "conditionRequirement": zod.string().nullable(),
   "requiredBy": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaId": zod.string().uuid().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
   "updatedLabel": zod.string(),
@@ -1510,6 +1916,11 @@ export const GetMyRequestsResponseItem = zod.object({
   "size": zod.string().nullable(),
   "conditionRequirement": zod.string().nullable(),
   "requiredBy": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaId": zod.string().uuid().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
   "updatedLabel": zod.string(),
@@ -1544,6 +1955,11 @@ export const SubmitRequestResponse = zod.object({
   "size": zod.string().nullable(),
   "conditionRequirement": zod.string().nullable(),
   "requiredBy": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
+  "serviceAreaId": zod.string().uuid().nullable(),
+  "serviceAreaName": zod.string().nullable(),
+  "categoryGroup": zod.enum(['SHOES', 'UNIFORMS', 'BAGS', 'BOOKS_STATIONERY', 'LEARNING_MATERIALS', 'OTHER']),
   "imageUrl": zod.string(),
   "imageAlt": zod.string(),
   "updatedLabel": zod.string(),
@@ -1569,6 +1985,8 @@ export const ListAdminSchoolsResponseItem = zod.object({
   "district": zod.string(),
   "area": zod.string().nullable(),
   "generalLocation": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
   "status": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED']),
   "teacherCount": zod.number().int()
 })
@@ -1596,6 +2014,7 @@ export const CreateAdminSchoolBody = zod.object({
   "district": zod.string().min(createAdminSchoolBodyDistrictMin).max(createAdminSchoolBodyDistrictMax),
   "area": zod.string().max(createAdminSchoolBodyAreaMax).nullish(),
   "generalLocation": zod.string().max(createAdminSchoolBodyGeneralLocationMax).nullish(),
+  "locationId": zod.string().uuid().nullish(),
   "status": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED'])
 })
 
@@ -1606,6 +2025,8 @@ export const CreateAdminSchoolResponse = zod.object({
   "district": zod.string(),
   "area": zod.string().nullable(),
   "generalLocation": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
   "status": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED']),
   "teacherCount": zod.number().int()
 })
@@ -1636,6 +2057,7 @@ export const UpdateAdminSchoolBody = zod.object({
   "district": zod.string().min(updateAdminSchoolBodyDistrictMin).max(updateAdminSchoolBodyDistrictMax),
   "area": zod.string().max(updateAdminSchoolBodyAreaMax).nullish(),
   "generalLocation": zod.string().max(updateAdminSchoolBodyGeneralLocationMax).nullish(),
+  "locationId": zod.string().uuid().nullish(),
   "status": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED'])
 })
 
@@ -1646,6 +2068,8 @@ export const UpdateAdminSchoolResponse = zod.object({
   "district": zod.string(),
   "area": zod.string().nullable(),
   "generalLocation": zod.string().nullable(),
+  "locationId": zod.string().uuid().nullable(),
+  "locationName": zod.string().nullable(),
   "status": zod.enum(['PENDING_REVIEW', 'ACTIVE', 'SUSPENDED']),
   "teacherCount": zod.number().int()
 })
