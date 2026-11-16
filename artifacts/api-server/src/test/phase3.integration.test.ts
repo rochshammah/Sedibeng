@@ -128,8 +128,10 @@ suite("Phase 3: verification, documents and publishing", () => {
     anon = await makeClient();
 
     const suffix = randomBytes(3).toString("hex");
+    const [gaborone] = await db.select().from(tables.locationsTable).where(orm.eq(tables.locationsTable.name, "Gaborone"));
+    ids.gaborone = gaborone.id;
     for (const [key, name, status] of [["A", "Test School A", "ACTIVE"], ["B", "Test School B", "ACTIVE"], ["P", "Unconfirmed School", "PENDING_REVIEW"]] as const) {
-      const [row] = await db.insert(tables.schoolsTable).values({ name: `${name} ${suffix}`, district: "Gaborone", area: key, status }).returning();
+      const [row] = await db.insert(tables.schoolsTable).values({ name: `${name} ${suffix}`, district: "Gaborone", area: key, status, locationId: ids.gaborone }).returning();
       school[key] = row.id;
     }
     await makeUser("admin", "ADMIN");
@@ -474,7 +476,9 @@ suite("Phase 3: verification, documents and publishing", () => {
     });
 
     it("13. offers and fulfilment still work end to end", async () => {
-      const offer = await as.donor("POST", "/sponsorships", { json: { requestId: ids.reqPending, quantity: 8, donorMessage: "Happy to help" } });
+      const listed = await as.donor("POST", "/inventory", { json: { title: "Exercise books", category: "Books and stationery", description: "Brand new A4 exercise books.", quantityAvailable: 20, unit: "books", condition: "NEW", locationId: ids.gaborone } });
+      assert.equal(listed.status, 201, listed.text);
+      const offer = await as.donor("POST", "/sponsorships", { json: { requestId: ids.reqPending, inventoryId: listed.json.id, quantity: 8, donorMessage: "Happy to help" } });
       assert.equal(offer.status, 201, offer.text);
       assert.equal((await as.t4("POST", `/sponsorships/${offer.json.id}/decision`, { json: { decision: "APPROVE" } })).status, 404, "another teacher cannot decide it");
       const approved = await as.t3("POST", `/sponsorships/${offer.json.id}/decision`, { json: { decision: "APPROVE" } });
