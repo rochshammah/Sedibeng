@@ -11,6 +11,8 @@ import {
 import { requireAuth, requireRole } from "../../lib/auth-middleware";
 import { HttpError } from "../../lib/errors";
 import { getTeacherEligibility } from "../../lib/verification";
+import { categoryGroupOf } from "../../lib/categories";
+import { findActiveLocation, placeMap, type Place } from "../../lib/locations";
 import { parseBody } from "./shared";
 
 const router = Router();
@@ -78,6 +80,7 @@ function updatedLabel(value: Date) {
 export function toPublicRequest(
   row: typeof assistanceRequestsTable.$inferSelect,
   schoolName?: string,
+  place?: Place | null,
 ) {
   return {
     id: row.id,
@@ -91,7 +94,13 @@ export function toPublicRequest(
     requiredBy: row.requiredBy,
     quantity: row.quantity,
     unit: row.unit,
-    location: [row.area, row.district].filter(Boolean).join(" · "),
+    // The structured location is what donors see; the older text is only a fallback.
+    location: place?.locationName ?? [row.area, row.district].filter(Boolean).join(" · "),
+    locationId: place?.locationId ?? null,
+    locationName: place?.locationName ?? null,
+    serviceAreaId: place?.serviceAreaId ?? null,
+    serviceAreaName: place?.serviceAreaName ?? null,
+    categoryGroup: row.categoryGroup,
     schoolContext: schoolName
       ? `${schoolName} · ${row.district}`
       : `${row.district} school-level request`,
@@ -105,9 +114,9 @@ export function toPublicRequest(
 }
 
 // Only ever returned to the teacher who owns the request (never in public lists).
-function toOwnRequest(row: typeof assistanceRequestsTable.$inferSelect, schoolName?: string) {
+function toOwnRequest(row: typeof assistanceRequestsTable.$inferSelect, schoolName?: string, place?: Place | null) {
   return {
-    ...toPublicRequest(row, schoolName),
+    ...toPublicRequest(row, schoolName, place),
     moderationFeedback: row.moderationFeedback,
     teacherPrivateNotes: row.teacherPrivateNotes,
   };
@@ -119,6 +128,7 @@ function requestColumns(input: ReturnType<typeof Contract.CreateRequestBody.pars
   return {
     title: input.title.trim(),
     category: input.category.trim(),
+    categoryGroup: categoryGroupOf(input.category),
     item: input.item.trim(),
     description: input.description.trim(),
     specifications: input.specifications?.trim() || null,
@@ -131,6 +141,21 @@ function requestColumns(input: ReturnType<typeof Contract.CreateRequestBody.pars
     schoolContext: input.schoolContext.trim(),
     priority: input.priority,
   };
+}
+
+// Where the goods are needed: the teacher's choice, otherwise the school's own location.
+// Sending for review needs one; drafts may be saved without.
+async function resolveRequestLocation(schoolId: string, chosen: string | null | undefined, required: boolean) {
+  if (chosen) {
+    const location = await findActiveLocation(chosen);
+    if (!location) throw new HttpError(400, "Choose where the goods are needed from the location list.");
+    return location.id;
+  }
+  const [school] = await requireDb().select({ locationId: schoolsTable.locationId }).from(schoolsTable).where(eq(schoolsTable.id, schoolId)).limit(1);
+  const fromSchool = school?.locationId ? await findActiveLocation(school.locationId) : null;
+  if (fromSchool) return fromSchool.id;
+  if (required) throw new HttpError(400, "Choose where the goods are needed.");
+  return null;
 }
 
 // The publishing rule, enforced here on the server: BOTH identity and professional
@@ -233,9 +258,10 @@ router.get("/requests", async (request, response) => {
     .where(and(...filters))
     .orderBy(desc(assistanceRequestsTable.priority), desc(assistanceRequestsTable.createdAt))
     .limit(100);
+  const places = await placeMap(rows.map(({ request: row }) => row.locationId));
   response.json(
     Contract.GetRequestsResponse.parse(
-      rows.map(({ request: row, schoolName }) => toPublicRequest(row, schoolName)),
+      rows.map(({ request: row, schoolName }) => toPublicRequest(row, schoolName, places.get(row.locationId ?? ""))),
     ),
   );
 });
@@ -290,7 +316,7 @@ router.get("/requests/:id", async (request, response) => {
     .where(eq(schoolsTable.id, row.schoolId))
     .limit(1);
   response.json(
-    Contract.GetRequestResponse.parse(toPublicRequest(row, school?.name)),
+    Contract.GetRequestResponse.parse(toPublicRequest(row, school?.name, (await placeMap([row.locationId])).get(row.locationId ?? ""))),
   );
 });
 
@@ -309,11 +335,13 @@ router.post(
     const submit = input.submit !== false;
     // Drafts can be saved at any time; sending for review needs full verification.
     if (submit) await assertCanSubmitForReview(request.authUser!.id, profile.schoolId);
+    const locationId = await resolveRequestLocation(profile.schoolId, input.locationId, submit);
 
     const [row] = await requireDb()
       .insert(assistanceRequestsTable)
       .values({
         ...requestColumns(input),
+        locationId,
         teacherUserId: request.authUser!.id,
         schoolId: profile.schoolId,
         district: profile.district,
@@ -323,7 +351,7 @@ router.post(
       })
       .returning();
     response.status(201).json(
-      Contract.CreateRequestResponse.parse(toPublicRequest(row, profile.schoolName)),
+      Contract.CreateRequestResponse.parse(toPublicRequest(row, profile.schoolName, (await placeMap([row.locationId])).get(row.locationId ?? ""))),
     );
   },
 );
@@ -347,10 +375,12 @@ router.patch(
     await requireOwnedRequest(request.authUser!.id, params.data.id, EDITABLE_STATUSES);
     const submit = input.submit !== false;
     if (submit) await assertCanSubmitForReview(request.authUser!.id, profile.schoolId);
+    const locationId = await resolveRequestLocation(profile.schoolId, input.locationId, submit);
     const [row] = await requireDb()
       .update(assistanceRequestsTable)
       .set({
         ...requestColumns(input),
+        locationId,
         status: submit ? "PENDING_MODERATION" : "DRAFT",
         publishedAt: null,
         privateModerationNotes: null,
@@ -368,7 +398,7 @@ router.patch(
       .returning();
     if (!row) throw new HttpError(404, "The request could not be changed.");
     response.json(
-      Contract.UpdateRequestResponse.parse(toPublicRequest(row, profile.schoolName)),
+      Contract.UpdateRequestResponse.parse(toPublicRequest(row, profile.schoolName, (await placeMap([row.locationId])).get(row.locationId ?? ""))),
     );
   },
 );
@@ -386,9 +416,11 @@ router.post(
     const profile = await findProfileSchool(request.authUser!.id);
     await requireOwnedRequest(request.authUser!.id, params.data.id, ["DRAFT", "REJECTED", "NEEDS_MORE_INFORMATION"]);
     await assertCanSubmitForReview(request.authUser!.id, profile.schoolId);
+    const [existing] = await requireDb().select({ locationId: assistanceRequestsTable.locationId }).from(assistanceRequestsTable).where(eq(assistanceRequestsTable.id, params.data.id)).limit(1);
+    const locationId = await resolveRequestLocation(profile.schoolId, existing?.locationId, true);
     const [row] = await requireDb()
       .update(assistanceRequestsTable)
-      .set({ status: "PENDING_MODERATION", moderationFeedback: null, publishedAt: null, updatedAt: new Date() })
+      .set({ status: "PENDING_MODERATION", locationId, moderationFeedback: null, publishedAt: null, updatedAt: new Date() })
       .where(
         and(
           eq(assistanceRequestsTable.id, params.data.id),
@@ -398,7 +430,7 @@ router.post(
       )
       .returning();
     if (!row) throw new HttpError(404, "That request cannot be sent for review.");
-    response.json(Contract.SubmitRequestResponse.parse(toOwnRequest(row, profile.schoolName)));
+    response.json(Contract.SubmitRequestResponse.parse(toOwnRequest(row, profile.schoolName, (await placeMap([row.locationId])).get(row.locationId ?? ""))));
   },
 );
 
@@ -414,8 +446,9 @@ router.get(
       .where(eq(assistanceRequestsTable.teacherUserId, request.authUser!.id))
       .orderBy(desc(assistanceRequestsTable.createdAt))
       .limit(200);
+    const places = await placeMap(rows.map((row) => row.request.locationId));
     response.json(
-      Contract.GetMyRequestsResponse.parse(rows.map((row) => toOwnRequest(row.request, row.schoolName))),
+      Contract.GetMyRequestsResponse.parse(rows.map((row) => toOwnRequest(row.request, row.schoolName, places.get(row.request.locationId ?? "")))),
     );
   },
 );

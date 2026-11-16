@@ -22,6 +22,7 @@ import { publicUser } from "../../lib/security";
 import { verificationRecordView, verifiedTeacherIds } from "../../lib/verification";
 import { documentInfo } from "./verification";
 import { toPublicRequest } from "./assistance";
+import { placeMap } from "../../lib/locations";
 import type { AuthenticatedPrincipal } from "../../types/auth";
 import { parseBody, responseDate } from "./shared";
 
@@ -237,7 +238,7 @@ router.patch(
       .where(eq(schoolsTable.id, row.schoolId))
       .limit(1);
     response.json(
-      Contract.ModerateRequestResponse.parse(toPublicRequest(row, school?.name)),
+      Contract.ModerateRequestResponse.parse(toPublicRequest(row, school?.name, (await placeMap([row.locationId])).get(row.locationId ?? ""))),
     );
   },
 );

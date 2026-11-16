@@ -28,23 +28,6 @@ const mutationLimit = rateLimit({
     response.status(429).json({ error: "Too many changes. Try again later." }),
 });
 
-function inventoryResponse(row: typeof donorInventoryTable.$inferSelect) {
-  return {
-    id: row.id,
-    title: row.title,
-    category: row.category,
-    item: row.item,
-    description: row.description,
-    specifications: row.specifications,
-    quantityAvailable: row.quantityAvailable,
-    unit: row.unit,
-    district: row.district,
-    area: row.area,
-    status: row.status,
-    isSeedData: row.isSeedData,
-  };
-}
-
 async function requireApprovedVerification(userId: string) {
   const [approved] = await requireDb()
     .select({ id: verificationRecordsTable.id })
@@ -62,143 +45,6 @@ async function requireApprovedVerification(userId: string) {
 }
 
 router.get(
-  "/inventory",
-  requireAuth,
-  requireRole("DONOR"),
-  async (request, response) => {
-    const rows = await requireDb()
-      .select()
-      .from(donorInventoryTable)
-      .where(eq(donorInventoryTable.donorUserId, request.authUser!.id))
-      .orderBy(desc(donorInventoryTable.createdAt));
-    response.json(
-      Contract.GetInventoryResponse.parse(rows.map(inventoryResponse)),
-    );
-  },
-);
-
-router.post(
-  "/inventory",
-  requireAuth,
-  requireRole("DONOR"),
-  mutationLimit,
-  async (request, response) => {
-    const input = parseBody(
-      Contract.CreateInventoryBody,
-      request.body,
-      response,
-    );
-    if (!input) return;
-    const verified = await requireDb()
-      .select({ id: verificationRecordsTable.id })
-      .from(verificationRecordsTable)
-      .where(
-        and(
-          eq(verificationRecordsTable.userId, request.authUser!.id),
-          eq(verificationRecordsTable.status, "VERIFIED"),
-        ),
-      )
-      .limit(1);
-    const [row] = await requireDb()
-      .insert(donorInventoryTable)
-      .values({
-        donorUserId: request.authUser!.id,
-        title: input.title.trim(),
-        category: input.category.trim(),
-        item: input.item.trim(),
-        description: input.description.trim(),
-        specifications: input.specifications?.trim() || null,
-        quantityAvailable: input.quantityAvailable,
-        unit: input.unit.trim(),
-        district: input.district.trim(),
-        area: input.area?.trim() || null,
-        status: verified.length ? "AVAILABLE" : "DRAFT",
-      })
-      .returning();
-    response.status(201).json(
-      Contract.CreateInventoryResponse.parse(inventoryResponse(row)),
-    );
-  },
-);
-
-router.patch(
-  "/inventory/:id",
-  requireAuth,
-  requireRole("DONOR"),
-  async (request, response) => {
-    const params = Contract.UpdateInventoryParams.safeParse(request.params);
-    const input = parseBody(
-      Contract.UpdateInventoryBody,
-      request.body,
-      response,
-    );
-    if (!params.success) {
-      response.status(400).json({ error: "The inventory id is not valid." });
-      return;
-    }
-    if (!input) return;
-    const [row] = await requireDb()
-      .update(donorInventoryTable)
-      .set({
-        title: input.title.trim(),
-        category: input.category.trim(),
-        item: input.item.trim(),
-        description: input.description.trim(),
-        specifications: input.specifications?.trim() || null,
-        quantityAvailable: input.quantityAvailable,
-        unit: input.unit.trim(),
-        district: input.district.trim(),
-        area: input.area?.trim() || null,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(donorInventoryTable.id, params.data.id),
-          eq(donorInventoryTable.donorUserId, request.authUser!.id),
-          or(
-            eq(donorInventoryTable.status, "DRAFT"),
-            eq(donorInventoryTable.status, "AVAILABLE"),
-          ),
-        ),
-      )
-      .returning();
-    if (!row) throw new HttpError(404, "The inventory item could not be changed.");
-    response.json(
-      Contract.UpdateInventoryResponse.parse(inventoryResponse(row)),
-    );
-  },
-);
-
-router.delete(
-  "/inventory/:id",
-  requireAuth,
-  requireRole("DONOR"),
-  async (request, response) => {
-    const params = Contract.DeleteInventoryParams.safeParse(request.params);
-    if (!params.success) {
-      response.status(400).json({ error: "The inventory id is not valid." });
-      return;
-    }
-    const [row] = await requireDb()
-      .update(donorInventoryTable)
-      .set({ status: "WITHDRAWN", updatedAt: new Date() })
-      .where(
-        and(
-          eq(donorInventoryTable.id, params.data.id),
-          eq(donorInventoryTable.donorUserId, request.authUser!.id),
-          or(
-            eq(donorInventoryTable.status, "DRAFT"),
-            eq(donorInventoryTable.status, "AVAILABLE"),
-          ),
-        ),
-      )
-      .returning({ id: donorInventoryTable.id });
-    if (!row) throw new HttpError(404, "The inventory item could not be withdrawn.");
-    response.status(204).end();
-  },
-);
-
-router.get(
   "/sponsorships",
   requireAuth,
   requireRole("DONOR", "TEACHER"),
@@ -208,6 +54,7 @@ router.get(
         id: sponsorshipsTable.id,
         requestId: sponsorshipsTable.requestId,
         requestTitle: assistanceRequestsTable.title,
+        inventoryTitle: donorInventoryTable.title,
         donorName: usersTable.name,
         donorUserId: sponsorshipsTable.donorUserId,
         teacherUserId: assistanceRequestsTable.teacherUserId,
@@ -220,7 +67,8 @@ router.get(
         assistanceRequestsTable,
         eq(sponsorshipsTable.requestId, assistanceRequestsTable.id),
       )
-      .innerJoin(usersTable, eq(sponsorshipsTable.donorUserId, usersTable.id));
+      .innerJoin(usersTable, eq(sponsorshipsTable.donorUserId, usersTable.id))
+      .leftJoin(donorInventoryTable, eq(sponsorshipsTable.inventoryId, donorInventoryTable.id));
     const rows =
       request.authUser!.role === "DONOR"
         ? await base
@@ -236,6 +84,7 @@ router.get(
           requestId: row.requestId,
           requestTitle: row.requestTitle,
           donorName: row.donorName,
+          inventoryTitle: row.inventoryTitle,
           quantity: row.quantity,
           status: row.status,
           createdAt: row.createdAt.toISOString(),
@@ -278,40 +127,45 @@ router.post(
         throw new HttpError(404, "This request is not accepting offers.");
       }
 
-      if (input.inventoryId) {
-        const [item] = await tx
-          .select()
-          .from(donorInventoryTable)
-          .where(
-            and(
-              eq(donorInventoryTable.id, input.inventoryId),
-              eq(donorInventoryTable.donorUserId, request.authUser!.id),
-              eq(donorInventoryTable.status, "AVAILABLE"),
-              gte(donorInventoryTable.quantityAvailable, input.quantity),
-            ),
-          )
-          .for("update")
-          .limit(1);
-        if (!item) {
-          throw new HttpError(400, "The selected goods are not available in that quantity.");
-        }
-        const remaining = item.quantityAvailable - input.quantity;
-        await tx
-          .update(donorInventoryTable)
-          .set({
-            quantityAvailable: remaining,
-            status: remaining === 0 ? "RESERVED" : "AVAILABLE",
-            updatedAt: new Date(),
-          })
-          .where(eq(donorInventoryTable.id, item.id));
+      // Goods are reserved the moment they are offered (the existing reservation mechanism),
+      // under a row lock, so quantities can never go negative or be offered twice.
+      const [item] = await tx
+        .select()
+        .from(donorInventoryTable)
+        .where(
+          and(
+            eq(donorInventoryTable.id, input.inventoryId),
+            eq(donorInventoryTable.donorUserId, request.authUser!.id),
+            eq(donorInventoryTable.status, "AVAILABLE"),
+          ),
+        )
+        .for("update")
+        .limit(1);
+      if (!item) {
+        throw new HttpError(400, "Choose one of your available goods to offer.");
       }
+      if (item.categoryGroup !== schoolRequest.categoryGroup) {
+        throw new HttpError(400, "Those goods are not the kind of item this request asks for.");
+      }
+      if (item.quantityAvailable < input.quantity) {
+        throw new HttpError(400, `You only have ${item.quantityAvailable} of those goods available.`);
+      }
+      const remaining = item.quantityAvailable - input.quantity;
+      await tx
+        .update(donorInventoryTable)
+        .set({
+          quantityAvailable: remaining,
+          status: remaining === 0 ? "RESERVED" : "AVAILABLE",
+          updatedAt: new Date(),
+        })
+        .where(eq(donorInventoryTable.id, item.id));
 
       const [sponsorship] = await tx
         .insert(sponsorshipsTable)
         .values({
           requestId: schoolRequest.id,
           donorUserId: request.authUser!.id,
-          inventoryId: input.inventoryId ?? null,
+          inventoryId: input.inventoryId,
           quantity: input.quantity,
           donorMessage: input.donorMessage?.trim() || null,
           status: "PENDING_TEACHER_REVIEW",
@@ -330,7 +184,7 @@ router.post(
         targetId: sponsorship.id,
         metadata: { requestId: schoolRequest.id, quantity: input.quantity },
       });
-      return { sponsorship, requestTitle: schoolRequest.title };
+      return { sponsorship, requestTitle: schoolRequest.title, inventoryTitle: item.title };
     });
 
     response.status(201).json(
@@ -339,6 +193,7 @@ router.post(
         requestId: result.sponsorship.requestId,
         requestTitle: result.requestTitle,
         donorName: request.authUser!.name,
+        inventoryTitle: result.inventoryTitle,
         quantity: result.sponsorship.quantity,
         status: result.sponsorship.status,
         createdAt: result.sponsorship.createdAt.toISOString(),
@@ -453,7 +308,8 @@ router.post(
               .update(donorInventoryTable)
               .set({
                 quantityAvailable: remaining,
-                status: "AVAILABLE",
+                // Giving goods back must never revive a listing the donor withdrew.
+                status: item.status === "WITHDRAWN" ? "WITHDRAWN" : "AVAILABLE",
                 updatedAt: new Date(),
               })
               .where(eq(donorInventoryTable.id, item.id));
@@ -472,10 +328,14 @@ router.post(
         targetType: "SPONSORSHIP",
         targetId: updated.id,
       });
+      const [goods] = updated.inventoryId
+        ? await tx.select({ title: donorInventoryTable.title }).from(donorInventoryTable).where(eq(donorInventoryTable.id, updated.inventoryId)).limit(1)
+        : [];
       return {
         updated,
         request: offer.request,
         donorName: offer.donorName,
+        inventoryTitle: goods?.title ?? null,
       };
     });
 
@@ -485,6 +345,7 @@ router.post(
         requestId: result.updated.requestId,
         requestTitle: result.request.title,
         donorName: result.donorName,
+        inventoryTitle: result.inventoryTitle,
         quantity: result.updated.quantity,
         status: result.updated.status,
         createdAt: result.updated.createdAt.toISOString(),
@@ -674,7 +535,7 @@ router.patch(
               .set({
                 quantityAvailable:
                   inventory.quantityAvailable + record.sponsorship.quantity,
-                status: "AVAILABLE",
+                status: inventory.status === "WITHDRAWN" ? "WITHDRAWN" : "AVAILABLE",
                 updatedAt: new Date(),
               })
               .where(eq(donorInventoryTable.id, inventory.id));

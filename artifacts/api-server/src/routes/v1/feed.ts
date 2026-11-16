@@ -3,6 +3,7 @@ import {
   and,
   desc,
   eq,
+  gt,
   ilike,
   inArray,
   or,
@@ -12,9 +13,12 @@ import {
 import * as Contract from "@workspace/api-zod";
 import {
   assistanceRequestsTable,
+  donorInventoryTable,
+  locationsTable,
   requireDb,
   savedRequestsTable,
   schoolsTable,
+  serviceAreasTable,
   sponsorshipsTable,
 } from "@workspace/db";
 import { requireAuth, requireRole } from "../../lib/auth-middleware";
@@ -66,10 +70,23 @@ type FeedRow = {
   request: typeof assistanceRequestsTable.$inferSelect;
   schoolName: string;
   postedAtText: string;
+  locationName: string | null;
+  serviceAreaId: string | null;
+  serviceAreaName: string | null;
+};
+
+// Request + school + (optional) structured location, shared by the feed and saved list.
+const feedColumns = {
+  request: assistanceRequestsTable,
+  schoolName: schoolsTable.name,
+  postedAtText: sql<string>`${postedAtExpr}::text`,
+  locationName: locationsTable.name,
+  serviceAreaId: serviceAreasTable.id,
+  serviceAreaName: serviceAreasTable.name,
 };
 
 // Decorate rows with progress numbers, the viewer's own offer and saved flag.
-async function buildPosts(rows: FeedRow[], viewerId: string | undefined) {
+async function buildPosts(rows: FeedRow[], viewerId: string | undefined, viewerRole?: string) {
   const db = requireDb();
   const ids = rows.map((row) => row.request.id);
   const covered = new Map<string, number>();
@@ -77,6 +94,17 @@ async function buildPosts(rows: FeedRow[], viewerId: string | undefined) {
   const mine = new Map<string, number>();
   const saved = new Set<string>();
   // The badge is shown only when the underlying verification records confirm it.
+  // "A local request" (donors only): the donor has goods on offer in this request's service
+  // area in a relevant category. A discovery hint only; sizes and specifications are not compared.
+  const myGoodsAreas = new Set<string>();
+  if (viewerRole === "DONOR" && viewerId) {
+    const listed = await requireDb()
+      .select({ areaId: locationsTable.serviceAreaId, group: donorInventoryTable.categoryGroup })
+      .from(donorInventoryTable)
+      .innerJoin(locationsTable, eq(donorInventoryTable.locationId, locationsTable.id))
+      .where(and(eq(donorInventoryTable.donorUserId, viewerId), eq(donorInventoryTable.status, "AVAILABLE"), gt(donorInventoryTable.quantityAvailable, 0)));
+    for (const row of listed) myGoodsAreas.add(`${row.areaId}|${row.group}`);
+  }
   const verifiedTeachers = await verifiedTeacherIds([...new Set(rows.map((row) => row.request.teacherUserId))]);
 
   if (ids.length > 0) {
@@ -111,7 +139,7 @@ async function buildPosts(rows: FeedRow[], viewerId: string | undefined) {
     }
   }
 
-  return rows.map(({ request: row, schoolName, postedAtText }) => {
+  return rows.map(({ request: row, schoolName, postedAtText, locationName, serviceAreaId, serviceAreaName }) => {
     const status = requestStatusLabel(row.status);
     const isFulfilled = status === "Fulfilled";
     return {
@@ -122,7 +150,14 @@ async function buildPosts(rows: FeedRow[], viewerId: string | undefined) {
       description: row.description,
       quantity: row.quantity,
       unit: row.unit,
-      location: [row.area, row.district].filter(Boolean).join(" · "),
+      // The structured location is shown; the older free text is only a fallback.
+      location: locationName ?? [row.area, row.district].filter(Boolean).join(" · "),
+      locationId: row.locationId,
+      locationName,
+      serviceAreaId,
+      serviceAreaName,
+      categoryGroup: row.categoryGroup,
+      localMatch: serviceAreaId !== null && myGoodsAreas.has(`${serviceAreaId}|${row.categoryGroup}`),
       schoolName,
       priority: priorityLabel(row.priority),
       status: status as "Open" | "Partially matched" | "Matched" | "Fulfilled",
@@ -178,6 +213,8 @@ router.get("/feed", async (request, response) => {
     const names = query.data.category.split(",").map((name) => name.trim()).filter(Boolean).slice(0, 10);
     if (names.length > 0) filters.push(inArray(assistanceRequestsTable.category, names));
   }
+  if (query.data.serviceAreaId) filters.push(eq(locationsTable.serviceAreaId, query.data.serviceAreaId));
+  if (query.data.categoryGroup) filters.push(eq(assistanceRequestsTable.categoryGroup, query.data.categoryGroup));
   if (query.data.priority) {
     const normalized = query.data.priority.toUpperCase();
     if (["STANDARD", "HIGH", "ESSENTIAL"].includes(normalized)) {
@@ -204,13 +241,11 @@ router.get("/feed", async (request, response) => {
   }
 
   const rows = await requireDb()
-    .select({
-      request: assistanceRequestsTable,
-      schoolName: schoolsTable.name,
-      postedAtText: sql<string>`${postedAtExpr}::text`,
-    })
+    .select(feedColumns)
     .from(assistanceRequestsTable)
     .innerJoin(schoolsTable, eq(assistanceRequestsTable.schoolId, schoolsTable.id))
+    .leftJoin(locationsTable, eq(assistanceRequestsTable.locationId, locationsTable.id))
+    .leftJoin(serviceAreasTable, eq(locationsTable.serviceAreaId, serviceAreasTable.id))
     .where(and(...filters))
     .orderBy(desc(postedAtExpr), desc(assistanceRequestsTable.id))
     .limit(limit + 1);
@@ -218,7 +253,7 @@ router.get("/feed", async (request, response) => {
   const hasMore = rows.length > limit;
   const pageRows = hasMore ? rows.slice(0, limit) : rows;
   const last = pageRows[pageRows.length - 1];
-  const items = await buildPosts(pageRows, request.authUser?.id);
+  const items = await buildPosts(pageRows, request.authUser?.id, request.authUser?.role);
 
   response.json(
     Contract.GetFeedResponse.parse({
@@ -235,17 +270,15 @@ router.get(
   requireRole("DONOR"),
   async (request, response) => {
     const rows = await requireDb()
-      .select({
-        request: assistanceRequestsTable,
-        schoolName: schoolsTable.name,
-        postedAtText: sql<string>`${postedAtExpr}::text`,
-      })
+      .select(feedColumns)
       .from(savedRequestsTable)
       .innerJoin(
         assistanceRequestsTable,
         eq(savedRequestsTable.requestId, assistanceRequestsTable.id),
       )
       .innerJoin(schoolsTable, eq(assistanceRequestsTable.schoolId, schoolsTable.id))
+      .leftJoin(locationsTable, eq(assistanceRequestsTable.locationId, locationsTable.id))
+      .leftJoin(serviceAreasTable, eq(locationsTable.serviceAreaId, serviceAreasTable.id))
       .where(
         and(
           eq(savedRequestsTable.userId, request.authUser!.id),
@@ -254,7 +287,7 @@ router.get(
       )
       .orderBy(desc(savedRequestsTable.createdAt))
       .limit(100);
-    const items = await buildPosts(rows, request.authUser!.id);
+    const items = await buildPosts(rows, request.authUser!.id, request.authUser!.role);
     response.json(Contract.GetSavedRequestsResponse.parse(items));
   },
 );

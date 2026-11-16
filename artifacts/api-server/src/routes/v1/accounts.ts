@@ -4,6 +4,7 @@ import * as Contract from "@workspace/api-zod";
 import {
   auditLogsTable,
   requireDb,
+  locationsTable,
   schoolsTable,
   teacherProfilesTable,
   verificationRecordsTable,
@@ -63,9 +64,12 @@ router.get(
         area: schoolsTable.area,
         position: teacherProfilesTable.position,
         schoolStatus: schoolsTable.status,
+        locationId: schoolsTable.locationId,
+        locationName: locationsTable.name,
       })
       .from(teacherProfilesTable)
       .innerJoin(schoolsTable, eq(teacherProfilesTable.schoolId, schoolsTable.id))
+      .leftJoin(locationsTable, eq(schoolsTable.locationId, locationsTable.id))
       .where(eq(teacherProfilesTable.userId, request.authUser!.id))
       .limit(1);
     if (!profile) throw new HttpError(404, "Teacher profile was not found.");
@@ -100,8 +104,11 @@ router.patch(
         district: schoolsTable.district,
         area: schoolsTable.area,
         status: schoolsTable.status,
+        locationId: schoolsTable.locationId,
+        locationName: locationsTable.name,
       })
       .from(schoolsTable)
+      .leftJoin(locationsTable, eq(schoolsTable.locationId, locationsTable.id))
       .where(eq(schoolsTable.id, updated.schoolId))
       .limit(1);
     if (!school) throw new HttpError(404, "School was not found.");
@@ -114,6 +121,8 @@ router.patch(
         area: school.area,
         position: updated.position,
         schoolStatus: school.status,
+        locationId: school.locationId,
+        locationName: school.locationName,
       }),
     );
   },

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { and, asc, count, eq, ilike, or, type SQL } from "drizzle-orm";
 import * as Contract from "@workspace/api-zod";
-import { auditLogsTable, requireDb, schoolsTable, teacherProfilesTable } from "@workspace/db";
+import { auditLogsTable, locationsTable, requireDb, schoolsTable, teacherProfilesTable } from "@workspace/db";
 import { requireAuth, requireRole } from "../../lib/auth-middleware";
 import { HttpError } from "../../lib/errors";
 import { parseBody } from "./shared";
@@ -18,10 +18,11 @@ async function withTeacherCount(row: typeof schoolsTable.$inferSelect) {
     .select({ value: count() })
     .from(teacherProfilesTable)
     .where(eq(teacherProfilesTable.schoolId, row.id));
-  return view(row, value);
+  const [location] = row.locationId ? await requireDb().select({ name: locationsTable.name }).from(locationsTable).where(eq(locationsTable.id, row.locationId)).limit(1) : [];
+  return view(row, value, location?.name ?? null);
 }
 
-function view(row: typeof schoolsTable.$inferSelect, teacherCount: number) {
+function view(row: typeof schoolsTable.$inferSelect, teacherCount: number, locationName: string | null) {
   return {
     id: row.id,
     name: row.name,
@@ -29,17 +30,20 @@ function view(row: typeof schoolsTable.$inferSelect, teacherCount: number) {
     district: row.district,
     area: row.area,
     generalLocation: row.generalLocation,
+    locationId: row.locationId,
+    locationName,
     status: row.status,
     teacherCount,
   };
 }
 
-function clean(input: { name: string; district: string; area?: string | null; generalLocation?: string | null; schoolType?: string | null }) {
+function clean(input: { name: string; district: string; area?: string | null; generalLocation?: string | null; schoolType?: string | null; locationId?: string | null }) {
   return {
     name: input.name.trim(),
     district: input.district.trim(),
     area: input.area?.trim() || null,
     generalLocation: input.generalLocation?.trim() || null,
+    locationId: input.locationId ?? null,
     schoolType: (input.schoolType ?? null) as typeof schoolsTable.$inferInsert["schoolType"],
   };
 }
@@ -57,14 +61,15 @@ router.get("/admin/schools", requireAuth, requireRole("ADMIN"), async (request, 
     filters.push(or(ilike(schoolsTable.name, term), ilike(schoolsTable.district, term), ilike(schoolsTable.area, term))!);
   }
   const rows = await requireDb()
-    .select({ school: schoolsTable, teachers: count(teacherProfilesTable.id) })
+    .select({ school: schoolsTable, teachers: count(teacherProfilesTable.id), locationName: locationsTable.name })
     .from(schoolsTable)
     .leftJoin(teacherProfilesTable, eq(teacherProfilesTable.schoolId, schoolsTable.id))
+    .leftJoin(locationsTable, eq(schoolsTable.locationId, locationsTable.id))
     .where(filters.length ? and(...filters) : undefined)
-    .groupBy(schoolsTable.id)
+    .groupBy(schoolsTable.id, locationsTable.name)
     .orderBy(asc(schoolsTable.district), asc(schoolsTable.name))
     .limit(500);
-  response.json(Contract.ListAdminSchoolsResponse.parse(rows.map((row) => view(row.school, row.teachers))));
+  response.json(Contract.ListAdminSchoolsResponse.parse(rows.map((row) => view(row.school, row.teachers, row.locationName))));
 });
 
 router.post("/admin/schools", requireAuth, requireRole("ADMIN"), async (request, response) => {
@@ -82,7 +87,7 @@ router.post("/admin/schools", requireAuth, requireRole("ADMIN"), async (request,
       targetId: row.id,
       metadata: { status: row.status },
     });
-    response.status(201).json(Contract.CreateAdminSchoolResponse.parse(view(row, 0)));
+    response.status(201).json(Contract.CreateAdminSchoolResponse.parse(await withTeacherCount(row)));
   } catch (error) {
     if (isUniqueViolation(error)) throw new HttpError(409, "That school is already in the directory.");
     throw error;
