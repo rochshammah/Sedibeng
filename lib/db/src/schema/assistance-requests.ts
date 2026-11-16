@@ -15,7 +15,9 @@ import { z } from "zod/v4";
 import {
   assistanceRequestStatusEnum,
   requestPriorityEnum,
+  itemCategoryGroupEnum,
 } from "./enums";
+import { locationsTable } from "./locations";
 import { schoolsTable } from "./schools";
 import { usersTable } from "./users";
 
@@ -34,6 +36,8 @@ export const assistanceRequestsTable = pgTable(
     item: text("item").notNull(),
     description: text("description").notNull(),
     specifications: text("specifications"),
+    categoryGroup: itemCategoryGroupEnum("category_group").notNull().default("OTHER"),
+    locationId: uuid("location_id").references(() => locationsTable.id, { onDelete: "set null" }),
     size: text("size"),
     conditionRequirement: text("condition_requirement"),
     requiredBy: date("required_by"),

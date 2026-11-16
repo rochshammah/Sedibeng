@@ -10,6 +10,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { schoolStatusEnum, schoolTypeEnum } from "./enums";
+import { locationsTable } from "./locations";
 
 export const schoolsTable = pgTable(
   "schools",
@@ -21,6 +22,8 @@ export const schoolsTable = pgTable(
     schoolType: schoolTypeEnum("school_type"),
     // General location only (e.g. "Near Broadhurst mall"), never exact addresses.
     generalLocation: text("general_location"),
+    // Structured location used for discovery (the free-text district/area stay for display).
+    locationId: uuid("location_id").references(() => locationsTable.id, { onDelete: "set null" }),
     countryCode: text("country_code").notNull().default("BW"),
     status: schoolStatusEnum("status").notNull().default("PENDING_REVIEW"),
     createdAt: timestamp("created_at", { withTimezone: true })

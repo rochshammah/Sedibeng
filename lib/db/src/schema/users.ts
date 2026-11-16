@@ -10,6 +10,7 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { userRoleEnum, userStatusEnum } from "./enums";
+import { serviceAreasTable } from "./locations";
 
 export const usersTable = pgTable(
   "users",
@@ -21,6 +22,8 @@ export const usersTable = pgTable(
     role: userRoleEnum("role").notNull(),
     status: userStatusEnum("status").notNull().default("PENDING_VERIFICATION"),
     emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    // The service area this person last chose to browse (a preference, not a permission).
+    preferredServiceAreaId: uuid("preferred_service_area_id").references(() => serviceAreasTable.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

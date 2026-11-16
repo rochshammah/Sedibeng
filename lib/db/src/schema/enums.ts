@@ -120,3 +120,21 @@ export const verificationTypeEnum = pgEnum("verification_type", [
   "TEACHER",
   "DONOR",
 ]);
+
+// Broad groups used to decide whether goods and requests are "relevant" to each other.
+// Derived from the category text when a request or listing is saved.
+export const itemCategoryGroupEnum = pgEnum("item_category_group", [
+  "SHOES",
+  "UNIFORMS",
+  "BAGS",
+  "BOOKS_STATIONERY",
+  "LEARNING_MATERIALS",
+  "OTHER",
+]);
+
+export const photoStatusEnum = pgEnum("photo_status", [
+  "NONE",
+  "PENDING",
+  "APPROVED",
+  "REJECTED",
+]);
