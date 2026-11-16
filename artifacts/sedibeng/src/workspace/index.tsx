@@ -2,7 +2,7 @@ import { Redirect, Route, Switch } from 'wouter';
 import { AppShell, RoleGuard, type Area } from './shell';
 import { NotificationsPage } from './common';
 import { DonorActivity, DonorGoods, DonorHome, DonorMe, DonorRequest, DonorSaved } from './donor';
-import { TeacherHandoffs, TeacherHome, TeacherMe, TeacherOffers, TeacherRequestForm, TeacherRequests } from './teacher';
+import { TeacherGoods, TeacherHandoffs, TeacherHome, TeacherMe, TeacherOffers, TeacherRequestForm, TeacherRequests } from './teacher';
 import { AdminHome, AdminModeration, AdminReports, AdminUsers, AdminVerifications } from './admin';
 
 // Which workspace (if any) a URL belongs to.
@@ -37,6 +37,7 @@ export function Workspace({ area }: { area: Area }) {
             <Route path="/teacher/requests" component={TeacherRequests} />
             <Route path="/teacher/requests/new" component={TeacherRequestForm} />
             <Route path="/teacher/requests/:id/edit" component={TeacherRequestForm} />
+            <Route path="/teacher/goods" component={TeacherGoods} />
             <Route path="/teacher/offers" component={TeacherOffers} />
             <Route path="/teacher/handoffs" component={TeacherHandoffs} />
             <Route path="/teacher/notifications" component={NotificationsPage} />

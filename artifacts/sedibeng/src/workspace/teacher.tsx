@@ -2,17 +2,30 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { ArrowLeft, ClipboardList, Pencil, Plus, Send, ShieldCheck, Trash2 } from 'lucide-react';
+import { ArrowLeft, ClipboardList, MapPin, Package, Pencil, Plus, Send, ShieldCheck, Trash2 } from 'lucide-react';
 import {
   type OwnRequest, type RequestInput,
   getGetMyRequestsQueryKey, getGetNotificationsQueryKey, getGetOrdersQueryKey, getGetRequestsQueryKey, getGetSponsorshipsQueryKey, getGetTeacherDashboardQueryKey,
-  useCreateRequest, useDecideSponsorship, useDeleteRequest, useGetAuthSession, useGetMyRequests, useGetOrders, useGetSponsorships,
+  useCreateRequest, useDecideSponsorship, useDeleteRequest, useGetAuthSession, useGetGoods, useGetMyRequests, useGetOrders, useGetSponsorships,
   useGetTeacherDashboard, useGetTeacherProfile, useGetTeacherVerification, useSubmitRequest, useUpdateOrderStatus, useUpdateRequest,
 } from '@workspace/api-client-react';
 import { useToast } from '@/hooks/use-toast';
 import { ErrorState } from '../components/site';
+import { AreaPicker, GoodsPhoto, LocationSelect, goodsConditionLabels, groupLabels, useServiceAreaFilter } from './places';
 import { TeacherVerificationPanel } from './teacher-verification';
 import { Avatar, Card, EmptyState, Feedback, ListRows, Notice, PageHeader, Segmented, StatCards, greet } from './ui';
+
+function NearbyGoods() {
+  const area = useServiceAreaFilter();
+  const goods = useGetGoods({ ...(area.serviceAreaId ? { serviceAreaId: area.serviceAreaId } : {}), limit: 4 }, { query: { enabled: area.ready, queryKey: ['goods-home', area.serviceAreaId ?? 'all'] } });
+  const items = goods.data ?? [];
+  if (!goods.isLoading && items.length === 0) return null;
+  return (
+    <Card title={area.myAreaName ? `Goods available in ${area.myAreaName}` : 'Goods available'} hint="Donors with goods ready to give near you." action={<Link href="/teacher/goods" className="ws-btn ws-btn-ghost ws-btn-sm" data-testid="link-see-goods">See all</Link>}>
+      <div className="ws-goods-grid">{items.map((goodsItem) => <GoodsCard key={goodsItem.id} goods={goodsItem} />)}</div>
+    </Card>
+  );
+}
 
 export function TeacherHome() {
   const client = useQueryClient();
@@ -52,6 +65,8 @@ export function TeacherHome() {
       )}
 
       <StatCards counts={dash.data?.counts ?? []} />
+
+      <NearbyGoods />
 
       <Card title="Needs your attention" hint="The quickest things to do next.">
         {nothing ? <p className="ws-muted ws-empty-line">You’re all caught up ☕ Nothing is waiting on you right now.</p> : (
@@ -137,9 +152,9 @@ export function TeacherRequests() {
 }
 
 const categories = ['School shoes', 'School uniforms', 'School bags', 'Stationery', 'Exercise books', 'Textbooks', 'Learning materials', 'Other educational essentials'];
-const emptyRequest: RequestInput = { schoolId: '', title: '', category: categories[0], item: '', description: '', specifications: '', size: '', conditionRequirement: null, requiredBy: '', teacherPrivateNotes: '', quantity: 1, unit: 'items', priority: 'STANDARD', schoolContext: '' };
+const emptyRequest: RequestInput = { schoolId: '', locationId: '', title: '', category: categories[0], item: '', description: '', specifications: '', size: '', conditionRequirement: null, requiredBy: '', teacherPrivateNotes: '', quantity: 1, unit: 'items', priority: 'STANDARD', schoolContext: '' };
 const fromOwn = (r: OwnRequest, schoolId: string): RequestInput => ({
-  schoolId, title: r.title, category: r.category, item: r.item, description: r.description, specifications: r.specifications, size: r.size ?? '',
+  schoolId, locationId: r.locationId ?? '', title: r.title, category: r.category, item: r.item, description: r.description, specifications: r.specifications, size: r.size ?? '',
   conditionRequirement: (r.conditionRequirement as RequestInput['conditionRequirement']) ?? null, requiredBy: r.requiredBy ?? '', teacherPrivateNotes: r.teacherPrivateNotes ?? '',
   quantity: r.quantity, unit: r.unit, priority: r.priority.toUpperCase() as RequestInput['priority'], schoolContext: r.schoolContext,
 });
@@ -172,8 +187,10 @@ export function TeacherRequestForm() {
   };
   const save = (sendForReview: boolean) => form.handleSubmit((values) => {
     setError(null);
+    // A request needs a place: the one chosen here, otherwise the school's own location.
+    if (sendForReview && !values.locationId && !profile.data?.locationName) { setError(new Error('Choose where the goods are needed.')); return; }
     const data: RequestInput = {
-      ...values, schoolId, submit: sendForReview,
+      ...values, schoolId, submit: sendForReview, locationId: values.locationId || null,
       size: values.size?.trim() || null, specifications: values.specifications?.trim() || null,
       requiredBy: values.requiredBy || null, teacherPrivateNotes: values.teacherPrivateNotes?.trim() || null,
       conditionRequirement: values.conditionRequirement || null,
@@ -199,6 +216,10 @@ export function TeacherRequestForm() {
       <Card>
         <form className="ws-form ws-grid-2" onSubmit={(event) => { event.preventDefault(); void save(eligible)(); }}>
           {profile.data && <p className="ws-muted ws-span">For <b>{profile.data.schoolName}</b>, {profile.data.district}</p>}
+          <label className="ws-field ws-span">Where are the goods needed?
+            <LocationSelect value={form.watch('locationId') ?? ''} onChange={(value) => form.setValue('locationId', value)} placeholder={profile.data?.locationName ? `My school’s location (${profile.data.locationName})` : 'Choose a location'} testId="select-request-location" />
+            <small>Donors see this location on your request, and nearby donors are shown it first.</small>
+          </label>
           <label className="ws-field ws-span">Headline<input className="ws-input" placeholder="e.g. 30 exercise books for Grade 4" {...form.register('title')} data-testid="input-request-title" /></label>
           <label className="ws-field">Category
             <select className="ws-input" {...form.register('category')} data-testid="select-request-category">{categoryOptions.map((c) => <option key={c} value={c}>{c}</option>)}</select>
@@ -225,6 +246,57 @@ export function TeacherRequestForm() {
           </div>
         </form>
       </Card>
+    </div>
+  );
+}
+
+const goodsLabel = (g: { localMatch: boolean; inMyServiceArea: boolean }) =>
+  g.localMatch ? 'Available near your school' : g.inMyServiceArea ? 'Goods available in your area' : null;
+
+function GoodsCard({ goods }: { goods: import('@workspace/api-client-react').GoodsListing }) {
+  const label = goodsLabel(goods);
+  return (
+    <article className="ws-goods-card" data-testid={`goods-card-${goods.id}`}>
+      <div className="ws-goods-pic">{goods.photoVersion ? <GoodsPhoto id={goods.id} version={goods.photoVersion} alt={goods.title} /> : <Package size={34} />}</div>
+      <div className="ws-goods-body">
+        {label && <span className="ws-pill ws-pill-local" style={{ alignSelf: 'flex-start' }}>{label}</span>}
+        <b>{goods.title}</b>
+        <div className="ws-goods-meta">
+          <span>{goods.quantityAvailable} {goods.unit}</span>
+          {goods.condition && <span>{goodsConditionLabels[goods.condition] ?? goods.condition}</span>}
+          <span><MapPin size={12} /> {goods.locationName}{goods.serviceAreaName && goods.serviceAreaName !== goods.locationName ? ` · ${goods.serviceAreaName}` : ''}</span>
+        </div>
+        <p className="ws-muted" style={{ fontSize: 14 }}>{goods.description}</p>
+        <small className="ws-fine">Check sizes and details yourself. Donors make offers on your requests; you approve them in Offers.</small>
+      </div>
+    </article>
+  );
+}
+
+export function TeacherGoods() {
+  const area = useServiceAreaFilter();
+  const [group, setGroup] = useState<'' | 'SHOES' | 'UNIFORMS' | 'BAGS' | 'BOOKS_STATIONERY' | 'LEARNING_MATERIALS'>('');
+  const goods = useGetGoods({ ...(area.serviceAreaId ? { serviceAreaId: area.serviceAreaId } : {}), ...(group ? { categoryGroup: group } : {}), limit: 50 }, { query: { enabled: area.ready, queryKey: ['goods', area.serviceAreaId ?? 'all', group] } });
+  const items = goods.data ?? [];
+  const groups: [typeof group, string][] = [['', 'All'], ['SHOES', 'Shoes'], ['UNIFORMS', 'Uniforms'], ['BOOKS_STATIONERY', 'Books & stationery'], ['BAGS', 'Bags'], ['LEARNING_MATERIALS', 'Learning materials']];
+  return (
+    <div className="ws-col ws-col-wide">
+      <Link href="/teacher" className="ws-back"><ArrowLeft size={15} />Back to home</Link>
+      <PageHeader title="Goods available" subtitle="What donors have ready to give. Donors make offers on your requests." />
+      <div className="ws-filterbar">
+        <AreaPicker filter={area} label="Goods in" />
+      </div>
+      <div className="ws-chips" role="tablist" aria-label="Filter by category">
+        {groups.map(([value, label]) => <button key={label} role="tab" aria-selected={group === value} className={group === value ? 'is-active' : ''} onClick={() => setGroup(value)}>{label}</button>)}
+      </div>
+      {goods.isError ? <ErrorState onRetry={() => void goods.refetch()} /> : items.length === 0 ? (
+        <div className="ws-empty">
+          <span className="ws-empty-icon"><Package size={26} /></span>
+          <h3>{goods.isLoading ? 'Looking for goods…' : area.serviceAreaId ? 'No goods in this area yet' : 'No goods listed yet'}</h3>
+          <p>{area.serviceAreaId ? 'Donors haven’t listed anything here that matches. You can look further afield.' : 'Check back soon.'}</p>
+          {area.serviceAreaId && <button className="ws-btn ws-btn-primary" onClick={() => area.select('all')} data-testid="button-all-areas">See goods in all areas</button>}
+        </div>
+      ) : <div className="ws-goods-grid">{items.map((goodsItem) => <GoodsCard key={goodsItem.id} goods={goodsItem} />)}</div>}
     </div>
   );
 }

@@ -2,26 +2,27 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import { Bookmark, HandHeart, Package, Pencil, Plus, Search, ShieldCheck, Trash2, X } from 'lucide-react';
+import { Bookmark, HandHeart, ImagePlus, MapPin, Package, Pencil, Plus, Search, ShieldCheck, Trash2, X } from 'lucide-react';
 import {
-  type FeedPost, type InventoryInput, type InventoryItem,
-  getGetDonorDashboardQueryKey, getGetInventoryQueryKey, getGetMyReportsQueryKey, getGetMyVerificationQueryKey, getGetNotificationsQueryKey, getGetOrdersQueryKey,
-  useCreateInventory, useDeleteInventory, useGetAuthSession, useGetDonorDashboard, useGetInventory, useGetMyReports, useGetMyVerification,
-  useGetNotifications, useGetOrders, useGetSavedRequests, useGetSponsorships, useMarkNotificationRead, useSubmitVerification, useUpdateInventory, useUpdateOrderStatus,
+  type FeedPost, type InventoryItem,
+  customFetch, getGetDonorDashboardQueryKey, getGetInventoryQueryKey, getGetMyReportsQueryKey, getGetOrdersQueryKey,
+  useCreateInventoryBulk, useDeleteInventory, useDeleteInventoryPhoto, useGetAuthSession, useGetDonorDashboard, useGetInventory, useGetMyReports,
+  useGetOrders, useGetSavedRequests, useGetSponsorships, useUpdateInventory, useUpdateOrderStatus,
 } from '@workspace/api-client-react';
 import { ErrorState } from '../components/site';
 import { RequestDetailPage } from '../pages/pages';
 import { VerificationCard } from './common';
 import { FeedPostCard, OfferDialog, useFeed, useIsVerified, useToggleSave, type FeedFilters } from './feed';
-import { Avatar, Card, EmptyState, Feedback, ListRows, Notice, PageHeader, Segmented, SkeletonPosts, StatCards, greet } from './ui';
+import { AreaPicker, GoodsPhoto, LocationSelect, goodsCategories, goodsConditionLabels, useServiceAreaFilter } from './places';
+import { Avatar, Card, EmptyState, Feedback, ListRows, Notice, PageHeader, Segmented, SkeletonPosts, StatCards, StatusPill, greet } from './ui';
 
 const chips: { label: string; filters: FeedFilters }[] = [
   { label: 'All', filters: {} },
   { label: 'Urgent', filters: { priority: 'Essential' } },
-  { label: 'School shoes', filters: { category: 'School shoes' } },
-  { label: 'Books & stationery', filters: { category: 'Books & stationery,Stationery,Exercise books,Textbooks,Learning materials' } },
-  { label: 'Bags', filters: { category: 'Bags,School bags' } },
-  { label: 'Uniforms', filters: { category: 'Uniforms,School uniforms' } },
+  { label: 'School shoes', filters: { categoryGroup: 'SHOES' } },
+  { label: 'Books & stationery', filters: { categoryGroup: 'BOOKS_STATIONERY' } },
+  { label: 'Bags', filters: { categoryGroup: 'BAGS' } },
+  { label: 'Uniforms', filters: { categoryGroup: 'UNIFORMS' } },
 ];
 
 function useDebounced<T>(value: T, delay = 350) {
@@ -37,8 +38,9 @@ export function DonorHome() {
   const [chip, setChip] = useState(0);
   const [search, setSearch] = useState('');
   const debounced = useDebounced(search.trim());
-  const filters = useMemo<FeedFilters>(() => ({ ...chips[chip].filters, search: debounced || undefined }), [chip, debounced]);
-  const feed = useFeed(filters);
+  const area = useServiceAreaFilter();
+  const filters = useMemo<FeedFilters>(() => ({ ...chips[chip].filters, search: debounced || undefined, serviceAreaId: area.serviceAreaId }), [chip, debounced, area.serviceAreaId]);
+  const feed = useFeed(filters, area.ready);
   const toggleSave = useToggleSave();
   const [offering, setOffering] = useState<FeedPost | null>(null);
   const sentinel = useRef<HTMLDivElement | null>(null);
@@ -72,6 +74,7 @@ export function DonorHome() {
         )}
 
         <div className="ws-filters">
+          <AreaPicker filter={area} label="Requests in" />
           <label className="ws-search"><Search size={16} /><input type="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search items, schools or areas" aria-label="Search requests" data-testid="input-feed-search" />{search && <button onClick={() => setSearch('')} aria-label="Clear search"><X size={14} /></button>}</label>
           <div className="ws-chips" role="tablist" aria-label="Filter requests">
             {chips.map((item, index) => <button key={item.label} role="tab" aria-selected={chip === index} className={chip === index ? 'is-active' : ''} onClick={() => setChip(index)}>{item.label}</button>)}
@@ -80,7 +83,14 @@ export function DonorHome() {
 
         {feed.isLoading ? <SkeletonPosts count={2} />
           : feed.isError ? <ErrorState onRetry={() => void feed.refetch()} />
-          : posts.length === 0 ? <EmptyState title="Nothing here yet" text={debounced || chip ? 'No requests match that. Try a different search or filter.' : 'New school requests will show up here as soon as teachers post them.'} action={chip || debounced ? undefined : { href: '/donor/goods', label: 'List goods you can give' }} />
+          : posts.length === 0 ? (
+            <div className="ws-empty">
+              <span className="ws-empty-icon"><MapPin size={26} /></span>
+              <h3>{area.serviceAreaId ? 'No requests in this area yet' : 'Nothing here yet'}</h3>
+              <p>{debounced || chip ? 'No requests match that. Try a different search or filter.' : area.serviceAreaId ? 'There are no published requests in this service area right now. You can look further afield.' : 'New school requests will show up here as soon as teachers post them.'}</p>
+              {area.serviceAreaId ? <button className="ws-btn ws-btn-primary" onClick={() => area.select('all')} data-testid="button-all-areas">See requests in all areas</button> : !(chip || debounced) && <Link href="/donor/goods" className="ws-btn ws-btn-primary">List goods you can give</Link>}
+            </div>
+          )
           : <>
               {posts.map((post) => <FeedPostCard key={post.id} post={post} onOffer={setOffering} onToggleSave={toggleSave} />)}
               <div ref={sentinel} />
@@ -127,68 +137,171 @@ export function DonorRequest() {
   return <div className="ws-col ws-col-wide ws-legacy"><RequestDetailPage backHref="/donor" backLabel="Back to feed" /></div>;
 }
 
-const goodsDefaults: InventoryInput = { title: '', category: '', item: '', description: '', specifications: '', quantityAvailable: 1, unit: 'items', district: '', area: '' };
+type GoodsRow = { title: string; category: string; description: string; quantityAvailable: number; unit: string; condition: 'NEW' | 'GOOD' | 'FAIR'; photo: File | null };
+const blankRow = (): GoodsRow => ({ title: '', category: goodsCategories[0], description: '', quantityAvailable: 1, unit: 'items', condition: 'GOOD', photo: null });
+const PHOTO_TYPES = ['image/jpeg', 'image/png'];
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
+function photoProblem(file: File | null) {
+  if (!file) return null;
+  if (!PHOTO_TYPES.includes(file.type)) return 'Please choose a JPEG or PNG photo.';
+  if (file.size > MAX_PHOTO_BYTES) return 'That photo is too large. The limit is 5 MB.';
+  return null;
+}
+
+function uploadGoodsPhoto(id: string, file: File) {
+  return customFetch<InventoryItem>(`/api/v1/inventory/${id}/photo`, { method: 'POST', body: file, headers: { 'content-type': file.type }, responseType: 'json' });
+}
+
+const goodsStatus: Record<string, [string, string]> = { AVAILABLE: ['Available', 'good'], RESERVED: ['Fully offered', 'warn'], DRAFT: ['Waiting for verification', 'muted'], WITHDRAWN: ['Withdrawn', 'muted'] };
+function GoodsStatusPill({ status }: { status: string }) {
+  const [label, tone] = goodsStatus[status] ?? [status, 'muted'];
+  return <span className={`ws-pill ws-pill-${tone}`}>{label}</span>;
+}
 
 export function DonorGoods() {
   const client = useQueryClient();
   const inventory = useGetInventory();
-  const create = useCreateInventory();
+  const create = useCreateInventoryBulk();
   const update = useUpdateInventory();
   const remove = useDeleteInventory();
-  const [editing, setEditing] = useState<InventoryItem | null>(null);
+  const removePhoto = useDeleteInventoryPhoto();
+  const { verified, loading: verifyLoading } = useIsVerified();
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<InventoryItem | null>(null);
+  const [locationId, setLocationId] = useState('');
+  const [rows, setRows] = useState<GoodsRow[]>([blankRow()]);
+  const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<{ ok?: string; error?: unknown }>({});
-  const form = useForm<InventoryInput>({ defaultValues: goodsDefaults });
   const refresh = () => { void client.invalidateQueries({ queryKey: getGetInventoryQueryKey() }); void client.invalidateQueries({ queryKey: getGetDonorDashboardQueryKey() }); };
 
-  const close = () => { setShowForm(false); setEditing(null); form.reset(goodsDefaults); };
-  const save = form.handleSubmit((values) => {
-    setFeedback({});
-    const done = () => { setFeedback({ ok: editing ? 'Listing updated.' : 'Goods added. Teachers can now see you have these.' }); close(); refresh(); };
-    const fail = (error: unknown) => setFeedback({ error });
-    if (editing) update.mutate({ id: editing.id, data: values }, { onSuccess: done, onError: fail });
-    else create.mutate({ data: values }, { onSuccess: done, onError: fail });
-  });
-  const edit = (item: InventoryItem) => {
-    setEditing(item); setShowForm(true);
-    form.reset({ title: item.title, category: item.category, item: item.item, description: item.description, specifications: item.specifications || '', quantityAvailable: item.quantityAvailable, unit: item.unit, district: item.district, area: item.area || '' });
+  const close = () => { setShowForm(false); setEditing(null); setRows([blankRow()]); setLocationId(''); };
+  const setRow = (index: number, change: Partial<GoodsRow>) => setRows((current) => current.map((row, i) => (i === index ? { ...row, ...change } : row)));
+
+  const openEdit = (item: InventoryItem) => {
+    setEditing(item); setShowForm(true); setFeedback({});
+    setLocationId(item.locationId ?? '');
+    setRows([{ title: item.title, category: item.category, description: item.description, quantityAvailable: Math.max(1, item.quantityAvailable), unit: item.unit, condition: (item.condition as GoodsRow['condition']) ?? 'GOOD', photo: null }]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const fields = ['title', 'category', 'item', 'quantityAvailable', 'unit', 'district', 'area'] as const;
-  const labels: Record<string, string> = { title: 'Title', category: 'Category', item: 'Item', quantityAvailable: 'Quantity', unit: 'Unit', district: 'District', area: 'Area (optional)' };
+  const problem = (): string | null => {
+    if (!locationId) return 'Choose where the goods are available.';
+    for (const [index, row] of rows.entries()) {
+      const label = rows.length > 1 ? `Item ${index + 1}: ` : '';
+      if (row.title.trim().length < 2) return `${label}give the item a name.`;
+      if (row.description.trim().length < 4) return `${label}add a short description (sizes can go here).`;
+      if (!(row.quantityAvailable >= 1)) return `${label}enter how many you have.`;
+      const photo = photoProblem(row.photo);
+      if (photo) return `${label}${photo}`;
+    }
+    return null;
+  };
 
+  const save = async () => {
+    setFeedback({});
+    const issue = problem();
+    if (issue) return setFeedback({ error: new Error(issue) });
+    setBusy(true);
+    const payload = rows.map((row) => ({ title: row.title.trim(), category: row.category, description: row.description.trim(), quantityAvailable: Number(row.quantityAvailable), unit: row.unit.trim() || 'items', condition: row.condition, locationId }));
+    try {
+      const saved = editing ? [await update.mutateAsync({ id: editing.id, data: payload[0] })] : await create.mutateAsync({ data: { items: payload } });
+      const failed: string[] = [];
+      for (const [index, item] of saved.entries()) {
+        const photo = rows[index]?.photo;
+        if (photo) { try { await uploadGoodsPhoto(item.id, photo); } catch { failed.push(item.title); } }
+      }
+      setFeedback({
+        ok: failed.length ? `Saved. The photo for ${failed.join(', ')} couldn’t be uploaded. You can add it from the listing.` : editing ? 'Listing updated.' : saved.length > 1 ? `${saved.length} items added.` : 'Goods added.',
+      });
+      close(); refresh();
+    } catch (error) { setFeedback({ error }); }
+    finally { setBusy(false); }
+  };
+
+  const quickPhoto = async (item: InventoryItem, file: File | undefined) => {
+    if (!file) return;
+    const issue = photoProblem(file);
+    if (issue) return setFeedback({ error: new Error(issue) });
+    setFeedback({});
+    try { await uploadGoodsPhoto(item.id, file); setFeedback({ ok: 'Photo sent. It will appear to teachers once it’s approved.' }); refresh(); }
+    catch (error) { setFeedback({ error }); }
+  };
+
+  const items = inventory.data ?? [];
   return (
     <div className="ws-col ws-col-wide">
-      <PageHeader title="My goods" subtitle="What you have available to give." action={!showForm && <button className="ws-btn ws-btn-primary" onClick={() => setShowForm(true)} data-testid="button-add-goods"><Plus size={16} />Add goods</button>} />
+      <PageHeader title="My goods" subtitle="What you have available to give." action={!showForm && <button className="ws-btn ws-btn-primary" onClick={() => { setFeedback({}); setShowForm(true); }} data-testid="button-add-goods"><Plus size={16} />Add goods</button>} />
+      {!verifyLoading && !verified && <Notice tone="warn"><ShieldCheck size={16} /> Your goods are saved, but teachers only see them once your account is verified. <Link href="/donor/me">See status</Link></Notice>}
       <Feedback error={feedback.error} success={feedback.ok} />
+
       {showForm && (
-        <Card title={editing ? 'Edit listing' : 'Add goods'} action={<button className="ws-icon-btn" onClick={close} aria-label="Close form"><X size={18} /></button>}>
-          <form className="ws-form ws-grid-2" onSubmit={save}>
-            {fields.map((key) => (
-              <label className="ws-field" key={key}>{labels[key]}
-                <input className="ws-input" type={key === 'quantityAvailable' ? 'number' : 'text'} {...form.register(key, key === 'quantityAvailable' ? { valueAsNumber: true } : undefined)} data-testid={`input-inventory-${key}`} />
-              </label>
+        <Card title={editing ? 'Edit listing' : 'Add goods'} hint="Share what you have and where it is. Mention sizes in the description; teachers read the details themselves." action={<button className="ws-icon-btn" onClick={close} aria-label="Close form"><X size={18} /></button>}>
+          <div className="ws-form">
+            <label className="ws-field">Where are the goods available? <span className="ws-muted">(required)</span>
+              <LocationSelect value={locationId} onChange={setLocationId} testId="select-goods-location" />
+            </label>
+            {rows.map((row, index) => (
+              <div className="ws-itemrow" key={index} data-testid={`goods-row-${index}`}>
+                {rows.length > 1 && <div className="ws-itemrow-head"><b>Item {index + 1}</b><button type="button" className="ws-btn ws-btn-ghost ws-btn-sm" onClick={() => setRows((current) => current.filter((_, i) => i !== index))}><Trash2 size={14} />Remove</button></div>}
+                <div className="ws-grid-2">
+                  <label className="ws-field">Item name<input className="ws-input" value={row.title} onChange={(e) => setRow(index, { title: e.target.value })} placeholder="e.g. Black school shoes" data-testid={`input-goods-title-${index}`} /></label>
+                  <label className="ws-field">Category
+                    <select className="ws-input" value={row.category} onChange={(e) => setRow(index, { category: e.target.value })} data-testid={`select-goods-category-${index}`}>{goodsCategories.map((c) => <option key={c} value={c}>{c}</option>)}</select>
+                  </label>
+                  <label className="ws-field">How many<input className="ws-input" type="number" min={1} value={row.quantityAvailable} onChange={(e) => setRow(index, { quantityAvailable: Number(e.target.value) })} data-testid={`input-goods-quantity-${index}`} /></label>
+                  <label className="ws-field">Unit<input className="ws-input" value={row.unit} onChange={(e) => setRow(index, { unit: e.target.value })} placeholder="pairs, books, sets…" /></label>
+                  <label className="ws-field">Condition
+                    <select className="ws-input" value={row.condition} onChange={(e) => setRow(index, { condition: e.target.value as GoodsRow['condition'] })} data-testid={`select-goods-condition-${index}`}>{Object.entries(goodsConditionLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+                  </label>
+                  <label className="ws-field">Photo <span className="ws-muted">(optional)</span>
+                    <input className="ws-input" type="file" accept="image/jpeg,image/png" onChange={(e) => setRow(index, { photo: e.target.files?.[0] ?? null })} data-testid={`input-goods-photo-${index}`} />
+                  </label>
+                  <label className="ws-field ws-span">Description <span className="ws-muted">(condition details, sizes…)</span>
+                    <textarea className="ws-input" rows={2} value={row.description} onChange={(e) => setRow(index, { description: e.target.value })} placeholder="e.g. Sizes 3 to 5, lightly worn" data-testid={`input-goods-description-${index}`} />
+                  </label>
+                </div>
+              </div>
             ))}
-            <label className="ws-field ws-span">Description<textarea className="ws-input" rows={3} {...form.register('description')} data-testid="input-inventory-description" /></label>
-            <label className="ws-field ws-span">Specifications <span className="ws-muted">(sizes, condition…)</span><textarea className="ws-input" rows={2} {...form.register('specifications')} data-testid="input-inventory-specifications" /></label>
-            <div className="ws-form-actions ws-span">
-              <button className="ws-btn ws-btn-primary" disabled={create.isPending || update.isPending} data-testid="button-save-inventory">{editing ? 'Save changes' : 'Add goods'}</button>
+            {!editing && rows.length < 10 && <button type="button" className="ws-btn ws-btn-soft" onClick={() => setRows((current) => [...current, blankRow()])} data-testid="button-add-another"><Plus size={15} />Add another item</button>}
+            <p className="ws-fine">Photos should show the goods only, never people. They’re checked before teachers can see them.</p>
+            <div className="ws-form-actions">
+              <button className="ws-btn ws-btn-primary" disabled={busy} onClick={() => void save()} data-testid="button-save-goods">{busy ? 'Saving…' : editing ? 'Save changes' : rows.length > 1 ? `Add ${rows.length} items` : 'Add goods'}</button>
               <button type="button" className="ws-btn ws-btn-ghost" onClick={close}>Cancel</button>
             </div>
-          </form>
+          </div>
         </Card>
       )}
-      <Card title={`Your listings${inventory.data ? ` (${inventory.data.length})` : ''}`}>
-        <ListRows empty={inventory.isLoading ? 'Loading your goods…' : 'No goods listed yet. Tap “Add goods” when you’re ready.'}
-          items={(inventory.data ?? []).map((x) => ({
-            id: x.id, title: x.title, status: x.status,
-            detail: `${x.quantityAvailable} ${x.unit} · ${x.district}${x.area ? `, ${x.area}` : ''}`,
-            right: <>
-              <button className="ws-btn ws-btn-ghost ws-btn-sm" onClick={() => edit(x)} aria-label={`Edit ${x.title}`}><Pencil size={14} />Edit</button>
-              {x.status !== 'WITHDRAWN' && <button className="ws-btn ws-btn-danger ws-btn-sm" onClick={() => { if (confirm(`Withdraw “${x.title}”?`)) remove.mutate({ id: x.id }, { onSuccess: refresh }); }}><Trash2 size={14} />Withdraw</button>}
-            </>,
-          }))} />
+
+      <Card title={`Your listings${inventory.data ? ` (${items.filter((i) => i.status !== 'WITHDRAWN').length})` : ''}`}>
+        {items.length === 0 ? <p className="ws-muted ws-empty-line">{inventory.isLoading ? 'Loading your goods…' : 'No goods listed yet. Tap “Add goods” when you’re ready.'}</p> : items.map((item) => (
+          <article className="ws-goods" key={item.id} data-testid={`goods-${item.id}`}>
+            <div className="ws-goods-thumb">{item.photoVersion && item.photoStatus !== 'REJECTED' ? <GoodsPhoto id={item.id} version={item.photoVersion} alt={item.title} /> : <Package size={24} />}</div>
+            <div className="ws-goods-copy">
+              <b>{item.title} <GoodsStatusPill status={item.status} /></b>
+              <div className="ws-goods-meta">
+                <span>{item.status === 'RESERVED' ? `0 left` : `${item.quantityAvailable} ${item.unit}`}</span>
+                {item.condition && <span>{goodsConditionLabels[item.condition] ?? item.condition}</span>}
+                <span><MapPin size={12} /> {item.locationName ?? item.district}{item.serviceAreaName && item.serviceAreaName !== item.locationName ? ` · ${item.serviceAreaName}` : ''}</span>
+                <span>{item.category}</span>
+              </div>
+              <p>{item.description}</p>
+              {item.offerCount > 0 && <small className="ws-muted">{item.offerCount} offer{item.offerCount === 1 ? '' : 's'} so far{item.pendingOfferCount ? ` · ${item.pendingOfferCount} waiting for the teacher` : ''}. <Link href="/donor/activity">See activity</Link></small>}
+              {item.photoStatus === 'PENDING' && <small className="ws-note-inline">Photo waiting for approval. Only you can see it until then.</small>}
+              {item.photoStatus === 'REJECTED' && <small className="ws-note-inline">Your photo wasn’t approved. Try a clearer photo of just the goods.</small>}
+              {item.status !== 'WITHDRAWN' && (
+                <div className="ws-goods-actions">
+                  <button className="ws-btn ws-btn-ghost ws-btn-sm" onClick={() => openEdit(item)} aria-label={`Edit ${item.title}`}><Pencil size={14} />Edit</button>
+                  <label className="ws-btn ws-btn-ghost ws-btn-sm" style={{ cursor: 'pointer' }}><ImagePlus size={14} />{item.photoStatus === 'NONE' || item.photoStatus === 'REJECTED' ? 'Add photo' : 'Replace photo'}
+                    <input type="file" accept="image/jpeg,image/png" hidden onChange={(e) => { void quickPhoto(item, e.target.files?.[0]); e.target.value = ''; }} data-testid={`input-quick-photo-${item.id}`} />
+                  </label>
+                  {item.photoStatus !== 'NONE' && <button className="ws-btn ws-btn-ghost ws-btn-sm" onClick={() => removePhoto.mutate({ id: item.id }, { onSuccess: refresh })}>Remove photo</button>}
+                  <button className="ws-btn ws-btn-danger ws-btn-sm" onClick={() => { if (confirm(`Withdraw “${item.title}”? Offers already made will carry on.`)) remove.mutate({ id: item.id }, { onSuccess: refresh }); }}><Trash2 size={14} />Withdraw</button>
+                </div>
+              )}
+            </div>
+          </article>
+        ))}
       </Card>
     </div>
   );
@@ -205,7 +318,7 @@ export function DonorActivity() {
       <PageHeader title="Activity" subtitle="Your offers and where each handoff stands." />
       <Segmented value={tab} onChange={setTab} options={[{ value: 'offers', label: 'My offers', count: offers.data?.length }, { value: 'handoffs', label: 'Handoffs', count: orders.data?.length }]} />
       {tab === 'offers' ? (
-        <Card><ListRows empty="When you offer help on a request, it shows up here." items={(offers.data ?? []).map((s) => ({ id: s.id, title: s.requestTitle, status: s.status, detail: `${s.quantity} offered · ${new Date(s.createdAt).toLocaleDateString()}` }))} /></Card>
+        <Card><ListRows empty="When you offer help on a request, it shows up here." items={(offers.data ?? []).map((s) => ({ id: s.id, title: s.requestTitle, status: s.status, detail: `${s.quantity} offered${s.inventoryTitle ? ` from “${s.inventoryTitle}”` : ''} · ${new Date(s.createdAt).toLocaleDateString()}` }))} /></Card>
       ) : (
         <Card><ListRows empty="No handoffs yet. Once a teacher approves an offer, the next steps appear here."
           items={(orders.data ?? []).map((o) => ({

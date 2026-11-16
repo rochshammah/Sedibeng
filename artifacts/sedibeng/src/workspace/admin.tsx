@@ -1,17 +1,18 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
-import { Building2, ExternalLink, Flag, Inbox, Plus, ShieldCheck, Users } from 'lucide-react';
+import { Building2, ExternalLink, Flag, Inbox, MapPin, Package, Plus, ShieldCheck, Users } from 'lucide-react';
 import {
-  type AdminSchool, type AssistanceRequest, type SchoolInput,
-  getGetAdminDashboardQueryKey, getGetAdminVerificationDetailQueryKey, getGetRequestsQueryKey, getListAdminReportsQueryKey, getListAdminSchoolsQueryKey, getListAdminUsersQueryKey, getListVerificationQueueQueryKey,
-  useAccessVerificationDocument, useAdminUpdateUserStatus, useCreateAdminSchool, useDecideReport, useDecideVerification, useGetAdminDashboard, useGetAdminVerificationDetail, useGetAuthSession, useGetRequests,
+  type AdminServiceArea, type AdminSchool, type AssistanceRequest, type SchoolInput,
+  getGetAdminDashboardQueryKey, getGetAdminVerificationDetailQueryKey, getGetLocationsQueryKey, getListAdminLocationsQueryKey, getListGoodsPhotosForReviewQueryKey, getGetRequestsQueryKey, getListAdminReportsQueryKey, getListAdminSchoolsQueryKey, getListAdminUsersQueryKey, getListVerificationQueueQueryKey,
+  useAccessVerificationDocument, useAdminUpdateUserStatus, useCreateAdminSchool, useCreateLocation, useCreateServiceArea, useDecideGoodsPhoto, useListAdminLocations, useListGoodsPhotosForReview, useUpdateLocation, useUpdateServiceArea, useDecideReport, useDecideVerification, useGetAdminDashboard, useGetAdminVerificationDetail, useGetAuthSession, useGetRequests,
   useListAdminReports, useListAdminSchools, useListAdminUsers, useListVerificationQueue, useModerateRequest, useUpdateAdminSchool,
 } from '@workspace/api-client-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { ErrorState } from '../components/site';
 import { documentLabels } from './teacher-verification';
+import { GoodsPhoto, LocationSelect } from './places';
 import { Avatar, Card, Feedback, ListRows, Notice, PageHeader, Segmented, StatCards, StatusPill, greet } from './ui';
 
 function useRefreshAdmin() {
@@ -189,7 +190,51 @@ export function AdminVerifications() {
 
 const conditionText: Record<string, string> = { NEW: 'New only', GENTLY_USED: 'Gently used is fine', ANY: 'Any condition' };
 
+function GoodsPhotoReview() {
+  const { toast } = useToast();
+  const client = useQueryClient();
+  const photos = useListGoodsPhotosForReview();
+  const decide = useDecideGoodsPhoto();
+  const items = photos.data ?? [];
+  const run = (id: string, decision: 'APPROVE' | 'REJECT') => decide.mutate({ id, data: { decision } }, {
+    onSuccess: () => { toast({ title: decision === 'APPROVE' ? 'Photo approved' : 'Photo rejected' }); void client.invalidateQueries({ queryKey: getListGoodsPhotosForReviewQueryKey() }); },
+  });
+  return (
+    <>
+      <Notice>Approve only clear photos of goods. Reject anything showing people, children, documents, addresses or anything unsuitable.</Notice>
+      {items.length === 0 ? <Card><p className="ws-muted ws-empty-line">{photos.isLoading ? 'Loading…' : 'No item photos are waiting for review.'}</p></Card> : (
+        <div className="ws-goods-grid">
+          {items.map((photo) => (
+            <article className="ws-goods-card" key={photo.id} data-testid={`photo-review-${photo.id}`}>
+              <div className="ws-goods-pic"><GoodsPhoto id={photo.id} version={photo.photoVersion} alt={photo.title} /></div>
+              <div className="ws-goods-body">
+                <b>{photo.title}</b>
+                <div className="ws-goods-meta"><span>{photo.category}</span><span>{photo.donorName}</span>{photo.locationName && <span><MapPin size={12} /> {photo.locationName}</span>}</div>
+                <div className="ws-goods-actions">
+                  <button className="ws-btn ws-btn-primary ws-btn-sm" disabled={decide.isPending} onClick={() => run(photo.id, 'APPROVE')} data-testid={`button-approve-photo-${photo.id}`}>Approve</button>
+                  <button className="ws-btn ws-btn-danger ws-btn-sm" disabled={decide.isPending} onClick={() => run(photo.id, 'REJECT')} data-testid={`button-reject-photo-${photo.id}`}>Reject</button>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 export function AdminModeration() {
+  const [tab, setTab] = useState<'requests' | 'photos'>('requests');
+  const pendingPhotos = useListGoodsPhotosForReview().data?.length ?? 0;
+  return (
+    <div className="ws-col ws-col-wide">
+      <Segmented value={tab} onChange={setTab} options={[{ value: 'requests', label: 'Requests' }, { value: 'photos', label: 'Item photos', count: pendingPhotos }]} />
+      {tab === 'photos' ? <GoodsPhotoReview /> : <RequestModeration />}
+    </div>
+  );
+}
+
+function RequestModeration() {
   const { toast } = useToast();
   const requests = useGetRequests({});
   const moderate = useModerateRequest();
@@ -239,7 +284,7 @@ export function AdminModeration() {
 
 const schoolTypes: Record<string, string> = { PRIMARY: 'Primary', JUNIOR_SECONDARY: 'Junior secondary', SENIOR_SECONDARY: 'Senior secondary', SPECIAL_NEEDS: 'Special needs', OTHER: 'Other' };
 const schoolStatusText: Record<string, string> = { ACTIVE: 'Active', SUSPENDED: 'Inactive', PENDING_REVIEW: 'Waiting to be confirmed' };
-const blankSchool: SchoolInput = { name: '', schoolType: null, district: 'Gaborone', area: '', generalLocation: '', status: 'ACTIVE' };
+const blankSchool: SchoolInput = { name: '', schoolType: null, district: 'Gaborone', area: '', generalLocation: '', locationId: null, status: 'ACTIVE' };
 
 function SchoolDirectory() {
   const { toast } = useToast();
@@ -256,14 +301,14 @@ function SchoolDirectory() {
 
   const openEdit = (school: AdminSchool | 'new') => {
     setError(null); setEditing(school);
-    setForm(school === 'new' ? blankSchool : { name: school.name, schoolType: (school.schoolType as SchoolInput['schoolType']) ?? null, district: school.district, area: school.area ?? '', generalLocation: school.generalLocation ?? '', status: school.status });
+    setForm(school === 'new' ? blankSchool : { name: school.name, schoolType: (school.schoolType as SchoolInput['schoolType']) ?? null, district: school.district, area: school.area ?? '', generalLocation: school.generalLocation ?? '', locationId: school.locationId ?? null, status: school.status });
   };
   const save = () => {
     setError(null);
     if (editing === 'new') create.mutate({ data: form }, { onSuccess: done, onError: setError });
     else if (editing) update.mutate({ id: editing.id, data: form }, { onSuccess: done, onError: setError });
   };
-  const quick = (school: AdminSchool, next: SchoolInput['status']) => update.mutate({ id: school.id, data: { name: school.name, schoolType: (school.schoolType as SchoolInput['schoolType']) ?? null, district: school.district, area: school.area, generalLocation: school.generalLocation, status: next } }, { onSuccess: done });
+  const quick = (school: AdminSchool, next: SchoolInput['status']) => update.mutate({ id: school.id, data: { name: school.name, schoolType: (school.schoolType as SchoolInput['schoolType']) ?? null, district: school.district, area: school.area, generalLocation: school.generalLocation, locationId: school.locationId ?? null, status: next } }, { onSuccess: done });
 
   return (
     <>
@@ -278,7 +323,7 @@ function SchoolDirectory() {
         items={(schools.data ?? []).map((school) => ({
           id: school.id, title: school.name, status: school.status === 'SUSPENDED' ? 'Inactive' : school.status === 'PENDING_REVIEW' ? 'Pending' : 'Active',
           icon: <Building2 size={17} />,
-          detail: `${school.schoolType ? `${schoolTypes[school.schoolType] ?? school.schoolType} · ` : ''}${[school.area, school.district].filter(Boolean).join(', ')} · ${school.teacherCount} teacher${school.teacherCount === 1 ? '' : 's'}`,
+          detail: `${school.schoolType ? `${schoolTypes[school.schoolType] ?? school.schoolType} · ` : ''}${school.locationName ?? [school.area, school.district].filter(Boolean).join(', ')}${school.locationName ? '' : ' (no location set)'} · ${school.teacherCount} teacher${school.teacherCount === 1 ? '' : 's'}`,
           right: <>
             {school.status === 'PENDING_REVIEW' && <button className="ws-btn ws-btn-primary ws-btn-sm" onClick={() => quick(school, 'ACTIVE')} data-testid={`button-confirm-school-${school.id}`}>Confirm</button>}
             <button className="ws-btn ws-btn-ghost ws-btn-sm" onClick={() => openEdit(school)}>Edit</button>
@@ -294,6 +339,9 @@ function SchoolDirectory() {
               <label className="ws-field">District<input className="ws-input" value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })} data-testid="input-school-district" /></label>
               <label className="ws-field">Area<input className="ws-input" value={form.area ?? ''} onChange={(e) => setForm({ ...form, area: e.target.value })} data-testid="input-school-area" /></label>
             </div>
+            <label className="ws-field">Location for matching <span className="ws-muted">(teachers at this school use it by default)</span>
+              <LocationSelect value={form.locationId ?? ''} onChange={(value) => setForm({ ...form, locationId: value || null })} placeholder="Not set" testId="select-school-location" />
+            </label>
             <label className="ws-field">General location <span className="ws-muted">(optional)</span><input className="ws-input" value={form.generalLocation ?? ''} onChange={(e) => setForm({ ...form, generalLocation: e.target.value })} /></label>
             <label className="ws-field">Status<select className="ws-input" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as SchoolInput['status'] })}>{Object.entries(schoolStatusText).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
             <Feedback error={error} />
@@ -305,16 +353,87 @@ function SchoolDirectory() {
   );
 }
 
+function LocationsAdmin() {
+  const { toast } = useToast();
+  const client = useQueryClient();
+  const tree = useListAdminLocations();
+  const createArea = useCreateServiceArea();
+  const updateArea = useUpdateServiceArea();
+  const createLocation = useCreateLocation();
+  const updateLocation = useUpdateLocation();
+  const [newArea, setNewArea] = useState('');
+  const [newLocation, setNewLocation] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState<{ kind: 'area'; area: AdminServiceArea } | { kind: 'location'; id: string; name: string; serviceAreaId: string; isActive: boolean } | null>(null);
+  const [error, setError] = useState<unknown>(null);
+  const refresh = () => { void client.invalidateQueries({ queryKey: getListAdminLocationsQueryKey() }); void client.invalidateQueries({ queryKey: getGetLocationsQueryKey() }); };
+  const areas = tree.data ?? [];
+
+  const addArea = () => createArea.mutate({ data: { name: newArea.trim(), isActive: true } }, { onSuccess: () => { setNewArea(''); setError(null); refresh(); toast({ title: 'Service area added' }); }, onError: setError });
+  const addLocation = (areaId: string) => createLocation.mutate({ data: { name: (newLocation[areaId] ?? '').trim(), serviceAreaId: areaId, isActive: true } }, { onSuccess: () => { setNewLocation({ ...newLocation, [areaId]: '' }); setError(null); refresh(); toast({ title: 'Location added' }); }, onError: setError });
+  const saveEdit = () => {
+    if (!editing) return;
+    setError(null);
+    const done = { onSuccess: () => { setEditing(null); refresh(); toast({ title: 'Saved' }); }, onError: setError };
+    if (editing.kind === 'area') updateArea.mutate({ id: editing.area.id, data: { name: editing.area.name, isActive: editing.area.isActive } }, done);
+    else updateLocation.mutate({ id: editing.id, data: { name: editing.name, serviceAreaId: editing.serviceAreaId, isActive: editing.isActive } }, done);
+  };
+
+  return (
+    <>
+      <Notice>A service area groups nearby locations. Goods and requests are suggested to each other only inside one service area, so put towns that share collection and delivery together.</Notice>
+      <Feedback error={error} />
+      {areas.map((area) => (
+        <Card key={area.id} title={area.name} hint={`${area.locations.length} location${area.locations.length === 1 ? '' : 's'}`}
+          action={<><StatusPill status={area.isActive ? 'ACTIVE' : 'SUSPENDED'} /><button className="ws-btn ws-btn-ghost ws-btn-sm" onClick={() => setEditing({ kind: 'area', area: { ...area } })} data-testid={`button-edit-area-${area.id}`}>Edit</button></>}>
+          <ListRows empty="No locations yet."
+            items={area.locations.map((location) => ({
+              id: location.id, title: location.name, status: location.isActive ? 'ACTIVE' : 'SUSPENDED', icon: <MapPin size={17} />, detail: '',
+              right: <button className="ws-btn ws-btn-ghost ws-btn-sm" onClick={() => setEditing({ kind: 'location', id: location.id, name: location.name, serviceAreaId: area.id, isActive: location.isActive })} data-testid={`button-edit-location-${location.id}`}>Edit</button>,
+            }))} />
+          <div className="ws-filters-row" style={{ marginTop: 10 }}>
+            <input className="ws-input" placeholder={`Add a location to ${area.name}`} value={newLocation[area.id] ?? ''} onChange={(e) => setNewLocation({ ...newLocation, [area.id]: e.target.value })} aria-label={`New location in ${area.name}`} data-testid={`input-new-location-${area.id}`} />
+            <button className="ws-btn ws-btn-soft" disabled={(newLocation[area.id] ?? '').trim().length < 2 || createLocation.isPending} onClick={() => addLocation(area.id)} data-testid={`button-add-location-${area.id}`}><Plus size={15} />Add</button>
+          </div>
+        </Card>
+      ))}
+      <Card title="Add a service area">
+        <div className="ws-filters-row">
+          <input className="ws-input" placeholder="e.g. Serowe" value={newArea} onChange={(e) => setNewArea(e.target.value)} aria-label="New service area name" data-testid="input-new-area" />
+          <button className="ws-btn ws-btn-primary" disabled={newArea.trim().length < 2 || createArea.isPending} onClick={addArea} data-testid="button-add-area"><Plus size={15} />Add area</button>
+        </div>
+      </Card>
+      <Dialog open={!!editing} onOpenChange={(open) => { if (!open) setEditing(null); }}>
+        <DialogContent className="ws-dialog">
+          <DialogHeader><DialogTitle>{editing?.kind === 'area' ? 'Edit service area' : 'Edit location'}</DialogTitle><DialogDescription>Switching something off hides it from new choices. Existing posts keep their place.</DialogDescription></DialogHeader>
+          {editing && (
+            <div className="ws-form">
+              <label className="ws-field">Name<input className="ws-input" value={editing.kind === 'area' ? editing.area.name : editing.name} onChange={(e) => setEditing(editing.kind === 'area' ? { kind: 'area', area: { ...editing.area, name: e.target.value } } : { ...editing, name: e.target.value })} data-testid="input-edit-place-name" /></label>
+              {editing.kind === 'location' && (
+                <label className="ws-field">Service area
+                  <select className="ws-input" value={editing.serviceAreaId} onChange={(e) => setEditing({ ...editing, serviceAreaId: e.target.value })} data-testid="select-edit-location-area">{areas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+                </label>
+              )}
+              <label className="ws-field"><span><input type="checkbox" checked={editing.kind === 'area' ? editing.area.isActive : editing.isActive} onChange={(e) => setEditing(editing.kind === 'area' ? { kind: 'area', area: { ...editing.area, isActive: e.target.checked } } : { ...editing, isActive: e.target.checked })} /> Active</span></label>
+              <Feedback error={error} />
+              <button className="ws-btn ws-btn-primary" onClick={saveEdit} disabled={updateArea.isPending || updateLocation.isPending} data-testid="button-save-place">Save</button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export function AdminUsers() {
   const users = useListAdminUsers();
   const setStatus = useAdminUpdateUserStatus();
   const refresh = useRefreshAdmin();
-  const [tab, setTab] = useState<'people' | 'schools'>('people');
+  const [tab, setTab] = useState<'people' | 'schools' | 'locations'>('people');
   return (
     <div className="ws-col ws-col-wide">
-      <PageHeader title="People & schools" subtitle={tab === 'people' ? 'Everyone with an account.' : 'The directory teachers choose their school from.'} action={tab === 'people' ? <span className="ws-muted"><Users size={14} /> {users.data?.length ?? 0}</span> : undefined} />
-      <Segmented value={tab} onChange={setTab} options={[{ value: 'people', label: 'People' }, { value: 'schools', label: 'Schools' }]} />
-      {tab === 'schools' ? <SchoolDirectory /> : (
+      <PageHeader title="People & schools" subtitle={tab === 'people' ? 'Everyone with an account.' : tab === 'schools' ? 'The directory teachers choose their school from.' : 'The places people choose, grouped into service areas.'} action={tab === 'people' ? <span className="ws-muted"><Users size={14} /> {users.data?.length ?? 0}</span> : undefined} />
+      <Segmented value={tab} onChange={setTab} options={[{ value: 'people', label: 'People' }, { value: 'schools', label: 'Schools' }, { value: 'locations', label: 'Locations' }]} />
+      {tab === 'locations' ? <LocationsAdmin /> : tab === 'schools' ? <SchoolDirectory /> : (
         <Card><ListRows empty="No users to show."
           items={(users.data ?? []).map((u) => ({
             id: u.id, title: u.name, status: u.status, detail: `${u.email} · ${u.role.toLowerCase()}`,

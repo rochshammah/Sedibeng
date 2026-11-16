@@ -5,20 +5,22 @@ import { useForm } from 'react-hook-form';
 import { BadgeCheck, Bookmark, CalendarClock, CheckCircle2, Gift, MapPin, Share2, Sparkles } from 'lucide-react';
 import {
   type FeedPage, type FeedPost, type GetFeedParams,
-  getFeed, getGetDonorDashboardQueryKey, getGetMyVerificationQueryKey, getGetSavedRequestsQueryKey, getGetSponsorshipsQueryKey,
-  useCreateSponsorship, useGetMyVerification, useSaveRequest, useUnsaveRequest,
+  getFeed, getGetDonorDashboardQueryKey, getGetInventoryQueryKey, getGetMyVerificationQueryKey, getGetSavedRequestsQueryKey, getGetSponsorshipsQueryKey,
+  useCreateSponsorship, useGetInventory, useGetMyVerification, useSaveRequest, useUnsaveRequest,
 } from '@workspace/api-client-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { PhotoImage } from '../components/site';
+import { goodsConditionLabels, groupLabels } from './places';
 import { Avatar, Feedback, timeAgo } from './ui';
 
-export type FeedFilters = Pick<GetFeedParams, 'search' | 'category' | 'priority'>;
+export type FeedFilters = Pick<GetFeedParams, 'search' | 'category' | 'priority' | 'serviceAreaId' | 'categoryGroup'>;
 
 const FEED_KEY = 'feed';
 
-export function useFeed(filters: FeedFilters) {
+export function useFeed(filters: FeedFilters, enabled = true) {
   return useInfiniteQuery({
+    enabled,
     queryKey: [FEED_KEY, filters],
     queryFn: ({ pageParam }) => getFeed({ ...filters, cursor: pageParam, limit: 10 }),
     initialPageParam: undefined as string | undefined,
@@ -94,6 +96,7 @@ export function FeedPostCard({ post, onOffer, onToggleSave }: { post: FeedPost; 
       </header>
 
       <div className="ws-post-body">
+        {post.localMatch && <span className="ws-pill ws-pill-local" title="You have goods listed in this service area">A local request</span>}
         <h3><Link href={detail}>{post.title}</Link></h3>
         <p className={expanded ? '' : 'is-clamped'}>{post.description}</p>
         {long && <button className="ws-link-btn" onClick={() => setExpanded((v) => !v)}>{expanded ? 'Show less' : 'See more'}</button>}
@@ -134,25 +137,40 @@ export function FeedPostCard({ post, onOffer, onToggleSave }: { post: FeedPost; 
   );
 }
 
-export function OfferDialog({ post, onClose }: { post: FeedPost | null; onClose: () => void }) {
+// What an offer needs to know about a request (the feed and the detail page both use it).
+export type OfferTarget = Pick<FeedPost, 'id' | 'title' | 'schoolName' | 'unit' | 'quantity' | 'quantityCovered' | 'categoryGroup' | 'serviceAreaName'>;
+
+export function OfferDialog({ post, onClose }: { post: OfferTarget | null; onClose: () => void }) {
   const client = useQueryClient();
   const { toast } = useToast();
   const { verified, loading } = useIsVerified();
+  const goods = useGetInventory({ query: { queryKey: getGetInventoryQueryKey(), enabled: !!post } });
   const create = useCreateSponsorship();
   const [error, setError] = useState<unknown>(null);
-  const remaining = post ? Math.max(1, post.quantity - post.quantityCovered) : 1;
+  const [picked, setPicked] = useState('');
+
+  // Only goods of the kind this request asks for can be offered; goods in the same service area come first.
+  const options = (goods.data ?? [])
+    .filter((item) => item.status === 'AVAILABLE' && item.quantityAvailable > 0 && post && item.categoryGroup === post.categoryGroup)
+    .sort((a, b) => Number(b.serviceAreaName === post?.serviceAreaName) - Number(a.serviceAreaName === post?.serviceAreaName));
+  const chosen = options.find((item) => item.id === picked) ?? options[0];
   const form = useForm<{ quantity: number; donorMessage: string }>({ values: { quantity: 1, donorMessage: '' } });
 
   const submit = form.handleSubmit((values) => {
-    if (!post) return;
+    if (!post || !chosen) return;
     setError(null);
-    create.mutate({ data: { requestId: post.id, quantity: Number(values.quantity), donorMessage: values.donorMessage || null } }, {
+    const wanted = Number(values.quantity);
+    if (!(wanted >= 1)) { setError(new Error('Enter how many you can give.')); return; }
+    if (wanted > chosen.quantityAvailable) { setError(new Error(`You only have ${chosen.quantityAvailable} of these available.`)); return; }
+    create.mutate({ data: { requestId: post.id, inventoryId: chosen.id, quantity: Number(values.quantity), donorMessage: values.donorMessage || null } }, {
       onSuccess: () => {
         toast({ title: 'Offer sent 🎉', description: 'The teacher will review it and you’ll be notified.' });
         void client.invalidateQueries({ queryKey: [FEED_KEY] });
         void client.invalidateQueries({ queryKey: getGetSponsorshipsQueryKey() });
+        void client.invalidateQueries({ queryKey: getGetInventoryQueryKey() });
         void client.invalidateQueries({ queryKey: getGetDonorDashboardQueryKey() });
         form.reset();
+        setPicked('');
         onClose();
       },
       onError: setError,
@@ -168,22 +186,29 @@ export function OfferDialog({ post, onClose }: { post: FeedPost | null; onClose:
         </DialogHeader>
         {!loading && !verified ? (
           <div className="ws-notice ws-notice-warn">Your account is still being verified, so offers are paused for now. You can keep browsing and saving requests in the meantime. <Link href="/donor/me" onClick={onClose}>Check verification</Link></div>
+        ) : !goods.isLoading && options.length === 0 ? (
+          <div className="ws-notice ws-notice-info">You don’t have any {groupLabels[post?.categoryGroup ?? 'OTHER']?.toLowerCase()} goods available to offer yet. List them first, then come back. <Link href="/donor/goods" onClick={onClose} data-testid="link-list-goods-first">List goods</Link></div>
         ) : (
-          <form onSubmit={submit} className="ws-form">
-            <label className="ws-field">How many {post?.unit} can you give?
-              <input className="ws-input" type="number" min={1} max={10000} {...form.register('quantity', { valueAsNumber: true, min: 1 })} data-testid="input-offer-quantity" />
-              <small>The school still needs about {remaining}.</small>
+          <form onSubmit={submit} className="ws-form" noValidate>
+            <label className="ws-field">Which of your goods?
+              <select className="ws-input" value={chosen?.id ?? ''} onChange={(e) => setPicked(e.target.value)} data-testid="select-offer-goods">
+                {options.map((item) => <option key={item.id} value={item.id}>{item.title} · {item.quantityAvailable} {item.unit} · {item.locationName ?? item.district}</option>)}
+              </select>
+              {chosen && <small>Available in {chosen.locationName ?? chosen.district}{chosen.condition ? ` · ${goodsConditionLabels[chosen.condition] ?? chosen.condition} condition` : ''}.</small>}
+            </label>
+            <label className="ws-field">How many {post?.unit}?
+              <input className="ws-input" type="number" min={1} max={chosen?.quantityAvailable ?? 1} {...form.register('quantity', { valueAsNumber: true })} data-testid="input-offer-quantity" />
+              <small>You have {chosen?.quantityAvailable ?? 0} available. The school still needs about {post ? Math.max(1, post.quantity - post.quantityCovered) : 1}.</small>
             </label>
             <label className="ws-field">Note to the teacher <span className="ws-muted">(optional)</span>
-              <textarea className="ws-input" rows={3} maxLength={500} placeholder="e.g. Brand new, I can drop them off on weekdays." {...form.register('donorMessage')} data-testid="input-offer-message" />
+              <textarea className="ws-input" rows={3} maxLength={500} placeholder="e.g. I can drop them off on weekdays." {...form.register('donorMessage')} data-testid="input-offer-message" />
             </label>
             <Feedback error={error} />
-            <button className="ws-btn ws-btn-primary" disabled={create.isPending} data-testid="button-send-offer">{create.isPending ? 'Sending…' : 'Send offer'}</button>
-            <p className="ws-fine">Goods only. The teacher reviews every offer and arranges the handoff. Learners are never contacted.</p>
+            <button className="ws-btn ws-btn-primary" disabled={create.isPending || !chosen} data-testid="button-send-offer">{create.isPending ? 'Sending…' : 'Send offer'}</button>
+            <p className="ws-fine">Goods only. The teacher reviews every offer and arranges the handoff. Check the item details and location yourself; Sedibeng doesn’t match sizes.</p>
           </form>
         )}
       </DialogContent>
     </Dialog>
   );
 }
-
