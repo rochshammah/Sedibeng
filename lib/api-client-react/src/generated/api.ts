@@ -28,6 +28,7 @@ import type {
   AdminBootstrap,
   AdminDashboard,
   AdminSchool,
+  AdminServiceArea,
   AdminVerificationDetail,
   ApiError,
   ApiErrorResponse,
@@ -35,6 +36,7 @@ import type {
   AuthMessage,
   AuthSession,
   AuthUser,
+  BulkInventoryInput,
   CsrfToken,
   DeletedDocument,
   DocumentAccess,
@@ -45,13 +47,19 @@ import type {
   FeedPost,
   FulfilmentOrder,
   GetFeedParams,
+  GetGoodsParams,
   GetRequestsParams,
+  GoodsListing,
+  GoodsPhotoDecision,
+  GoodsPhotoReviewItem,
   HealthStatus,
   InventoryInput,
   InventoryItem,
   ListAdminSchoolsParams,
   ListSchoolsParams,
   ListVerificationQueueParams,
+  LocationInput,
+  LocationOption,
   LoginRequest,
   Notification,
   OrderStatusUpdate,
@@ -66,6 +74,10 @@ import type {
   SaveState,
   School,
   SchoolInput,
+  ServiceAreaInput,
+  ServiceAreaOption,
+  ServiceAreaPreference,
+  ServiceAreaPreferenceInput,
   Sponsorship,
   SponsorshipDecision,
   SponsorshipInput,
@@ -3088,6 +3100,1300 @@ export const useCreateInventory = <TError = ErrorType<ApiErrorResponse>,
         TContext
       > => {
       return useMutation(getCreateInventoryMutationOptions(options), queryClient);
+    }
+
+export const getGetLocationsUrl = () => {
+
+
+
+
+  return `/api/v1/locations`
+}
+
+/**
+ * @summary Active service areas with their locations
+ */
+export const getLocations = async ( options?: Parameters<typeof customFetch>[1]): Promise<ServiceAreaOption[]> => {
+
+  return customFetch<ServiceAreaOption[]>(getGetLocationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetLocationsQueryKey = () => {
+    return [
+    `/api/v1/locations`
+    ] as const;
+    }
+
+
+export const getGetLocationsQueryOptions = <TData = Awaited<ReturnType<typeof getLocations>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLocations>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetLocationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getLocations>>> = ({ signal }) => getLocations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getLocations>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetLocationsQueryResult = NonNullable<Awaited<ReturnType<typeof getLocations>>>
+export type GetLocationsQueryError = ErrorType<unknown>
+
+
+export function useGetLocations<TData = Awaited<ReturnType<typeof getLocations>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLocations>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLocations>>,
+          TError,
+          Awaited<ReturnType<typeof getLocations>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLocations<TData = Awaited<ReturnType<typeof getLocations>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLocations>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getLocations>>,
+          TError,
+          Awaited<ReturnType<typeof getLocations>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetLocations<TData = Awaited<ReturnType<typeof getLocations>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLocations>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Active service areas with their locations
+ */
+
+export function useGetLocations<TData = Awaited<ReturnType<typeof getLocations>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getLocations>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetLocationsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListAdminLocationsUrl = () => {
+
+
+
+
+  return `/api/v1/admin/locations`
+}
+
+/**
+ * @summary All service areas and locations, including inactive ones
+ */
+export const listAdminLocations = async ( options?: Parameters<typeof customFetch>[1]): Promise<AdminServiceArea[]> => {
+
+  return customFetch<AdminServiceArea[]>(getListAdminLocationsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAdminLocationsQueryKey = () => {
+    return [
+    `/api/v1/admin/locations`
+    ] as const;
+    }
+
+
+export const getListAdminLocationsQueryOptions = <TData = Awaited<ReturnType<typeof listAdminLocations>>, TError = ErrorType<ApiErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdminLocations>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAdminLocationsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAdminLocations>>> = ({ signal }) => listAdminLocations({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAdminLocations>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListAdminLocationsQueryResult = NonNullable<Awaited<ReturnType<typeof listAdminLocations>>>
+export type ListAdminLocationsQueryError = ErrorType<ApiErrorResponse>
+
+
+export function useListAdminLocations<TData = Awaited<ReturnType<typeof listAdminLocations>>, TError = ErrorType<ApiErrorResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdminLocations>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminLocations>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminLocations>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAdminLocations<TData = Awaited<ReturnType<typeof listAdminLocations>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdminLocations>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listAdminLocations>>,
+          TError,
+          Awaited<ReturnType<typeof listAdminLocations>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListAdminLocations<TData = Awaited<ReturnType<typeof listAdminLocations>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdminLocations>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary All service areas and locations, including inactive ones
+ */
+
+export function useListAdminLocations<TData = Awaited<ReturnType<typeof listAdminLocations>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAdminLocations>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListAdminLocationsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateServiceAreaUrl = () => {
+
+
+
+
+  return `/api/v1/admin/service-areas`
+}
+
+/**
+ * @summary Add a service area
+ */
+export const createServiceArea = async (serviceAreaInput: ServiceAreaInput, options?: Parameters<typeof customFetch>[1]): Promise<AdminServiceArea> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AdminServiceArea>(getCreateServiceAreaUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(serviceAreaInput)
+  }
+);}
+
+
+
+
+
+export const getCreateServiceAreaMutationKey = () => ['createServiceArea'] as const;
+
+export const getCreateServiceAreaMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createServiceArea>>, TError,CreateServiceAreaMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createServiceArea>>, TError,CreateServiceAreaMutationVariables, TContext> => {
+
+const mutationKey = getCreateServiceAreaMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createServiceArea>>, CreateServiceAreaMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createServiceArea(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateServiceAreaMutationResult = NonNullable<Awaited<ReturnType<typeof createServiceArea>>>
+    export type CreateServiceAreaMutationBody = BodyType<ServiceAreaInput>
+    export type CreateServiceAreaMutationError = ErrorType<ApiErrorResponse>
+    export type CreateServiceAreaMutationVariables = {data: BodyType<ServiceAreaInput>}
+
+    /**
+ * @summary Add a service area
+ */
+export const useCreateServiceArea = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createServiceArea>>, TError,CreateServiceAreaMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createServiceArea>>,
+        TError,
+        CreateServiceAreaMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateServiceAreaMutationOptions(options), queryClient);
+    }
+
+export const getUpdateServiceAreaUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/admin/service-areas/${id}`
+}
+
+/**
+ * @summary Rename or activate/deactivate a service area
+ */
+export const updateServiceArea = async (id: string,
+    serviceAreaInput: ServiceAreaInput, options?: Parameters<typeof customFetch>[1]): Promise<AdminServiceArea> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AdminServiceArea>(getUpdateServiceAreaUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(serviceAreaInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateServiceAreaMutationKey = () => ['updateServiceArea'] as const;
+
+export const getUpdateServiceAreaMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateServiceArea>>, TError,UpdateServiceAreaMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateServiceArea>>, TError,UpdateServiceAreaMutationVariables, TContext> => {
+
+const mutationKey = getUpdateServiceAreaMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateServiceArea>>, UpdateServiceAreaMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateServiceArea(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateServiceAreaMutationResult = NonNullable<Awaited<ReturnType<typeof updateServiceArea>>>
+    export type UpdateServiceAreaMutationBody = BodyType<ServiceAreaInput>
+    export type UpdateServiceAreaMutationError = ErrorType<ApiErrorResponse>
+    export type UpdateServiceAreaMutationVariables = {id: string;data: BodyType<ServiceAreaInput>}
+
+    /**
+ * @summary Rename or activate/deactivate a service area
+ */
+export const useUpdateServiceArea = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateServiceArea>>, TError,UpdateServiceAreaMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateServiceArea>>,
+        TError,
+        UpdateServiceAreaMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateServiceAreaMutationOptions(options), queryClient);
+    }
+
+export const getCreateLocationUrl = () => {
+
+
+
+
+  return `/api/v1/admin/locations/create`
+}
+
+/**
+ * @summary Add a location to a service area
+ */
+export const createLocation = async (locationInput: LocationInput, options?: Parameters<typeof customFetch>[1]): Promise<LocationOption> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LocationOption>(getCreateLocationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(locationInput)
+  }
+);}
+
+
+
+
+
+export const getCreateLocationMutationKey = () => ['createLocation'] as const;
+
+export const getCreateLocationMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLocation>>, TError,CreateLocationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createLocation>>, TError,CreateLocationMutationVariables, TContext> => {
+
+const mutationKey = getCreateLocationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createLocation>>, CreateLocationMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createLocation(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateLocationMutationResult = NonNullable<Awaited<ReturnType<typeof createLocation>>>
+    export type CreateLocationMutationBody = BodyType<LocationInput>
+    export type CreateLocationMutationError = ErrorType<ApiErrorResponse>
+    export type CreateLocationMutationVariables = {data: BodyType<LocationInput>}
+
+    /**
+ * @summary Add a location to a service area
+ */
+export const useCreateLocation = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createLocation>>, TError,CreateLocationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createLocation>>,
+        TError,
+        CreateLocationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateLocationMutationOptions(options), queryClient);
+    }
+
+export const getUpdateLocationUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/admin/locations/${id}`
+}
+
+/**
+ * @summary Rename, move or activate/deactivate a location
+ */
+export const updateLocation = async (id: string,
+    locationInput: LocationInput, options?: Parameters<typeof customFetch>[1]): Promise<LocationOption> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<LocationOption>(getUpdateLocationUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(locationInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateLocationMutationKey = () => ['updateLocation'] as const;
+
+export const getUpdateLocationMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLocation>>, TError,UpdateLocationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateLocation>>, TError,UpdateLocationMutationVariables, TContext> => {
+
+const mutationKey = getUpdateLocationMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateLocation>>, UpdateLocationMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateLocation(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateLocationMutationResult = NonNullable<Awaited<ReturnType<typeof updateLocation>>>
+    export type UpdateLocationMutationBody = BodyType<LocationInput>
+    export type UpdateLocationMutationError = ErrorType<ApiErrorResponse>
+    export type UpdateLocationMutationVariables = {id: string;data: BodyType<LocationInput>}
+
+    /**
+ * @summary Rename, move or activate/deactivate a location
+ */
+export const useUpdateLocation = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateLocation>>, TError,UpdateLocationMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof updateLocation>>,
+        TError,
+        UpdateLocationMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUpdateLocationMutationOptions(options), queryClient);
+    }
+
+export const getGetMyServiceAreaUrl = () => {
+
+
+
+
+  return `/api/v1/me/service-area`
+}
+
+/**
+ * @summary The service area used by default when browsing
+ */
+export const getMyServiceArea = async ( options?: Parameters<typeof customFetch>[1]): Promise<ServiceAreaPreference> => {
+
+  return customFetch<ServiceAreaPreference>(getGetMyServiceAreaUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMyServiceAreaQueryKey = () => {
+    return [
+    `/api/v1/me/service-area`
+    ] as const;
+    }
+
+
+export const getGetMyServiceAreaQueryOptions = <TData = Awaited<ReturnType<typeof getMyServiceArea>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyServiceArea>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMyServiceAreaQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMyServiceArea>>> = ({ signal }) => getMyServiceArea({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMyServiceArea>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMyServiceAreaQueryResult = NonNullable<Awaited<ReturnType<typeof getMyServiceArea>>>
+export type GetMyServiceAreaQueryError = ErrorType<unknown>
+
+
+export function useGetMyServiceArea<TData = Awaited<ReturnType<typeof getMyServiceArea>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyServiceArea>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyServiceArea>>,
+          TError,
+          Awaited<ReturnType<typeof getMyServiceArea>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMyServiceArea<TData = Awaited<ReturnType<typeof getMyServiceArea>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyServiceArea>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMyServiceArea>>,
+          TError,
+          Awaited<ReturnType<typeof getMyServiceArea>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMyServiceArea<TData = Awaited<ReturnType<typeof getMyServiceArea>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyServiceArea>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary The service area used by default when browsing
+ */
+
+export function useGetMyServiceArea<TData = Awaited<ReturnType<typeof getMyServiceArea>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMyServiceArea>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMyServiceAreaQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSetMyServiceAreaUrl = () => {
+
+
+
+
+  return `/api/v1/me/service-area`
+}
+
+/**
+ * @summary Choose the service area to browse by default (null clears it)
+ */
+export const setMyServiceArea = async (serviceAreaPreferenceInput: ServiceAreaPreferenceInput, options?: Parameters<typeof customFetch>[1]): Promise<ServiceAreaPreference> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ServiceAreaPreference>(getSetMyServiceAreaUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(serviceAreaPreferenceInput)
+  }
+);}
+
+
+
+
+
+export const getSetMyServiceAreaMutationKey = () => ['setMyServiceArea'] as const;
+
+export const getSetMyServiceAreaMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setMyServiceArea>>, TError,SetMyServiceAreaMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setMyServiceArea>>, TError,SetMyServiceAreaMutationVariables, TContext> => {
+
+const mutationKey = getSetMyServiceAreaMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setMyServiceArea>>, SetMyServiceAreaMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  setMyServiceArea(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetMyServiceAreaMutationResult = NonNullable<Awaited<ReturnType<typeof setMyServiceArea>>>
+    export type SetMyServiceAreaMutationBody = BodyType<ServiceAreaPreferenceInput>
+    export type SetMyServiceAreaMutationError = ErrorType<unknown>
+    export type SetMyServiceAreaMutationVariables = {data: BodyType<ServiceAreaPreferenceInput>}
+
+    /**
+ * @summary Choose the service area to browse by default (null clears it)
+ */
+export const useSetMyServiceArea = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setMyServiceArea>>, TError,SetMyServiceAreaMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof setMyServiceArea>>,
+        TError,
+        SetMyServiceAreaMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetMyServiceAreaMutationOptions(options), queryClient);
+    }
+
+export const getCreateInventoryBulkUrl = () => {
+
+
+
+
+  return `/api/v1/inventory/bulk`
+}
+
+/**
+ * @summary Add several goods at once
+ */
+export const createInventoryBulk = async (bulkInventoryInput: BulkInventoryInput, options?: Parameters<typeof customFetch>[1]): Promise<InventoryItem[]> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<InventoryItem[]>(getCreateInventoryBulkUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(bulkInventoryInput)
+  }
+);}
+
+
+
+
+
+export const getCreateInventoryBulkMutationKey = () => ['createInventoryBulk'] as const;
+
+export const getCreateInventoryBulkMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createInventoryBulk>>, TError,CreateInventoryBulkMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createInventoryBulk>>, TError,CreateInventoryBulkMutationVariables, TContext> => {
+
+const mutationKey = getCreateInventoryBulkMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createInventoryBulk>>, CreateInventoryBulkMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createInventoryBulk(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateInventoryBulkMutationResult = NonNullable<Awaited<ReturnType<typeof createInventoryBulk>>>
+    export type CreateInventoryBulkMutationBody = BodyType<BulkInventoryInput>
+    export type CreateInventoryBulkMutationError = ErrorType<unknown>
+    export type CreateInventoryBulkMutationVariables = {data: BodyType<BulkInventoryInput>}
+
+    /**
+ * @summary Add several goods at once
+ */
+export const useCreateInventoryBulk = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createInventoryBulk>>, TError,CreateInventoryBulkMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createInventoryBulk>>,
+        TError,
+        CreateInventoryBulkMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateInventoryBulkMutationOptions(options), queryClient);
+    }
+
+export const getUploadInventoryPhotoUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/inventory/${id}/photo`
+}
+
+/**
+ * @summary Upload or replace an item photo (raw JPEG or PNG body, max 5 MB)
+ */
+export const uploadInventoryPhoto = async (id: string,
+    uploadInventoryPhotoBody: Blob, options?: Parameters<typeof customFetch>[1]): Promise<InventoryItem> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<InventoryItem>(getUploadInventoryPhotoUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'image/jpeg', ...getHeaders(options?.headers) },
+    body: uploadInventoryPhotoBody
+  }
+);}
+
+
+
+
+
+export const getUploadInventoryPhotoMutationKey = () => ['uploadInventoryPhoto'] as const;
+
+export const getUploadInventoryPhotoMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadInventoryPhoto>>, TError,UploadInventoryPhotoMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof uploadInventoryPhoto>>, TError,UploadInventoryPhotoMutationVariables, TContext> => {
+
+const mutationKey = getUploadInventoryPhotoMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof uploadInventoryPhoto>>, UploadInventoryPhotoMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  uploadInventoryPhoto(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UploadInventoryPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof uploadInventoryPhoto>>>
+    export type UploadInventoryPhotoMutationBody = BodyType<Blob>
+    export type UploadInventoryPhotoMutationError = ErrorType<ApiErrorResponse>
+    export type UploadInventoryPhotoMutationVariables = {id: string;data: BodyType<Blob>}
+
+    /**
+ * @summary Upload or replace an item photo (raw JPEG or PNG body, max 5 MB)
+ */
+export const useUploadInventoryPhoto = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof uploadInventoryPhoto>>, TError,UploadInventoryPhotoMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof uploadInventoryPhoto>>,
+        TError,
+        UploadInventoryPhotoMutationVariables,
+        TContext
+      > => {
+      return useMutation(getUploadInventoryPhotoMutationOptions(options), queryClient);
+    }
+
+export const getDeleteInventoryPhotoUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/inventory/${id}/photo`
+}
+
+/**
+ * @summary Remove an item photo
+ */
+export const deleteInventoryPhoto = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<InventoryItem> => {
+
+  return customFetch<InventoryItem>(getDeleteInventoryPhotoUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteInventoryPhotoMutationKey = () => ['deleteInventoryPhoto'] as const;
+
+export const getDeleteInventoryPhotoMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteInventoryPhoto>>, TError,DeleteInventoryPhotoMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteInventoryPhoto>>, TError,DeleteInventoryPhotoMutationVariables, TContext> => {
+
+const mutationKey = getDeleteInventoryPhotoMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteInventoryPhoto>>, DeleteInventoryPhotoMutationVariables> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteInventoryPhoto(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteInventoryPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof deleteInventoryPhoto>>>
+
+    export type DeleteInventoryPhotoMutationError = ErrorType<ApiErrorResponse>
+    export type DeleteInventoryPhotoMutationVariables = {id: string}
+
+    /**
+ * @summary Remove an item photo
+ */
+export const useDeleteInventoryPhoto = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteInventoryPhoto>>, TError,DeleteInventoryPhotoMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteInventoryPhoto>>,
+        TError,
+        DeleteInventoryPhotoMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeleteInventoryPhotoMutationOptions(options), queryClient);
+    }
+
+export const getGetGoodsUrl = (params?: GetGoodsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/v1/goods?${stringifiedParams}` : `/api/v1/goods`
+}
+
+/**
+ * @summary Goods donors have available (teachers), filtered by service area and category
+ */
+export const getGoods = async (params?: GetGoodsParams, options?: Parameters<typeof customFetch>[1]): Promise<GoodsListing[]> => {
+
+  return customFetch<GoodsListing[]>(getGetGoodsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGoodsQueryKey = (params?: GetGoodsParams,) => {
+    return [
+    `/api/v1/goods`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetGoodsQueryOptions = <TData = Awaited<ReturnType<typeof getGoods>>, TError = ErrorType<ApiErrorResponse>>(params?: GetGoodsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getGoods>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGoodsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGoods>>> = ({ signal }) => getGoods(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGoods>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetGoodsQueryResult = NonNullable<Awaited<ReturnType<typeof getGoods>>>
+export type GetGoodsQueryError = ErrorType<ApiErrorResponse>
+
+
+export function useGetGoods<TData = Awaited<ReturnType<typeof getGoods>>, TError = ErrorType<ApiErrorResponse>>(
+ params: undefined |  GetGoodsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getGoods>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getGoods>>,
+          TError,
+          Awaited<ReturnType<typeof getGoods>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetGoods<TData = Awaited<ReturnType<typeof getGoods>>, TError = ErrorType<ApiErrorResponse>>(
+ params?: GetGoodsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getGoods>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getGoods>>,
+          TError,
+          Awaited<ReturnType<typeof getGoods>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetGoods<TData = Awaited<ReturnType<typeof getGoods>>, TError = ErrorType<ApiErrorResponse>>(
+ params?: GetGoodsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getGoods>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Goods donors have available (teachers), filtered by service area and category
+ */
+
+export function useGetGoods<TData = Awaited<ReturnType<typeof getGoods>>, TError = ErrorType<ApiErrorResponse>>(
+ params?: GetGoodsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getGoods>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetGoodsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getListGoodsPhotosForReviewUrl = () => {
+
+
+
+
+  return `/api/v1/admin/goods-photos`
+}
+
+/**
+ * @summary Item photos waiting for approval
+ */
+export const listGoodsPhotosForReview = async ( options?: Parameters<typeof customFetch>[1]): Promise<GoodsPhotoReviewItem[]> => {
+
+  return customFetch<GoodsPhotoReviewItem[]>(getListGoodsPhotosForReviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListGoodsPhotosForReviewQueryKey = () => {
+    return [
+    `/api/v1/admin/goods-photos`
+    ] as const;
+    }
+
+
+export const getListGoodsPhotosForReviewQueryOptions = <TData = Awaited<ReturnType<typeof listGoodsPhotosForReview>>, TError = ErrorType<ApiErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listGoodsPhotosForReview>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListGoodsPhotosForReviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listGoodsPhotosForReview>>> = ({ signal }) => listGoodsPhotosForReview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listGoodsPhotosForReview>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListGoodsPhotosForReviewQueryResult = NonNullable<Awaited<ReturnType<typeof listGoodsPhotosForReview>>>
+export type ListGoodsPhotosForReviewQueryError = ErrorType<ApiErrorResponse>
+
+
+export function useListGoodsPhotosForReview<TData = Awaited<ReturnType<typeof listGoodsPhotosForReview>>, TError = ErrorType<ApiErrorResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listGoodsPhotosForReview>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listGoodsPhotosForReview>>,
+          TError,
+          Awaited<ReturnType<typeof listGoodsPhotosForReview>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListGoodsPhotosForReview<TData = Awaited<ReturnType<typeof listGoodsPhotosForReview>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listGoodsPhotosForReview>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listGoodsPhotosForReview>>,
+          TError,
+          Awaited<ReturnType<typeof listGoodsPhotosForReview>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListGoodsPhotosForReview<TData = Awaited<ReturnType<typeof listGoodsPhotosForReview>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listGoodsPhotosForReview>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Item photos waiting for approval
+ */
+
+export function useListGoodsPhotosForReview<TData = Awaited<ReturnType<typeof listGoodsPhotosForReview>>, TError = ErrorType<ApiErrorResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listGoodsPhotosForReview>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListGoodsPhotosForReviewQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDecideGoodsPhotoUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/admin/goods-photos/${id}/decision`
+}
+
+/**
+ * @summary Approve or reject an item photo
+ */
+export const decideGoodsPhoto = async (id: string,
+    goodsPhotoDecision: GoodsPhotoDecision, options?: Parameters<typeof customFetch>[1]): Promise<GoodsPhotoReviewItem> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GoodsPhotoReviewItem>(getDecideGoodsPhotoUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(goodsPhotoDecision)
+  }
+);}
+
+
+
+
+
+export const getDecideGoodsPhotoMutationKey = () => ['decideGoodsPhoto'] as const;
+
+export const getDecideGoodsPhotoMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideGoodsPhoto>>, TError,DecideGoodsPhotoMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof decideGoodsPhoto>>, TError,DecideGoodsPhotoMutationVariables, TContext> => {
+
+const mutationKey = getDecideGoodsPhotoMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof decideGoodsPhoto>>, DecideGoodsPhotoMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  decideGoodsPhoto(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DecideGoodsPhotoMutationResult = NonNullable<Awaited<ReturnType<typeof decideGoodsPhoto>>>
+    export type DecideGoodsPhotoMutationBody = BodyType<GoodsPhotoDecision>
+    export type DecideGoodsPhotoMutationError = ErrorType<ApiErrorResponse>
+    export type DecideGoodsPhotoMutationVariables = {id: string;data: BodyType<GoodsPhotoDecision>}
+
+    /**
+ * @summary Approve or reject an item photo
+ */
+export const useDecideGoodsPhoto = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof decideGoodsPhoto>>, TError,DecideGoodsPhotoMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof decideGoodsPhoto>>,
+        TError,
+        DecideGoodsPhotoMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDecideGoodsPhotoMutationOptions(options), queryClient);
     }
 
 export const getUpdateInventoryUrl = (id: string,) => {

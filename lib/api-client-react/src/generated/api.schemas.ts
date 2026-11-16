@@ -32,6 +32,18 @@ export const FeedPostStatus = {
   Fulfilled: 'Fulfilled',
 } as const;
 
+export type FeedPostCategoryGroup = typeof FeedPostCategoryGroup[keyof typeof FeedPostCategoryGroup];
+
+
+export const FeedPostCategoryGroup = {
+  SHOES: 'SHOES',
+  UNIFORMS: 'UNIFORMS',
+  BAGS: 'BAGS',
+  BOOKS_STATIONERY: 'BOOKS_STATIONERY',
+  LEARNING_MATERIALS: 'LEARNING_MATERIALS',
+  OTHER: 'OTHER',
+} as const;
+
 export interface FeedPost {
   id: string;
   title: string;
@@ -53,6 +65,17 @@ export interface FeedPost {
   /** @nullable */
   requiredBy: string | null;
   teacherVerified: boolean;
+  /** @nullable */
+  locationId: string | null;
+  /** @nullable */
+  locationName: string | null;
+  /** @nullable */
+  serviceAreaId: string | null;
+  /** @nullable */
+  serviceAreaName: string | null;
+  categoryGroup: FeedPostCategoryGroup;
+  /** For donors - the donor has goods in this service area in a relevant category. */
+  localMatch: boolean;
   postedAt: string;
   quantityCovered: number;
   quantityPending: number;
@@ -96,6 +119,18 @@ export const AssistanceRequestStatus = {
   Fulfilled: 'Fulfilled',
 } as const;
 
+export type AssistanceRequestCategoryGroup = typeof AssistanceRequestCategoryGroup[keyof typeof AssistanceRequestCategoryGroup];
+
+
+export const AssistanceRequestCategoryGroup = {
+  SHOES: 'SHOES',
+  UNIFORMS: 'UNIFORMS',
+  BAGS: 'BAGS',
+  BOOKS_STATIONERY: 'BOOKS_STATIONERY',
+  LEARNING_MATERIALS: 'LEARNING_MATERIALS',
+  OTHER: 'OTHER',
+} as const;
+
 export interface AssistanceRequest {
   id: string;
   title: string;
@@ -115,6 +150,15 @@ export interface AssistanceRequest {
   conditionRequirement: string | null;
   /** @nullable */
   requiredBy: string | null;
+  /** @nullable */
+  locationId: string | null;
+  /** @nullable */
+  locationName: string | null;
+  /** @nullable */
+  serviceAreaId: string | null;
+  /** @nullable */
+  serviceAreaName: string | null;
+  categoryGroup: AssistanceRequestCategoryGroup;
   imageUrl: string;
   imageAlt: string;
   updatedLabel: string;
@@ -292,6 +336,10 @@ export interface TeacherProfile {
   /** @nullable */
   position: string | null;
   schoolStatus: TeacherProfileSchoolStatus;
+  /** @nullable */
+  locationId: string | null;
+  /** @nullable */
+  locationName: string | null;
 }
 
 export interface TeacherProfileUpdate {
@@ -548,6 +596,8 @@ export interface SchoolInput {
      * @nullable
      */
   generalLocation?: string | null;
+  /** @nullable */
+  locationId?: string | null;
   status: SchoolInputStatus;
 }
 
@@ -570,8 +620,101 @@ export interface AdminSchool {
   area: string | null;
   /** @nullable */
   generalLocation: string | null;
+  /** @nullable */
+  locationId: string | null;
+  /** @nullable */
+  locationName: string | null;
   status: AdminSchoolStatus;
   teacherCount: number;
+}
+
+export interface LocationOption {
+  id: string;
+  name: string;
+}
+
+export interface ServiceAreaOption {
+  id: string;
+  name: string;
+  locations: LocationOption[];
+}
+
+export type AdminServiceAreaLocationsItem = {
+  id: string;
+  name: string;
+  isActive: boolean;
+};
+
+export interface AdminServiceArea {
+  id: string;
+  name: string;
+  isActive: boolean;
+  locations: AdminServiceAreaLocationsItem[];
+}
+
+export interface ServiceAreaInput {
+  /**
+     * @minLength 2
+     * @maxLength 100
+     */
+  name: string;
+  isActive: boolean;
+}
+
+export interface LocationInput {
+  /**
+     * @minLength 2
+     * @maxLength 100
+     */
+  name: string;
+  serviceAreaId: string;
+  isActive: boolean;
+}
+
+export type ServiceAreaPreferenceSource = typeof ServiceAreaPreferenceSource[keyof typeof ServiceAreaPreferenceSource];
+
+
+export const ServiceAreaPreferenceSource = {
+  CHOSEN: 'CHOSEN',
+  SCHOOL: 'SCHOOL',
+  YOUR_GOODS: 'YOUR_GOODS',
+  NONE: 'NONE',
+} as const;
+
+export interface ServiceAreaPreference {
+  /** @nullable */
+  serviceAreaId: string | null;
+  /** @nullable */
+  serviceAreaName: string | null;
+  source: ServiceAreaPreferenceSource;
+}
+
+export interface ServiceAreaPreferenceInput {
+  /** @nullable */
+  serviceAreaId: string | null;
+}
+
+export interface GoodsPhotoReviewItem {
+  id: string;
+  title: string;
+  category: string;
+  donorName: string;
+  /** @nullable */
+  locationName: string | null;
+  photoVersion: string;
+  createdAt: string;
+}
+
+export type GoodsPhotoDecisionDecision = typeof GoodsPhotoDecisionDecision[keyof typeof GoodsPhotoDecisionDecision];
+
+
+export const GoodsPhotoDecisionDecision = {
+  APPROVE: 'APPROVE',
+  REJECT: 'REJECT',
+} as const;
+
+export interface GoodsPhotoDecision {
+  decision: GoodsPhotoDecisionDecision;
 }
 
 export interface School {
@@ -666,13 +809,28 @@ export interface RequestInput {
      * @nullable
      */
   teacherPrivateNotes?: string | null;
+  /**
+     * Where the goods are needed. Defaults to the school's location.
+     * @nullable
+     */
+  locationId?: string | null;
   /** Send for review (needs full verification). False saves a draft. */
   submit?: boolean;
 }
 
+export type InventoryInputCondition = typeof InventoryInputCondition[keyof typeof InventoryInputCondition];
+
+
+export const InventoryInputCondition = {
+  NEW: 'NEW',
+  GOOD: 'GOOD',
+  FAIR: 'FAIR',
+} as const;
+
 export interface InventoryInput {
   /**
-     * @minLength 4
+     * The item name donors and teachers see.
+     * @minLength 2
      * @maxLength 160
      */
   title: string;
@@ -682,11 +840,7 @@ export interface InventoryInput {
      */
   category: string;
   /**
-     * @minLength 2
-     * @maxLength 160
-     */
-  item: string;
-  /**
+     * Include useful details such as sizes. Sizes are not matched automatically.
      * @minLength 4
      * @maxLength 1000
      */
@@ -706,17 +860,40 @@ export interface InventoryInput {
      * @maxLength 40
      */
   unit: string;
-  /**
-     * @minLength 2
-     * @maxLength 100
-     */
-  district: string;
-  /**
-     * @maxLength 100
-     * @nullable
-     */
-  area?: string | null;
+  condition: InventoryInputCondition;
+  /** Where the goods are available. Must be an active location. */
+  locationId: string;
 }
+
+export interface BulkInventoryInput {
+  /**
+     * @minItems 1
+     * @maxItems 10
+     */
+  items: InventoryInput[];
+}
+
+export type InventoryItemCategoryGroup = typeof InventoryItemCategoryGroup[keyof typeof InventoryItemCategoryGroup];
+
+
+export const InventoryItemCategoryGroup = {
+  SHOES: 'SHOES',
+  UNIFORMS: 'UNIFORMS',
+  BAGS: 'BAGS',
+  BOOKS_STATIONERY: 'BOOKS_STATIONERY',
+  LEARNING_MATERIALS: 'LEARNING_MATERIALS',
+  OTHER: 'OTHER',
+} as const;
+
+export type InventoryItemPhotoStatus = typeof InventoryItemPhotoStatus[keyof typeof InventoryItemPhotoStatus];
+
+
+export const InventoryItemPhotoStatus = {
+  NONE: 'NONE',
+  PENDING: 'PENDING',
+  APPROVED: 'APPROVED',
+  REJECTED: 'REJECTED',
+} as const;
 
 export type InventoryItemStatus = typeof InventoryItemStatus[keyof typeof InventoryItemStatus];
 
@@ -732,23 +909,83 @@ export interface InventoryItem {
   id: string;
   title: string;
   category: string;
+  categoryGroup: InventoryItemCategoryGroup;
   item: string;
   description: string;
   /** @nullable */
   specifications: string | null;
   quantityAvailable: number;
   unit: string;
+  /** @nullable */
+  condition: string | null;
   district: string;
   /** @nullable */
   area: string | null;
+  /** @nullable */
+  locationId: string | null;
+  /** @nullable */
+  locationName: string | null;
+  /** @nullable */
+  serviceAreaName: string | null;
+  photoStatus: InventoryItemPhotoStatus;
+  /**
+     * Changes when the photo is replaced (use as a cache key).
+     * @nullable
+     */
+  photoVersion: string | null;
+  offerCount: number;
+  pendingOfferCount: number;
   status: InventoryItemStatus;
   isSeedData: boolean;
 }
 
+export type GoodsListingCategoryGroup = typeof GoodsListingCategoryGroup[keyof typeof GoodsListingCategoryGroup];
+
+
+export const GoodsListingCategoryGroup = {
+  SHOES: 'SHOES',
+  UNIFORMS: 'UNIFORMS',
+  BAGS: 'BAGS',
+  BOOKS_STATIONERY: 'BOOKS_STATIONERY',
+  LEARNING_MATERIALS: 'LEARNING_MATERIALS',
+  OTHER: 'OTHER',
+} as const;
+
+/**
+ * Goods a donor has available, as shown to teachers. No donor details.
+ */
+export interface GoodsListing {
+  id: string;
+  title: string;
+  category: string;
+  categoryGroup: GoodsListingCategoryGroup;
+  description: string;
+  quantityAvailable: number;
+  unit: string;
+  /** @nullable */
+  condition: string | null;
+  /** @nullable */
+  locationId: string | null;
+  locationName: string;
+  /** @nullable */
+  serviceAreaId: string | null;
+  /** @nullable */
+  serviceAreaName: string | null;
+  /**
+     * Set only when an approved photo exists.
+     * @nullable
+     */
+  photoVersion: string | null;
+  postedAt: string;
+  inMyServiceArea: boolean;
+  /** Same service area as one of the teacher's live requests, in a relevant category. */
+  localMatch: boolean;
+}
+
 export interface SponsorshipInput {
   requestId: string;
-  /** @nullable */
-  inventoryId?: string | null;
+  /** Which of your goods you are offering. The category must suit the request. */
+  inventoryId: string;
   /**
      * @minimum 1
      * @maximum 10000
@@ -777,6 +1014,8 @@ export interface Sponsorship {
   requestId: string;
   requestTitle: string;
   donorName: string;
+  /** @nullable */
+  inventoryTitle: string | null;
   quantity: number;
   status: SponsorshipStatus;
   createdAt: string;
@@ -1027,7 +1266,21 @@ limit?: number;
 search?: string;
 category?: string;
 priority?: string;
+serviceAreaId?: string;
+categoryGroup?: GetFeedCategoryGroup;
 };
+
+export type GetFeedCategoryGroup = typeof GetFeedCategoryGroup[keyof typeof GetFeedCategoryGroup];
+
+
+export const GetFeedCategoryGroup = {
+  SHOES: 'SHOES',
+  UNIFORMS: 'UNIFORMS',
+  BAGS: 'BAGS',
+  BOOKS_STATIONERY: 'BOOKS_STATIONERY',
+  LEARNING_MATERIALS: 'LEARNING_MATERIALS',
+  OTHER: 'OTHER',
+} as const;
 
 export type ListSchoolsParams = {
 /**
@@ -1039,6 +1292,29 @@ search?: string;
  */
 district?: string;
 };
+
+export type GetGoodsParams = {
+serviceAreaId?: string;
+locationId?: string;
+categoryGroup?: GetGoodsCategoryGroup;
+/**
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
+};
+
+export type GetGoodsCategoryGroup = typeof GetGoodsCategoryGroup[keyof typeof GetGoodsCategoryGroup];
+
+
+export const GetGoodsCategoryGroup = {
+  SHOES: 'SHOES',
+  UNIFORMS: 'UNIFORMS',
+  BAGS: 'BAGS',
+  BOOKS_STATIONERY: 'BOOKS_STATIONERY',
+  LEARNING_MATERIALS: 'LEARNING_MATERIALS',
+  OTHER: 'OTHER',
+} as const;
 
 export type ListVerificationQueueParams = {
 scope?: ListVerificationQueueScope;
