@@ -8,6 +8,8 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+// Must come before the cloudinary import: it makes a malformed CLOUDINARY_URL harmless.
+import "./cloudinary-env";
 import { v2 as cloudinary } from "cloudinary";
 
 /**
@@ -67,6 +69,16 @@ export function newObjectKey(userId: string, extension: string) {
   return `verification/${userId}/${randomUUID()}.${extension}`;
 }
 
+/**
+ * Item photos live in their own folder, separate from sensitive verification documents
+ * (for Cloudinary: <folder>/item-photos/... next to <folder>/verification/...).
+ */
+export function newPhotoKey(userId: string, extension: string) {
+  return `item-photos/${userId}/${randomUUID()}.${extension}`;
+}
+
+export const PHOTO_KEY_PREFIX = "item-photos/";
+
 function s3Storage(): PrivateStorage | null {
   const bucket = process.env.S3_BUCKET?.trim();
   const accessKeyId = process.env.S3_ACCESS_KEY_ID?.trim();
@@ -94,6 +106,10 @@ function s3Storage(): PrivateStorage | null {
     },
     async remove(key) {
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+    },
+    async read(key) {
+      const object = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+      return Buffer.from(await object.Body!.transformToByteArray());
     },
     async signedGetUrl({ key, filename, contentType }) {
       return getSignedUrl(

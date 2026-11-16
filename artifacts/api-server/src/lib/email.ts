@@ -17,6 +17,15 @@ export function emailIsConfigured() {
   return Boolean(process.env.RESEND_API_KEY && process.env.EMAIL_FROM);
 }
 
+/**
+ * TESTING ONLY. When ALLOW_UNVERIFIED_EMAIL_SIGNUP=true and no email provider is configured,
+ * new accounts are marked as email-verified immediately so the app can be tested without
+ * sending mail. It switches itself off as soon as RESEND_API_KEY and EMAIL_FROM are set.
+ */
+export function unverifiedSignupAllowed() {
+  return process.env.ALLOW_UNVERIFIED_EMAIL_SIGNUP === "true" && !emailIsConfigured();
+}
+
 function actionUrl(path: string, token: string, requestOrigin?: string) {
   const configuredOrigin = process.env.FRONTEND_ORIGIN;
   const origin = configuredOrigin ?? requestOrigin;
