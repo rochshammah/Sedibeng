@@ -122,7 +122,7 @@ export function FulfilmentOrderCard({
         <div>
           <h3><Link href={`/requests/${order.requestId}`}>{order.requestTitle}</Link></h3>
           <p>
-            {order.donorLocationName ? `Goods from ${order.donorLocationName}` : 'Goods location not set'}
+            {order.donorWillSource ? 'Donor will source these goods before handoff' : order.donorLocationName ? `Goods from ${order.donorLocationName}` : 'Goods location not set'}
             {' · '}
             {order.schoolLocationName ? `School in ${order.schoolLocationName}` : 'School location not set'}
             {order.generalArea ? ` · Handoff: ${order.generalArea}` : ''}

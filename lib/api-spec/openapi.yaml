@@ -2658,9 +2658,9 @@ components:
           type: string
           format: uuid
         inventoryId:
-          type: string
+          type: [string, "null"]
           format: uuid
-          description: Which of your goods you are offering. The category must suit the request.
+          description: Your listed goods, or null when you plan to source them before handoff.
         quantity:
           type: integer
           minimum: 1
@@ -2718,6 +2718,8 @@ components:
           type: integer
         unit:
           type: string
+        donorWillSource:
+          type: boolean
         acceptedQuantity:
           type: integer
         handedOverQuantity:
@@ -2744,7 +2746,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OrderEvent"
-      required: [id, sponsorshipId, requestId, requestTitle, quantity, unit, acceptedQuantity, handedOverQuantity, receivedQuantity, distributedQuantity, status, generalArea, handoffNotes, donorLocationName, schoolLocationName, scheduledAt, events]
+      required: [id, sponsorshipId, requestId, requestTitle, quantity, unit, donorWillSource, acceptedQuantity, handedOverQuantity, receivedQuantity, distributedQuantity, status, generalArea, handoffNotes, donorLocationName, schoolLocationName, scheduledAt, events]
     OrderEvent:
       type: object
       properties:

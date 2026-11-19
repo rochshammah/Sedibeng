@@ -179,6 +179,7 @@ async function listOrdersFor(userId: string, role: WorkflowRole) {
       requestTitle: schoolRequest.title,
       quantity: sponsorship.quantity,
       unit: goodsUnit ?? requestUnit,
+      donorWillSource: sponsorship.inventoryId === null,
       acceptedQuantity: sponsorship.acceptedQuantity ?? sponsorship.quantity,
       handedOverQuantity: order.handedOverQuantity,
       receivedQuantity: order.receivedQuantity,

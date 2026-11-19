@@ -427,8 +427,42 @@ suite("Phase 4: goods, locations and discovery", () => {
     let request: Json;
     before(async () => { request = await publishRequest("tG", "G", { title: "Shoes for offers", quantity: 50 }); });
 
-    it("requires a listing, and the goods must suit the request", async () => {
-      assert.equal((await as.donor1("POST", "/sponsorships", { json: { requestId: request.id, quantity: 2 } })).status, 400, "an offer must name one of the donor's goods");
+    it("lets a donor offer goods they plan to source without reserving inventory", async () => {
+      const bookRequest = await publishRequest("tG", "G", {
+        title: "Exercise books a donor will source",
+        category: "Books and stationery",
+        item: "Exercise books",
+        quantity: 5,
+        unit: "books",
+      });
+      const inventoryBefore = (await as.donor2("GET", "/inventory")).json as Json[];
+      assert.equal(inventoryBefore.some((item) => item.categoryGroup === "BOOKS_STATIONERY" && item.status === "AVAILABLE"), false);
+      const offer = await as.donor2("POST", "/sponsorships", {
+        json: {
+          requestId: bookRequest.id,
+          inventoryId: null,
+          quantity: 3,
+          donorMessage: "I can buy these after the school accepts.",
+        },
+      });
+      assert.equal(offer.status, 201, offer.text);
+      assert.equal(offer.json.inventoryTitle, null);
+      const teacherOffer = ((await as.tG("GET", "/sponsorships")).json as Json[]).find((item) => item.id === offer.json.id);
+      assert.ok(teacherOffer);
+      assert.equal(teacherOffer.inventoryTitle, null, "the teacher sees this as a sourcing offer");
+      assert.equal((await as.tG("POST", `/sponsorships/${offer.json.id}/decision`, { json: { decision: "APPROVE" } })).status, 200);
+      const order = ((await as.donor2("GET", "/orders")).json as Json[]).find((item) => item.sponsorshipId === offer.json.id);
+      assert.ok(order);
+      assert.equal(order.donorWillSource, true);
+      const inventoryAfter = (await as.donor2("GET", "/inventory")).json as Json[];
+      assert.deepEqual(
+        inventoryAfter.map(({ id, quantityAvailable, status }) => ({ id, quantityAvailable, status })),
+        inventoryBefore.map(({ id, quantityAvailable, status }) => ({ id, quantityAvailable, status })),
+        "a sourcing offer does not reserve any listed goods",
+      );
+    });
+
+    it("listed goods must belong to the donor and suit the request", async () => {
       const uniforms = (await as.donor1("GET", "/inventory")).json.find((i: Json) => i.title === "Uniforms");
       const wrong = await as.donor1("POST", "/sponsorships", { json: { requestId: request.id, inventoryId: uniforms.id, quantity: 1 } });
       assert.equal(wrong.status, 400);

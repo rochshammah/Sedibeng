@@ -317,7 +317,7 @@ export function DonorActivity() {
       <PageHeader title="Activity" subtitle="Your offers and where each handoff stands." />
       <Segmented value={tab} onChange={setTab} options={[{ value: 'offers', label: 'My offers', count: offers.data?.length }, { value: 'handoffs', label: 'Handoffs', count: orders.data?.length }]} />
       {tab === 'offers' ? (
-        <Card><ListRows empty="When you offer help on a request, it shows up here." items={(offers.data ?? []).map((s) => ({ id: s.id, title: s.requestTitle, status: s.status, detail: `${s.quantity} offered${s.inventoryTitle ? ` from “${s.inventoryTitle}”` : ''} · ${new Date(s.createdAt).toLocaleDateString()}` }))} /></Card>
+        <Card><ListRows empty="When you offer help on a request, it shows up here." items={(offers.data ?? []).map((s) => ({ id: s.id, title: s.requestTitle, status: s.status, detail: `${s.quantity} offered${s.inventoryTitle ? ` from “${s.inventoryTitle}”` : ' · you plan to source the goods'} · ${new Date(s.createdAt).toLocaleDateString()}` }))} /></Card>
       ) : (
         <Card>
           {orders.isLoading ? <p className="ws-muted ws-empty-line">Loading handoffs…</p>

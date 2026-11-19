@@ -144,7 +144,7 @@ router.post(
       if (existing) {
         if (
           existing.sponsorship.requestId !== input.requestId ||
-          existing.sponsorship.inventoryId !== input.inventoryId ||
+          existing.sponsorship.inventoryId !== (input.inventoryId ?? null) ||
           existing.sponsorship.quantity !== input.quantity ||
           (existing.sponsorship.donorMessage ?? null) !==
             (input.donorMessage?.trim() || null)
@@ -154,7 +154,7 @@ router.post(
         return {
           sponsorship: existing.sponsorship,
           requestTitle: existing.requestTitle,
-          inventoryTitle: existing.inventoryTitle ?? "Goods",
+          inventoryTitle: existing.inventoryTitle,
           created: false,
         };
       }
@@ -176,38 +176,42 @@ router.post(
         throw new HttpError(404, "This request is not accepting offers.");
       }
 
-      // Goods are reserved the moment they are offered (the existing reservation mechanism),
-      // under a row lock, so quantities can never go negative or be offered twice.
-      const [item] = await tx
-        .select()
-        .from(donorInventoryTable)
-        .where(
-          and(
-            eq(donorInventoryTable.id, input.inventoryId),
-            eq(donorInventoryTable.donorUserId, request.authUser!.id),
-            eq(donorInventoryTable.status, "AVAILABLE"),
-          ),
-        )
-        .for("update")
-        .limit(1);
-      if (!item) {
-        throw new HttpError(400, "Choose one of your available goods to offer.");
+      let item: typeof donorInventoryTable.$inferSelect | undefined;
+      if (input.inventoryId) {
+        // Listed goods are reserved while the offer is reviewed. A donor who will
+        // source goods later has no inventory row to reserve.
+        const [availableItem] = await tx
+          .select()
+          .from(donorInventoryTable)
+          .where(
+            and(
+              eq(donorInventoryTable.id, input.inventoryId),
+              eq(donorInventoryTable.donorUserId, request.authUser!.id),
+              eq(donorInventoryTable.status, "AVAILABLE"),
+            ),
+          )
+          .for("update")
+          .limit(1);
+        if (!availableItem) {
+          throw new HttpError(400, "Choose one of your available goods or select that you will source them.");
+        }
+        if (availableItem.categoryGroup !== schoolRequest.categoryGroup) {
+          throw new HttpError(400, "Those goods are not the kind of item this request asks for.");
+        }
+        if (availableItem.quantityAvailable < input.quantity) {
+          throw new HttpError(400, `You only have ${availableItem.quantityAvailable} of those goods available.`);
+        }
+        item = availableItem;
+        const remaining = item.quantityAvailable - input.quantity;
+        await tx
+          .update(donorInventoryTable)
+          .set({
+            quantityAvailable: remaining,
+            status: remaining === 0 ? "RESERVED" : "AVAILABLE",
+            updatedAt: new Date(),
+          })
+          .where(eq(donorInventoryTable.id, item.id));
       }
-      if (item.categoryGroup !== schoolRequest.categoryGroup) {
-        throw new HttpError(400, "Those goods are not the kind of item this request asks for.");
-      }
-      if (item.quantityAvailable < input.quantity) {
-        throw new HttpError(400, `You only have ${item.quantityAvailable} of those goods available.`);
-      }
-      const remaining = item.quantityAvailable - input.quantity;
-      await tx
-        .update(donorInventoryTable)
-        .set({
-          quantityAvailable: remaining,
-          status: remaining === 0 ? "RESERVED" : "AVAILABLE",
-          updatedAt: new Date(),
-        })
-        .where(eq(donorInventoryTable.id, item.id));
 
       const [sponsorship] = await tx
         .insert(sponsorshipsTable)
@@ -234,12 +238,16 @@ router.post(
         action: "SPONSORSHIP_CREATED",
         targetType: "SPONSORSHIP",
         targetId: sponsorship.id,
-        metadata: { requestId: schoolRequest.id, quantity: input.quantity },
+        metadata: {
+          requestId: schoolRequest.id,
+          quantity: input.quantity,
+          donorWillSource: input.inventoryId === null,
+        },
       });
       return {
         sponsorship,
         requestTitle: schoolRequest.title,
-        inventoryTitle: item.title,
+        inventoryTitle: item?.title ?? null,
         created: true,
       };
     });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import { type InfiniteData, useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
@@ -148,29 +148,45 @@ export function OfferDialog({ post, onClose }: { post: OfferTarget | null; onClo
   const create = useCreateSponsorship();
   const [error, setError] = useState<unknown>(null);
   const [picked, setPicked] = useState('');
+  const [offerMode, setOfferMode] = useState<'inventory' | 'source'>('inventory');
+  const actionId = useRef<string | null>(null);
 
   // Only goods of the kind this request asks for can be offered; goods in the same service area come first.
   const options = (goods.data ?? [])
     .filter((item) => item.status === 'AVAILABLE' && item.quantityAvailable > 0 && post && item.categoryGroup === post.categoryGroup)
     .sort((a, b) => Number(b.serviceAreaName === post?.serviceAreaName) - Number(a.serviceAreaName === post?.serviceAreaName));
   const chosen = options.find((item) => item.id === picked) ?? options[0];
+  const effectiveMode = options.length === 0 ? 'source' : offerMode;
   const form = useForm<{ quantity: number; donorMessage: string }>({ values: { quantity: 1, donorMessage: '' } });
+  const { reset } = form;
+
+  useEffect(() => {
+    setOfferMode('inventory');
+    setPicked('');
+    setError(null);
+    actionId.current = null;
+    reset({ quantity: 1, donorMessage: '' });
+  }, [post?.id, reset]);
 
   const submit = form.handleSubmit((values) => {
-    if (!post || !chosen) return;
+    if (!post) return;
     setError(null);
     const wanted = Number(values.quantity);
-    if (!(wanted >= 1)) { setError(new Error('Enter how many you can give.')); return; }
-    if (wanted > chosen.quantityAvailable) { setError(new Error(`You only have ${chosen.quantityAvailable} of these available.`)); return; }
-    create.mutate({ data: { actionId: crypto.randomUUID(), requestId: post.id, inventoryId: chosen.id, quantity: Number(values.quantity), donorMessage: values.donorMessage || null } }, {
+    if (!Number.isInteger(wanted) || wanted < 1 || wanted > 10000) { setError(new Error('Enter a quantity between 1 and 10,000.')); return; }
+    if (effectiveMode === 'inventory' && !chosen) { setError(new Error('Choose one of your listed goods, or choose that you will source them.')); return; }
+    if (effectiveMode === 'inventory' && chosen && wanted > chosen.quantityAvailable) { setError(new Error(`You only have ${chosen.quantityAvailable} of these available.`)); return; }
+    actionId.current ??= crypto.randomUUID();
+    create.mutate({ data: { actionId: actionId.current, requestId: post.id, inventoryId: effectiveMode === 'inventory' ? chosen?.id ?? null : null, quantity: wanted, donorMessage: values.donorMessage.trim() || null } }, {
       onSuccess: () => {
         toast({ title: 'Offer sent 🎉', description: 'The teacher will review it and you’ll be notified.' });
         void client.invalidateQueries({ queryKey: [FEED_KEY] });
         void client.invalidateQueries({ queryKey: getGetSponsorshipsQueryKey() });
         void client.invalidateQueries({ queryKey: getGetInventoryQueryKey() });
         void client.invalidateQueries({ queryKey: getGetDonorDashboardQueryKey() });
+        actionId.current = null;
         form.reset();
         setPicked('');
+        setOfferMode('inventory');
         onClose();
       },
       onError: setError,
@@ -178,7 +194,7 @@ export function OfferDialog({ post, onClose }: { post: OfferTarget | null; onClo
   });
 
   return (
-    <Dialog open={!!post} onOpenChange={(open) => { if (!open) { setError(null); onClose(); } }}>
+    <Dialog open={!!post} onOpenChange={(open) => { if (!open) { setError(null); setPicked(''); setOfferMode('inventory'); actionId.current = null; onClose(); } }}>
       <DialogContent className="ws-dialog">
         <DialogHeader>
           <DialogTitle>Offer help</DialogTitle>
@@ -186,26 +202,34 @@ export function OfferDialog({ post, onClose }: { post: OfferTarget | null; onClo
         </DialogHeader>
         {!loading && !verified ? (
           <div className="ws-notice ws-notice-warn">Your account is still being verified, so offers are paused for now. You can keep browsing and saving requests in the meantime. <Link href="/donor/me" onClick={onClose}>Check verification</Link></div>
-        ) : !goods.isLoading && options.length === 0 ? (
-          <div className="ws-notice ws-notice-info">You don’t have any {groupLabels[post?.categoryGroup ?? 'OTHER']?.toLowerCase()} goods available to offer yet. List them first, then come back. <Link href="/donor/goods" onClick={onClose} data-testid="link-list-goods-first">List goods</Link></div>
+        ) : goods.isLoading ? (
+          <p className="ws-muted ws-empty-line">Checking your listed goods…</p>
         ) : (
           <form onSubmit={submit} className="ws-form" noValidate>
-            <label className="ws-field">Which of your goods?
+            {goods.isError && <div className="ws-notice ws-notice-warn">Your listed goods could not be checked. You can still offer goods you plan to source.</div>}
+            <label className="ws-field">How will you provide these goods?
+              <select className="ws-input" value={effectiveMode} onChange={(e) => setOfferMode(e.target.value as typeof offerMode)} data-testid="select-offer-source">
+                <option value="inventory" disabled={options.length === 0}>From my listed goods</option>
+                <option value="source">I’ll buy or source them before handoff</option>
+              </select>
+              <small>Listed goods are reserved while the school reviews your offer. Sourced goods don’t need to be in your inventory yet.</small>
+            </label>
+            {effectiveMode === 'inventory' && <label className="ws-field">Which listed goods?
               <select className="ws-input" value={chosen?.id ?? ''} onChange={(e) => setPicked(e.target.value)} data-testid="select-offer-goods">
                 {options.map((item) => <option key={item.id} value={item.id}>{item.title} · {item.quantityAvailable} {item.unit} · {item.locationName ?? item.district}</option>)}
               </select>
               {chosen && <small>Available in {chosen.locationName ?? chosen.district}{chosen.condition ? ` · ${goodsConditionLabels[chosen.condition] ?? chosen.condition} condition` : ''}.</small>}
-            </label>
+            </label>}
             <label className="ws-field">How many {post?.unit}?
-              <input className="ws-input" type="number" min={1} max={chosen?.quantityAvailable ?? 1} {...form.register('quantity', { valueAsNumber: true })} data-testid="input-offer-quantity" />
-              <small>You have {chosen?.quantityAvailable ?? 0} available. The school still needs about {post ? Math.max(1, post.quantity - post.quantityCovered) : 1}.</small>
+              <input className="ws-input" type="number" min={1} max={effectiveMode === 'inventory' ? chosen?.quantityAvailable ?? 1 : 10000} {...form.register('quantity', { valueAsNumber: true })} data-testid="input-offer-quantity" />
+              <small>{effectiveMode === 'inventory' ? `You have ${chosen?.quantityAvailable ?? 0} available.` : 'You can source these after the school accepts your offer.'} The school still needs about {post ? Math.max(1, post.quantity - post.quantityCovered) : 1}.</small>
             </label>
             <label className="ws-field">Note to the teacher <span className="ws-muted">(optional)</span>
               <textarea className="ws-input" rows={3} maxLength={500} placeholder="e.g. I can drop them off on weekdays." {...form.register('donorMessage')} data-testid="input-offer-message" />
             </label>
             <Feedback error={error} />
             <button className="ws-btn ws-btn-primary" disabled={create.isPending || !chosen} data-testid="button-send-offer">{create.isPending ? 'Sending…' : 'Send offer'}</button>
-            <p className="ws-fine">Goods only. The teacher reviews every offer and arranges the handoff. Check the item details and location yourself; Sedibeng doesn’t match sizes.</p>
+            <p className="ws-fine">Goods only. The teacher reviews every offer. If you plan to buy or source the goods later, arrange the handoff after the school accepts. Sedibeng doesn’t match sizes.</p>
           </form>
         )}
       </DialogContent>

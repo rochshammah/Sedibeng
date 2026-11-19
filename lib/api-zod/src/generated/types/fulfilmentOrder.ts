@@ -15,6 +15,7 @@ export interface FulfilmentOrder {
   requestTitle: string;
   quantity: number;
   unit: string;
+  donorWillSource: boolean;
   acceptedQuantity: number;
   handedOverQuantity: number;
   receivedQuantity: number;

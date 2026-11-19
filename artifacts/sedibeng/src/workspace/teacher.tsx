@@ -76,7 +76,7 @@ export function TeacherHome() {
           <ListRows empty=""
             items={[
               ...pending.map((o) => ({
-                id: `o-${o.id}`, title: `${o.donorName} offered ${o.quantity}`, detail: `For “${o.requestTitle}”`, status: o.status,
+                id: `o-${o.id}`, title: `${o.donorName} offered ${o.quantity}`, detail: `${o.inventoryTitle ? `From ${o.inventoryTitle} · ` : 'Donor will source the goods · '}For “${o.requestTitle}”`, status: o.status,
                 right: <>
                   <button className="ws-btn ws-btn-primary ws-btn-sm" onClick={() => decide.mutate({ id: o.id, data: { decision: 'APPROVE' } }, { onSuccess: refreshAll })}>Approve</button>
                   <button className="ws-btn ws-btn-ghost ws-btn-sm" onClick={() => decide.mutate({ id: o.id, data: { decision: 'REJECT' } }, { onSuccess: refreshAll })}>Decline</button>
@@ -319,7 +319,7 @@ export function TeacherOffers() {
       <Segmented value={tab} onChange={setTab} options={[{ value: 'review', label: 'Needs review', count: review.length }, { value: 'all', label: 'All offers', count: all.length }]} />
       <Card><ListRows empty={tab === 'review' ? 'No offers are waiting for your decision.' : 'No offers yet. They’ll appear when donors respond to your requests.'}
         items={shown.map((o) => ({
-          id: o.id, title: `${o.donorName} offered ${o.quantity}`, detail: `For “${o.requestTitle}” · ${new Date(o.createdAt).toLocaleDateString()}`, status: o.status,
+          id: o.id, title: `${o.donorName} offered ${o.quantity}`, detail: `${o.inventoryTitle ? `From ${o.inventoryTitle} · ` : 'Donor will source the goods · '}For “${o.requestTitle}” · ${new Date(o.createdAt).toLocaleDateString()}`, status: o.status,
           right: o.status === 'PENDING_TEACHER_REVIEW' ? <>
             <button className="ws-btn ws-btn-primary ws-btn-sm" onClick={() => decide.mutate({ id: o.id, data: { decision: 'APPROVE' } }, { onSuccess: refresh })}>Approve</button>
             <button className="ws-btn ws-btn-ghost ws-btn-sm" onClick={() => decide.mutate({ id: o.id, data: { decision: 'REJECT' } }, { onSuccess: refresh })}>Decline</button>

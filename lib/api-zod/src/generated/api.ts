@@ -1395,7 +1395,7 @@ export const createSponsorshipBodyDonorMessageMax = 500;
 export const CreateSponsorshipBody = zod.object({
   "actionId": zod.string().uuid().describe('Client-generated idempotency key for safe retries.'),
   "requestId": zod.string().uuid(),
-  "inventoryId": zod.string().uuid().describe('Which of your goods you are offering. The category must suit the request.'),
+  "inventoryId": zod.string().uuid().nullable().describe('Your listed goods, or null when you plan to source them before handoff.'),
   "quantity": zod.number().int().min(1).max(createSponsorshipBodyQuantityMax),
   "donorMessage": zod.string().max(createSponsorshipBodyDonorMessageMax).nullish()
 })
@@ -1445,6 +1445,7 @@ export const GetOrdersResponseItem = zod.object({
   "requestTitle": zod.string(),
   "quantity": zod.number().int(),
   "unit": zod.string(),
+  "donorWillSource": zod.boolean(),
   "acceptedQuantity": zod.number().int(),
   "handedOverQuantity": zod.number().int(),
   "receivedQuantity": zod.number().int(),
@@ -1508,6 +1509,7 @@ export const UpdateOrderStatusResponse = zod.object({
   "requestTitle": zod.string(),
   "quantity": zod.number().int(),
   "unit": zod.string(),
+  "donorWillSource": zod.boolean(),
   "acceptedQuantity": zod.number().int(),
   "handedOverQuantity": zod.number().int(),
   "receivedQuantity": zod.number().int(),
