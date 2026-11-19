@@ -7,11 +7,12 @@ import {
   type FeedPost, type InventoryItem,
   customFetch, getGetDonorDashboardQueryKey, getGetInventoryQueryKey, getGetMyReportsQueryKey, getGetOrdersQueryKey,
   useCreateInventoryBulk, useDeleteInventory, useDeleteInventoryPhoto, useGetAuthSession, useGetDonorDashboard, useGetInventory, useGetMyReports,
-  useGetOrders, useGetSavedRequests, useGetSponsorships, useUpdateInventory, useUpdateOrderStatus,
+  useGetOrders, useGetSavedRequests, useGetSponsorships, useUpdateInventory,
 } from '@workspace/api-client-react';
 import { ErrorState } from '../components/site';
 import { RequestDetailPage } from '../pages/pages';
 import { VerificationCard } from './common';
+import { FulfilmentOrderCard } from './fulfilment';
 import { FeedPostCard, OfferDialog, useFeed, useIsVerified, useToggleSave, type FeedFilters } from './feed';
 import { AreaPicker, GoodsPhoto, LocationSelect, goodsCategories, goodsConditionLabels, useServiceAreaFilter } from './places';
 import { Avatar, Card, EmptyState, Feedback, ListRows, Notice, PageHeader, Segmented, SkeletonPosts, StatCards, StatusPill, greet } from './ui';
@@ -308,10 +309,8 @@ export function DonorGoods() {
 }
 
 export function DonorActivity() {
-  const client = useQueryClient();
   const offers = useGetSponsorships();
   const orders = useGetOrders();
-  const orderStatus = useUpdateOrderStatus();
   const [tab, setTab] = useState<'offers' | 'handoffs'>('offers');
   return (
     <div className="ws-col ws-col-wide">
@@ -320,12 +319,12 @@ export function DonorActivity() {
       {tab === 'offers' ? (
         <Card><ListRows empty="When you offer help on a request, it shows up here." items={(offers.data ?? []).map((s) => ({ id: s.id, title: s.requestTitle, status: s.status, detail: `${s.quantity} offered${s.inventoryTitle ? ` from “${s.inventoryTitle}”` : ''} · ${new Date(s.createdAt).toLocaleDateString()}` }))} /></Card>
       ) : (
-        <Card><ListRows empty="No handoffs yet. Once a teacher approves an offer, the next steps appear here."
-          items={(orders.data ?? []).map((o) => ({
-            id: o.id, title: o.requestTitle, status: o.status,
-            detail: `${o.quantity} · ${o.generalArea || 'Area to be confirmed'}${o.scheduledAt ? ` · ${new Date(o.scheduledAt).toLocaleDateString()}` : ''}`,
-            right: o.status === 'PREPARING' ? <button className="ws-btn ws-btn-primary ws-btn-sm" onClick={() => orderStatus.mutate({ id: o.id, data: { status: 'READY_FOR_HANDOFF' } }, { onSuccess: () => void client.invalidateQueries({ queryKey: getGetOrdersQueryKey() }) })}>Ready for handoff</button> : undefined,
-          }))} /></Card>
+        <Card>
+          {orders.isLoading ? <p className="ws-muted ws-empty-line">Loading handoffs…</p>
+            : orders.isError ? <ErrorState onRetry={() => void orders.refetch()} />
+            : orders.data?.length ? <div className="ws-handoff-list">{orders.data.map((order) => <FulfilmentOrderCard key={order.id} order={order} role="donor" />)}</div>
+            : <p className="ws-muted ws-empty-line">No handoffs yet. Once a teacher approves an offer, the next steps appear here.</p>}
+        </Card>
       )}
     </div>
   );

@@ -162,7 +162,7 @@ export function OfferDialog({ post, onClose }: { post: OfferTarget | null; onClo
     const wanted = Number(values.quantity);
     if (!(wanted >= 1)) { setError(new Error('Enter how many you can give.')); return; }
     if (wanted > chosen.quantityAvailable) { setError(new Error(`You only have ${chosen.quantityAvailable} of these available.`)); return; }
-    create.mutate({ data: { requestId: post.id, inventoryId: chosen.id, quantity: Number(values.quantity), donorMessage: values.donorMessage || null } }, {
+    create.mutate({ data: { actionId: crypto.randomUUID(), requestId: post.id, inventoryId: chosen.id, quantity: Number(values.quantity), donorMessage: values.donorMessage || null } }, {
       onSuccess: () => {
         toast({ title: 'Offer sent 🎉', description: 'The teacher will review it and you’ll be notified.' });
         void client.invalidateQueries({ queryKey: [FEED_KEY] });

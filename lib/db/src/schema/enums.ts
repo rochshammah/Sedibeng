@@ -91,8 +91,31 @@ export const orderStatusEnum = pgEnum("order_status", [
   "AWAITING_TEACHER_APPROVAL",
   "PREPARING",
   "READY_FOR_HANDOFF",
+  "PARTIALLY_HANDED_OVER",
+  "HANDED_OVER",
+  "PARTIALLY_RECEIVED",
+  "RECEIVED",
+  "RESOLUTION_REQUIRED",
   "FULFILLED",
   "CANCELLED",
+]);
+
+export const orderEventTypeEnum = pgEnum("order_event_type", [
+  "OFFER_ACCEPTED",
+  "PREPARATION_STARTED",
+  "GOODS_READY",
+  "HANDOFF_CONFIRMED",
+  "GOODS_RECEIVED",
+  "ISSUE_REPORTED",
+  "ISSUE_RESOLVED",
+  "GOODS_DISTRIBUTED",
+  "OFFER_CANCELLED",
+]);
+
+export const orderIssueTypeEnum = pgEnum("order_issue_type", [
+  "MISSING",
+  "DAMAGED",
+  "INCORRECT",
 ]);
 
 export const deliveryStatusEnum = pgEnum("delivery_status", [

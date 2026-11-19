@@ -1393,6 +1393,7 @@ export const createSponsorshipBodyDonorMessageMax = 500;
 
 
 export const CreateSponsorshipBody = zod.object({
+  "actionId": zod.string().uuid().describe('Client-generated idempotency key for safe retries.'),
   "requestId": zod.string().uuid(),
   "inventoryId": zod.string().uuid().describe('Which of your goods you are offering. The category must suit the request.'),
   "quantity": zod.number().int().min(1).max(createSponsorshipBodyQuantityMax),
@@ -1440,11 +1441,31 @@ export const DecideSponsorshipResponse = zod.object({
 export const GetOrdersResponseItem = zod.object({
   "id": zod.string().uuid(),
   "sponsorshipId": zod.string().uuid(),
+  "requestId": zod.string().uuid(),
   "requestTitle": zod.string(),
   "quantity": zod.number().int(),
-  "status": zod.enum(['AWAITING_TEACHER_APPROVAL', 'PREPARING', 'READY_FOR_HANDOFF', 'FULFILLED', 'CANCELLED']),
+  "unit": zod.string(),
+  "acceptedQuantity": zod.number().int(),
+  "handedOverQuantity": zod.number().int(),
+  "receivedQuantity": zod.number().int(),
+  "distributedQuantity": zod.number().int(),
+  "status": zod.enum(['AWAITING_TEACHER_APPROVAL', 'PREPARING', 'READY_FOR_HANDOFF', 'PARTIALLY_HANDED_OVER', 'HANDED_OVER', 'PARTIALLY_RECEIVED', 'RECEIVED', 'RESOLUTION_REQUIRED', 'FULFILLED', 'CANCELLED']),
   "generalArea": zod.string().nullable(),
-  "scheduledAt": zod.coerce.date().nullable()
+  "handoffNotes": zod.string().nullable(),
+  "donorLocationName": zod.string().nullable(),
+  "schoolLocationName": zod.string().nullable(),
+  "scheduledAt": zod.coerce.date().nullable(),
+  "events": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "eventType": zod.enum(['OFFER_ACCEPTED', 'PREPARATION_STARTED', 'GOODS_READY', 'HANDOFF_CONFIRMED', 'GOODS_RECEIVED', 'ISSUE_REPORTED', 'ISSUE_RESOLVED', 'GOODS_DISTRIBUTED', 'OFFER_CANCELLED']),
+  "statusAfter": zod.enum(['AWAITING_TEACHER_APPROVAL', 'PREPARING', 'READY_FOR_HANDOFF', 'PARTIALLY_HANDED_OVER', 'HANDED_OVER', 'PARTIALLY_RECEIVED', 'RECEIVED', 'RESOLUTION_REQUIRED', 'FULFILLED', 'CANCELLED']),
+  "actorRole": zod.enum(['DONOR', 'TEACHER', 'ADMIN', 'SCHOOL_REPRESENTATIVE']),
+  "quantity": zod.number().int().nullable(),
+  "issueType": zod.union([zod.literal('MISSING'),zod.literal('DAMAGED'),zod.literal('INCORRECT'),zod.literal(null)]).nullable(),
+  "note": zod.string().nullable(),
+  "privateNote": zod.string().nullable().describe('Only returned to authorized school personnel.'),
+  "createdAt": zod.coerce.date()
+}))
 })
 export const GetOrdersResponse = zod.array(GetOrdersResponseItem)
 
@@ -1456,6 +1477,12 @@ export const UpdateOrderStatusParams = zod.object({
   "id": zod.coerce.string().uuid()
 })
 
+export const updateOrderStatusBodyQuantityMax = 10000;
+
+export const updateOrderStatusBodyNoteMax = 500;
+
+export const updateOrderStatusBodyPrivateNoteMax = 1000;
+
 export const updateOrderStatusBodyGeneralAreaMax = 120;
 
 export const updateOrderStatusBodyHandoffNotesMax = 500;
@@ -1463,19 +1490,45 @@ export const updateOrderStatusBodyHandoffNotesMax = 500;
 
 
 export const UpdateOrderStatusBody = zod.object({
-  "status": zod.enum(['PREPARING', 'READY_FOR_HANDOFF', 'FULFILLED', 'CANCELLED']),
+  "action": zod.enum(['START_PREPARING', 'MARK_READY', 'CONFIRM_HANDOFF', 'CONFIRM_RECEIPT', 'REPORT_ISSUE', 'RESOLVE_ISSUE', 'COMPLETE_DISTRIBUTION', 'CANCEL']),
+  "actionId": zod.string().uuid().describe('Client-generated idempotency key for safe retries.'),
+  "quantity": zod.number().int().min(1).max(updateOrderStatusBodyQuantityMax).optional(),
+  "issueType": zod.enum(['MISSING', 'DAMAGED', 'INCORRECT']).optional(),
+  "note": zod.string().max(updateOrderStatusBodyNoteMax).nullish(),
+  "privateNote": zod.string().max(updateOrderStatusBodyPrivateNoteMax).nullish(),
   "generalArea": zod.string().max(updateOrderStatusBodyGeneralAreaMax).nullish(),
-  "handoffNotes": zod.string().max(updateOrderStatusBodyHandoffNotesMax).nullish()
+  "handoffNotes": zod.string().max(updateOrderStatusBodyHandoffNotesMax).nullish(),
+  "scheduledAt": zod.coerce.date().nullish()
 })
 
 export const UpdateOrderStatusResponse = zod.object({
   "id": zod.string().uuid(),
   "sponsorshipId": zod.string().uuid(),
+  "requestId": zod.string().uuid(),
   "requestTitle": zod.string(),
   "quantity": zod.number().int(),
-  "status": zod.enum(['AWAITING_TEACHER_APPROVAL', 'PREPARING', 'READY_FOR_HANDOFF', 'FULFILLED', 'CANCELLED']),
+  "unit": zod.string(),
+  "acceptedQuantity": zod.number().int(),
+  "handedOverQuantity": zod.number().int(),
+  "receivedQuantity": zod.number().int(),
+  "distributedQuantity": zod.number().int(),
+  "status": zod.enum(['AWAITING_TEACHER_APPROVAL', 'PREPARING', 'READY_FOR_HANDOFF', 'PARTIALLY_HANDED_OVER', 'HANDED_OVER', 'PARTIALLY_RECEIVED', 'RECEIVED', 'RESOLUTION_REQUIRED', 'FULFILLED', 'CANCELLED']),
   "generalArea": zod.string().nullable(),
-  "scheduledAt": zod.coerce.date().nullable()
+  "handoffNotes": zod.string().nullable(),
+  "donorLocationName": zod.string().nullable(),
+  "schoolLocationName": zod.string().nullable(),
+  "scheduledAt": zod.coerce.date().nullable(),
+  "events": zod.array(zod.object({
+  "id": zod.string().uuid(),
+  "eventType": zod.enum(['OFFER_ACCEPTED', 'PREPARATION_STARTED', 'GOODS_READY', 'HANDOFF_CONFIRMED', 'GOODS_RECEIVED', 'ISSUE_REPORTED', 'ISSUE_RESOLVED', 'GOODS_DISTRIBUTED', 'OFFER_CANCELLED']),
+  "statusAfter": zod.enum(['AWAITING_TEACHER_APPROVAL', 'PREPARING', 'READY_FOR_HANDOFF', 'PARTIALLY_HANDED_OVER', 'HANDED_OVER', 'PARTIALLY_RECEIVED', 'RECEIVED', 'RESOLUTION_REQUIRED', 'FULFILLED', 'CANCELLED']),
+  "actorRole": zod.enum(['DONOR', 'TEACHER', 'ADMIN', 'SCHOOL_REPRESENTATIVE']),
+  "quantity": zod.number().int().nullable(),
+  "issueType": zod.union([zod.literal('MISSING'),zod.literal('DAMAGED'),zod.literal('INCORRECT'),zod.literal(null)]).nullable(),
+  "note": zod.string().nullable(),
+  "privateNote": zod.string().nullable().describe('Only returned to authorized school personnel.'),
+  "createdAt": zod.coerce.date()
+}))
 })
 
 
@@ -1487,6 +1540,7 @@ export const GetNotificationsResponseItem = zod.object({
   "type": zod.string(),
   "title": zod.string(),
   "body": zod.string(),
+  "targetPath": zod.string().nullable(),
   "readAt": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date()
 })
@@ -1505,6 +1559,7 @@ export const MarkNotificationReadResponse = zod.object({
   "type": zod.string(),
   "title": zod.string(),
   "body": zod.string(),
+  "targetPath": zod.string().nullable(),
   "readAt": zod.coerce.date().nullable(),
   "createdAt": zod.coerce.date()
 })

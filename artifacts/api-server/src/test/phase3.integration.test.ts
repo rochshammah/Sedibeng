@@ -4,7 +4,7 @@
 // INTEGRATION_DATABASE_URL is set:
 //   INTEGRATION_DATABASE_URL=postgres://... pnpm --filter @workspace/api-server test
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
@@ -59,7 +59,18 @@ suite("Phase 3: verification, documents and publishing", () => {
     return async (method, url, options = {}) => {
       const headers: Record<string, string> = { cookie: cookies.join("; "), origin: baseUrl, "x-csrf-token": token };
       let body: Uint8Array | string | undefined;
-      if (options.json !== undefined) { headers["content-type"] = "application/json"; body = JSON.stringify(options.json); }
+      if (options.json !== undefined) {
+        headers["content-type"] = "application/json";
+        const payload =
+          method === "POST" &&
+          url === "/sponsorships" &&
+          options.json &&
+          typeof options.json === "object" &&
+          !("actionId" in options.json)
+            ? { ...options.json, actionId: randomUUID() }
+            : options.json;
+        body = JSON.stringify(payload);
+      }
       if (options.body) { headers["content-type"] = options.contentType ?? "application/pdf"; body = new Uint8Array(options.body); }
       const res = await fetch(`${baseUrl}/api/v1${url}`, { method, headers, body });
       const text = await res.text();
@@ -486,9 +497,14 @@ suite("Phase 3: verification, documents and publishing", () => {
       const orders = await as.donor("GET", "/orders");
       const order = (orders.json as Json[]).find((o) => o.requestTitle === "Grade 4 needs exercise books")!;
       assert.equal(order.status, "PREPARING");
-      const ready = await as.donor("PATCH", `/orders/${order.id}/status`, { json: { status: "READY_FOR_HANDOFF" } });
+      const ready = await as.donor("PATCH", `/orders/${order.id}/status`, { json: { action: "MARK_READY", actionId: randomUUID() } });
       assert.equal(ready.status, 200, ready.text);
-      const done = await as.t3("PATCH", `/orders/${order.id}/status`, { json: { status: "FULFILLED" } });
+      const handoff = await as.donor("PATCH", `/orders/${order.id}/status`, { json: { action: "CONFIRM_HANDOFF", actionId: randomUUID(), quantity: 8 } });
+      assert.equal(handoff.status, 200, handoff.text);
+      const received = await as.t3("PATCH", `/orders/${order.id}/status`, { json: { action: "CONFIRM_RECEIPT", actionId: randomUUID(), quantity: 8 } });
+      assert.equal(received.status, 200, received.text);
+      assert.equal(received.json.status, "RECEIVED");
+      const done = await as.t3("PATCH", `/orders/${order.id}/status`, { json: { action: "COMPLETE_DISTRIBUTION", actionId: randomUUID(), quantity: 8 } });
       assert.equal(done.status, 200, done.text);
       const post = (await as.donor("GET", "/feed?limit=20")).json.items.find((p: Json) => p.id === ids.reqPending);
       assert.equal(post.quantityCovered, 8);

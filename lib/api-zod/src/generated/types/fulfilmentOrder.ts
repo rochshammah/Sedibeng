@@ -6,15 +6,29 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { FulfilmentOrderStatus } from './fulfilmentOrderStatus';
+import type { OrderEvent } from './orderEvent';
 
 export interface FulfilmentOrder {
   id: string;
   sponsorshipId: string;
+  requestId: string;
   requestTitle: string;
   quantity: number;
+  unit: string;
+  acceptedQuantity: number;
+  handedOverQuantity: number;
+  receivedQuantity: number;
+  distributedQuantity: number;
   status: FulfilmentOrderStatus;
   /** @nullable */
   generalArea: string | null;
   /** @nullable */
+  handoffNotes: string | null;
+  /** @nullable */
+  donorLocationName: string | null;
+  /** @nullable */
+  schoolLocationName: string | null;
+  /** @nullable */
   scheduledAt: Date | null;
+  events: OrderEvent[];
 }

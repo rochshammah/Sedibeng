@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ErrorState } from '../components/site';
 import { AreaPicker, GoodsPhoto, LocationSelect, goodsConditionLabels, groupLabels, useServiceAreaFilter } from './places';
 import { TeacherVerificationPanel } from './teacher-verification';
+import { FulfilmentOrderCard } from './fulfilment';
 import { Avatar, Card, EmptyState, Feedback, ListRows, Notice, PageHeader, Segmented, StatCards, greet } from './ui';
 
 function NearbyGoods() {
@@ -45,7 +46,9 @@ export function TeacherHome() {
 
   const pending = (offers.data ?? []).filter((o) => o.status === 'PENDING_TEACHER_REVIEW');
   const toStart = (orders.data ?? []).filter((o) => o.status === 'AWAITING_TEACHER_APPROVAL');
-  const toFinish = (orders.data ?? []).filter((o) => o.status === 'READY_FOR_HANDOFF');
+  const toFinish = (orders.data ?? []).filter((o) =>
+    ['READY_FOR_HANDOFF', 'PARTIALLY_HANDED_OVER', 'HANDED_OVER', 'PARTIALLY_RECEIVED', 'RECEIVED', 'RESOLUTION_REQUIRED'].includes(o.status),
+  );
   const nothing = !pending.length && !toStart.length && !toFinish.length;
 
   if (dash.isError) return <ErrorState onRetry={() => void dash.refetch()} />;
@@ -81,11 +84,11 @@ export function TeacherHome() {
               })),
               ...toStart.map((o) => ({
                 id: `s-${o.id}`, title: o.requestTitle, detail: `${o.quantity} · ready to prepare`, status: o.status,
-                right: <button className="ws-btn ws-btn-primary ws-btn-sm" onClick={() => updateOrder.mutate({ id: o.id, data: { status: 'PREPARING' } }, { onSuccess: refreshAll })}>Begin preparation</button>,
+                right: <button className="ws-btn ws-btn-primary ws-btn-sm" onClick={() => updateOrder.mutate({ id: o.id, data: { action: 'START_PREPARING', actionId: crypto.randomUUID() } }, { onSuccess: refreshAll })}>Begin preparation</button>,
               })),
               ...toFinish.map((o) => ({
                 id: `f-${o.id}`, title: o.requestTitle, detail: `${o.quantity} · donor says it’s ready`, status: o.status,
-                right: <button className="ws-btn ws-btn-primary ws-btn-sm" onClick={() => updateOrder.mutate({ id: o.id, data: { status: 'FULFILLED' } }, { onSuccess: refreshAll })}>Mark received</button>,
+                right: <Link className="ws-btn ws-btn-primary ws-btn-sm" href="/teacher/handoffs">Review handoff</Link>,
               })),
             ]} />
         )}
@@ -329,17 +332,16 @@ export function TeacherOffers() {
 export function TeacherHandoffs() {
   const client = useQueryClient();
   const orders = useGetOrders();
-  const updateOrder = useUpdateOrderStatus();
   const refresh = () => { void client.invalidateQueries({ queryKey: getGetOrdersQueryKey() }); void client.invalidateQueries({ queryKey: getGetTeacherDashboardQueryKey() }); };
   return (
     <div className="ws-col ws-col-wide">
       <PageHeader title="Handoffs" subtitle="Follow each approved offer until the goods reach your school." />
-      <Card><ListRows empty="No handoffs yet. Approve an offer and it will appear here."
-        items={(orders.data ?? []).map((o) => ({
-          id: o.id, title: o.requestTitle, status: o.status, detail: `${o.quantity} · ${o.generalArea || 'Area not set'}`,
-          right: o.status === 'AWAITING_TEACHER_APPROVAL' ? <button className="ws-btn ws-btn-primary ws-btn-sm" onClick={() => updateOrder.mutate({ id: o.id, data: { status: 'PREPARING' } }, { onSuccess: refresh })}>Begin preparation</button>
-            : o.status === 'READY_FOR_HANDOFF' ? <button className="ws-btn ws-btn-primary ws-btn-sm" onClick={() => updateOrder.mutate({ id: o.id, data: { status: 'FULFILLED' } }, { onSuccess: refresh })}>Mark received</button> : undefined,
-        }))} /></Card>
+      <Card>
+        {orders.isLoading ? <p className="ws-muted ws-empty-line">Loading handoffs…</p>
+          : orders.isError ? <ErrorState onRetry={() => void orders.refetch()} />
+          : orders.data?.length ? <div className="ws-handoff-list">{orders.data.map((order) => <FulfilmentOrderCard key={order.id} order={order} role="school" onChanged={refresh} />)}</div>
+          : <p className="ws-muted ws-empty-line">No handoffs yet. Approve an offer and it will appear here.</p>}
+      </Card>
     </div>
   );
 }

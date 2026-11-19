@@ -3,7 +3,7 @@
 // database; skipped unless INTEGRATION_DATABASE_URL is set. TEST_STORAGE=cloudinary runs
 // the photo tests against the local Cloudinary stand-in.
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
@@ -58,7 +58,18 @@ suite("Phase 4: goods, locations and discovery", () => {
     return async (method, url, options = {}) => {
       const headers: Record<string, string> = { cookie: cookies.join("; "), origin: baseUrl, "x-csrf-token": token };
       let body: Uint8Array | string | undefined;
-      if (options.json !== undefined) { headers["content-type"] = "application/json"; body = JSON.stringify(options.json); }
+      if (options.json !== undefined) {
+        headers["content-type"] = "application/json";
+        const payload =
+          method === "POST" &&
+          url === "/sponsorships" &&
+          options.json &&
+          typeof options.json === "object" &&
+          !("actionId" in options.json)
+            ? { ...options.json, actionId: randomUUID() }
+            : options.json;
+        body = JSON.stringify(payload);
+      }
       if (options.body) { headers["content-type"] = options.contentType ?? "image/jpeg"; body = new Uint8Array(options.body); }
       const res = await fetch(`${baseUrl}/api/v1${url}`, { method, headers, body });
       const bytes = Buffer.from(await res.arrayBuffer());
@@ -462,7 +473,7 @@ suite("Phase 4: goods, locations and discovery", () => {
       assert.equal(item.quantityAvailable, 2, "accepted goods stay set aside");
       const order = ((await as.donor1("GET", "/orders")).json as Json[]).find((o) => o.requestTitle === "Shoes for offers" && o.quantity === 4)!;
       assert.equal(order.status, "PREPARING", "accepting an offer does not mark goods delivered");
-      assert.equal((await as.donor1("PATCH", `/orders/${order.id}/status`, { json: { status: "CANCELLED" } })).status, 200);
+      assert.equal((await as.donor1("PATCH", `/orders/${order.id}/status`, { json: { action: "CANCEL", actionId: randomUUID(), note: "Pickup could not be arranged." } })).status, 200);
       item = (await as.donor1("GET", "/inventory")).json.find((i: Json) => i.id === ids.reservedItem);
       assert.equal(item.quantityAvailable, 6, "a cancelled handoff gives the goods back");
     });
@@ -488,6 +499,230 @@ suite("Phase 4: goods, locations and discovery", () => {
       assert.ok(row.quantityAvailable >= 0);
       const [sum] = await db.select({ total: orm.sql<number>`coalesce(sum(quantity),0)::int` }).from(tables.sponsorshipsTable).where(orm.eq(tables.sponsorshipsTable.inventoryId, item.id));
       assert.equal(sum.total + row.quantityAvailable, 10, "reserved plus remaining always equals what was listed");
+    });
+  });
+
+  describe("Phase 5: handoffs, receipt and private distribution", () => {
+    const act = (
+      client: Api,
+      orderId: string,
+      action: string,
+      extra: Json = {},
+      actionId = randomUUID(),
+    ) => client("PATCH", `/orders/${orderId}/status`, {
+      json: { action, actionId, ...extra },
+    });
+
+    it("tracks partial handoffs and receipts, protects school notes, and closes only after distribution", async () => {
+      const request = await publishRequest("tG", "G", {
+        title: "Phase 5 shoes",
+        quantity: 6,
+      });
+      const item = (
+        await as.donor1("POST", "/inventory", {
+          json: goods(loc["Gaborone"], {
+            title: "Phase 5 shoes",
+            quantityAvailable: 6,
+          }),
+        })
+      ).json;
+      const offerBody = {
+        actionId: randomUUID(),
+        requestId: request.id,
+        inventoryId: item.id,
+        quantity: 6,
+      };
+      const offer = await as.donor1("POST", "/sponsorships", { json: offerBody });
+      assert.equal(offer.status, 201, offer.text);
+      const retryOffer = await as.donor1("POST", "/sponsorships", { json: offerBody });
+      assert.equal(retryOffer.status, 200, retryOffer.text);
+      assert.equal(retryOffer.json.id, offer.json.id, "retry reuses the original offer");
+      const [offerNoticeCount] = await db
+        .select({ count: orm.sql<number>`count(*)::int` })
+        .from(tables.notificationsTable)
+        .where(orm.eq(tables.notificationsTable.dedupeKey, `sponsorship:${offer.json.id}:offer:${ids.tG}`));
+      assert.equal(offerNoticeCount.count, 1, "retry does not duplicate the offer notification");
+
+      const accepted = await as.tG("POST", `/sponsorships/${offer.json.id}/decision`, {
+        json: { decision: "APPROVE" },
+      });
+      assert.equal(accepted.status, 200, accepted.text);
+      const order = ((await as.donor1("GET", "/orders")).json as Json[]).find(
+        (row) => row.sponsorshipId === offer.json.id,
+      )!;
+      assert.equal(order.status, "PREPARING", "acceptance is not delivery");
+      assert.equal(order.quantity, 6);
+      assert.equal(order.acceptedQuantity, 6);
+      assert.equal(order.schoolLocationName, "Gaborone");
+      assert.equal(order.donorLocationName, "Gaborone");
+      assert.equal(
+        (await act(as.tG, order.id, "CONFIRM_HANDOFF", { quantity: 1 })).status,
+        403,
+        "teachers cannot confirm a donor handoff",
+      );
+      assert.equal(
+        (await act(as.donor1, order.id, "CONFIRM_HANDOFF", { quantity: 1 })).status,
+        409,
+        "goods must be marked ready first",
+      );
+
+      assert.equal((await act(as.donor1, order.id, "MARK_READY")).status, 200);
+      const firstHandoffAction = randomUUID();
+      const firstHandoffPayload = { action: "CONFIRM_HANDOFF", actionId: firstHandoffAction, quantity: 4 };
+      const handoffResults = await Promise.all([
+        as.donor1("PATCH", `/orders/${order.id}/status`, { json: firstHandoffPayload }),
+        as.donor1("PATCH", `/orders/${order.id}/status`, { json: firstHandoffPayload }),
+      ]);
+      assert.deepEqual(handoffResults.map((result) => result.status), [200, 200]);
+      let current = ((await as.donor1("GET", "/orders")).json as Json[]).find((row) => row.id === order.id)!;
+      assert.equal(current.handedOverQuantity, 4, "the same handoff action is counted once");
+      assert.equal(current.status, "PARTIALLY_HANDED_OVER");
+      assert.equal(
+        (await act(as.tG, order.id, "CONFIRM_RECEIPT", { quantity: 5 })).status,
+        400,
+        "receipt cannot exceed the handed-over quantity",
+      );
+      assert.equal(
+        (await act(as.tK, order.id, "CONFIRM_RECEIPT", { quantity: 1 })).status,
+        404,
+        "another school cannot read or update this order",
+      );
+      assert.equal(
+        (await act(as.admin, order.id, "CONFIRM_RECEIPT", { quantity: 1 })).status,
+        403,
+        "administrator role alone does not grant receipt access",
+      );
+
+      const receiptId = randomUUID();
+      const receiptPayload = { action: "CONFIRM_RECEIPT", actionId: receiptId, quantity: 3 };
+      assert.equal((await as.tG("PATCH", `/orders/${order.id}/status`, { json: receiptPayload })).status, 200);
+      assert.equal((await as.tG("PATCH", `/orders/${order.id}/status`, { json: receiptPayload })).status, 200);
+      current = ((await as.tG("GET", "/orders")).json as Json[]).find((row) => row.id === order.id)!;
+      assert.equal(current.receivedQuantity, 3, "receipt retry does not count twice");
+      assert.notEqual(current.status, "FULFILLED", "partial receipt is never full fulfilment");
+      const [requestAfterPartial] = await db
+        .select()
+        .from(tables.assistanceRequestsTable)
+        .where(orm.eq(tables.assistanceRequestsTable.id, request.id));
+      assert.notEqual(requestAfterPartial.status, "FULFILLED");
+
+      for (const issueType of ["MISSING", "DAMAGED", "INCORRECT"]) {
+        const report = await act(as.tG, order.id, "REPORT_ISSUE", {
+          quantity: 1,
+          issueType,
+          privateNote: "School-only issue detail.",
+        });
+        assert.equal(report.status, 200, report.text);
+        assert.equal((await act(as.donor1, order.id, "RESOLVE_ISSUE", { note: "I will follow up." })).status, 200);
+      }
+      let donorView = ((await as.donor1("GET", "/orders")).json as Json[]).find((row) => row.id === order.id)!;
+      assert.ok(donorView.events.some((event: Json) => event.issueType === "DAMAGED"));
+      assert.ok(donorView.events.every((event: Json) => event.privateNote === null));
+      assert.ok(!JSON.stringify(donorView).includes("School-only issue detail."));
+      const teacherView = ((await as.tG("GET", "/orders")).json as Json[]).find((row) => row.id === order.id)!;
+      assert.ok(teacherView.events.some((event: Json) => event.privateNote === "School-only issue detail."));
+
+      assert.equal((await act(as.donor1, order.id, "MARK_READY")).status, 200);
+      assert.equal((await act(as.donor1, order.id, "CONFIRM_HANDOFF", { quantity: 2 })).status, 200);
+      assert.equal((await act(as.tG, order.id, "CONFIRM_RECEIPT", { quantity: 3 })).status, 200);
+      current = ((await as.tG("GET", "/orders")).json as Json[]).find((row) => row.id === order.id)!;
+      assert.equal(current.receivedQuantity, 6);
+      assert.equal(current.status, "RECEIVED", "receipt alone is not distribution completion");
+      const [requestAfterReceipt] = await db
+        .select()
+        .from(tables.assistanceRequestsTable)
+        .where(orm.eq(tables.assistanceRequestsTable.id, request.id));
+      assert.equal(requestAfterReceipt.status, "FULFILLED", "all required units were actually received");
+
+      assert.equal(
+        (await act(as.tG, order.id, "COMPLETE_DISTRIBUTION", {
+          quantity: 4,
+          privateNote: "Should exceed the received remainder.",
+        })).status,
+        400,
+      );
+      assert.equal((await act(as.tG, order.id, "COMPLETE_DISTRIBUTION", {
+        quantity: 3,
+        privateNote: "School-only distribution note.",
+      })).status, 200);
+      current = ((await as.tG("GET", "/orders")).json as Json[]).find((row) => row.id === order.id)!;
+      assert.equal(current.distributedQuantity, 3);
+      assert.equal(current.status, "RECEIVED");
+      const lastDistributionId = randomUUID();
+      const finalDistribution = {
+        action: "COMPLETE_DISTRIBUTION",
+        actionId: lastDistributionId,
+        quantity: 3,
+        privateNote: "Second private distribution record.",
+      };
+      assert.equal((await as.tG("PATCH", `/orders/${order.id}/status`, { json: finalDistribution })).status, 200);
+      assert.equal((await as.tG("PATCH", `/orders/${order.id}/status`, { json: finalDistribution })).status, 200);
+      current = ((await as.tG("GET", "/orders")).json as Json[]).find((row) => row.id === order.id)!;
+      assert.equal(current.status, "FULFILLED");
+      assert.equal(current.distributedQuantity, 6, "a distribution retry does not count twice");
+      assert.ok(current.events.every((event: Json) => event.actorRole && event.statusAfter));
+
+      const notifications = (await as.donor1("GET", "/notifications")).json as Json[];
+      const handoffNotice = notifications.find((notification) => notification.targetPath === "/donor/activity");
+      assert.ok(handoffNotice, "workflow notifications link to the donor activity page");
+      assert.ok(
+        notifications.every((notification) => !notification.body.includes("Phase 5 shoes")),
+        "notification previews do not expose request names or private school notes",
+      );
+      const orderNotice = notifications.find((notification) => notification.type === "ORDER_CONFIRM_RECEIPT");
+      assert.ok(orderNotice);
+      assert.equal((await as.donor1("PATCH", `/notifications/${orderNotice.id}/read`)).status, 200);
+      const [distributionEventCount] = await db
+        .select({ count: orm.sql<number>`count(*)::int` })
+        .from(tables.orderEventsTable)
+        .where(orm.and(
+          orm.eq(tables.orderEventsTable.orderId, order.id),
+          orm.eq(tables.orderEventsTable.actionId, lastDistributionId),
+        ));
+      assert.equal(distributionEventCount.count, 1);
+      donorView = ((await as.donor1("GET", "/orders")).json as Json[]).find((row) => row.id === order.id)!;
+      assert.ok(donorView.events.every((event: Json) => event.privateNote === null));
+      assert.ok(!JSON.stringify(donorView).includes("School-only distribution note."));
+      assert.ok(!JSON.stringify(donorView).includes("Second private distribution record."));
+
+      assert.equal((await act(as.tG, order.id, "COMPLETE_DISTRIBUTION", {
+        quantity: 3,
+        privateNote: "Second private distribution record.",
+      }, lastDistributionId)).status, 200);
+      assert.equal((await act(
+        as.tG,
+        order.id,
+        "COMPLETE_DISTRIBUTION",
+        { quantity: 1, privateNote: "Different payload." },
+        lastDistributionId,
+      )).status, 409, "reusing an action key with changed data is rejected");
+    });
+
+    it("cancelling after a partial handoff returns only goods still held by the donor", async () => {
+      const request = await publishRequest("tG", "G", {
+        title: "Phase 5 cancellation shoes",
+        quantity: 5,
+      });
+      const item = (
+        await as.donor1("POST", "/inventory", {
+          json: goods(loc["Gaborone"], {
+            title: "Cancellation stock",
+            quantityAvailable: 5,
+          }),
+        })
+      ).json;
+      const offer = await as.donor1("POST", "/sponsorships", {
+        json: { requestId: request.id, inventoryId: item.id, quantity: 5 },
+      });
+      assert.equal(offer.status, 201);
+      assert.equal((await as.tG("POST", `/sponsorships/${offer.json.id}/decision`, { json: { decision: "APPROVE" } })).status, 200);
+      const order = ((await as.donor1("GET", "/orders")).json as Json[]).find((row) => row.sponsorshipId === offer.json.id)!;
+      assert.equal((await act(as.donor1, order.id, "MARK_READY")).status, 200);
+      assert.equal((await act(as.donor1, order.id, "CONFIRM_HANDOFF", { quantity: 2 })).status, 200);
+      assert.equal((await act(as.tG, order.id, "CANCEL", { note: "The school cannot complete this handoff." })).status, 200);
+      const inventory = (await as.donor1("GET", "/inventory")).json.find((row: Json) => row.id === item.id);
+      assert.equal(inventory.quantityAvailable, 3, "only the three units not handed over return to inventory");
+      assert.equal(inventory.status, "AVAILABLE");
     });
   });
 

@@ -12,6 +12,8 @@ export interface Notification {
   title: string;
   body: string;
   /** @nullable */
+  targetPath: string | null;
+  /** @nullable */
   readAt: Date | null;
   createdAt: Date;
 }

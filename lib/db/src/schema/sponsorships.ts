@@ -5,6 +5,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
@@ -29,6 +30,8 @@ export const sponsorshipsTable = pgTable(
       onDelete: "set null",
     }),
     quantity: integer("quantity").notNull(),
+    acceptedQuantity: integer("accepted_quantity"),
+    clientActionId: uuid("client_action_id"),
     donorMessage: text("donor_message"),
     status: sponsorshipStatusEnum("status")
       .notNull()
@@ -47,6 +50,14 @@ export const sponsorshipsTable = pgTable(
   },
   (table) => [
     check("sponsorships_quantity_positive", sql`${table.quantity} > 0`),
+    check(
+      "sponsorships_accepted_quantity_nonnegative",
+      sql`${table.acceptedQuantity} is null or ${table.acceptedQuantity} >= 0`,
+    ),
+    uniqueIndex("sponsorships_donor_action_uidx").on(
+      table.donorUserId,
+      table.clientActionId,
+    ),
     index("sponsorships_request_status_idx").on(table.requestId, table.status),
     index("sponsorships_donor_status_idx").on(
       table.donorUserId,

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
+import { Link } from 'wouter';
 import { ShieldCheck } from 'lucide-react';
 import {
   getGetMyVerificationQueryKey, getGetNotificationsQueryKey,
@@ -45,7 +46,10 @@ export function NotificationsPage() {
         <ListRows empty={notifications.isLoading ? 'Loading…' : 'You’re all caught up 🌱'}
           items={(notifications.data ?? []).map((n) => ({
             id: n.id, title: n.title, detail: n.body, status: n.readAt ? 'Read' : 'New',
-            right: !n.readAt ? <button className="ws-btn ws-btn-ghost ws-btn-sm" onClick={() => mark.mutate({ id: n.id }, { onSuccess: () => void client.invalidateQueries({ queryKey: getGetNotificationsQueryKey() }) })} data-testid={`button-read-notification-${n.id}`}>Mark read</button> : undefined,
+            right: <>
+              {n.targetPath && <Link className="ws-btn ws-btn-soft ws-btn-sm" href={n.targetPath}>Open</Link>}
+              {!n.readAt && <button className="ws-btn ws-btn-ghost ws-btn-sm" onClick={() => mark.mutate({ id: n.id }, { onSuccess: () => void client.invalidateQueries({ queryKey: getGetNotificationsQueryKey() }) })} data-testid={`button-read-notification-${n.id}`}>Mark read</button>}
+            </>,
           }))} />
       </Card>
     </div>

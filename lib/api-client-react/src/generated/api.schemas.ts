@@ -983,6 +983,8 @@ export interface GoodsListing {
 }
 
 export interface SponsorshipInput {
+  /** Client-generated idempotency key for safe retries. */
+  actionId: string;
   requestId: string;
   /** Which of your goods you are offering. The category must suit the request. */
   inventoryId: string;
@@ -1040,34 +1042,155 @@ export const FulfilmentOrderStatus = {
   AWAITING_TEACHER_APPROVAL: 'AWAITING_TEACHER_APPROVAL',
   PREPARING: 'PREPARING',
   READY_FOR_HANDOFF: 'READY_FOR_HANDOFF',
+  PARTIALLY_HANDED_OVER: 'PARTIALLY_HANDED_OVER',
+  HANDED_OVER: 'HANDED_OVER',
+  PARTIALLY_RECEIVED: 'PARTIALLY_RECEIVED',
+  RECEIVED: 'RECEIVED',
+  RESOLUTION_REQUIRED: 'RESOLUTION_REQUIRED',
   FULFILLED: 'FULFILLED',
   CANCELLED: 'CANCELLED',
 } as const;
+
+export type OrderEventEventType = typeof OrderEventEventType[keyof typeof OrderEventEventType];
+
+
+export const OrderEventEventType = {
+  OFFER_ACCEPTED: 'OFFER_ACCEPTED',
+  PREPARATION_STARTED: 'PREPARATION_STARTED',
+  GOODS_READY: 'GOODS_READY',
+  HANDOFF_CONFIRMED: 'HANDOFF_CONFIRMED',
+  GOODS_RECEIVED: 'GOODS_RECEIVED',
+  ISSUE_REPORTED: 'ISSUE_REPORTED',
+  ISSUE_RESOLVED: 'ISSUE_RESOLVED',
+  GOODS_DISTRIBUTED: 'GOODS_DISTRIBUTED',
+  OFFER_CANCELLED: 'OFFER_CANCELLED',
+} as const;
+
+export type OrderEventStatusAfter = typeof OrderEventStatusAfter[keyof typeof OrderEventStatusAfter];
+
+
+export const OrderEventStatusAfter = {
+  AWAITING_TEACHER_APPROVAL: 'AWAITING_TEACHER_APPROVAL',
+  PREPARING: 'PREPARING',
+  READY_FOR_HANDOFF: 'READY_FOR_HANDOFF',
+  PARTIALLY_HANDED_OVER: 'PARTIALLY_HANDED_OVER',
+  HANDED_OVER: 'HANDED_OVER',
+  PARTIALLY_RECEIVED: 'PARTIALLY_RECEIVED',
+  RECEIVED: 'RECEIVED',
+  RESOLUTION_REQUIRED: 'RESOLUTION_REQUIRED',
+  FULFILLED: 'FULFILLED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export type OrderEventActorRole = typeof OrderEventActorRole[keyof typeof OrderEventActorRole];
+
+
+export const OrderEventActorRole = {
+  DONOR: 'DONOR',
+  TEACHER: 'TEACHER',
+  ADMIN: 'ADMIN',
+  SCHOOL_REPRESENTATIVE: 'SCHOOL_REPRESENTATIVE',
+} as const;
+
+/**
+ * @nullable
+ */
+export type OrderEventIssueType = typeof OrderEventIssueType[keyof typeof OrderEventIssueType] | null;
+
+
+export const OrderEventIssueType = {
+  MISSING: 'MISSING',
+  DAMAGED: 'DAMAGED',
+  INCORRECT: 'INCORRECT',
+} as const;
+
+export interface OrderEvent {
+  id: string;
+  eventType: OrderEventEventType;
+  statusAfter: OrderEventStatusAfter;
+  actorRole: OrderEventActorRole;
+  /** @nullable */
+  quantity: number | null;
+  /** @nullable */
+  issueType: OrderEventIssueType;
+  /** @nullable */
+  note: string | null;
+  /**
+     * Only returned to authorized school personnel.
+     * @nullable
+     */
+  privateNote: string | null;
+  createdAt: string;
+}
 
 export interface FulfilmentOrder {
   id: string;
   sponsorshipId: string;
+  requestId: string;
   requestTitle: string;
   quantity: number;
+  unit: string;
+  acceptedQuantity: number;
+  handedOverQuantity: number;
+  receivedQuantity: number;
+  distributedQuantity: number;
   status: FulfilmentOrderStatus;
   /** @nullable */
   generalArea: string | null;
   /** @nullable */
+  handoffNotes: string | null;
+  /** @nullable */
+  donorLocationName: string | null;
+  /** @nullable */
+  schoolLocationName: string | null;
+  /** @nullable */
   scheduledAt: string | null;
+  events: OrderEvent[];
 }
 
-export type OrderStatusUpdateStatus = typeof OrderStatusUpdateStatus[keyof typeof OrderStatusUpdateStatus];
+export type OrderStatusUpdateAction = typeof OrderStatusUpdateAction[keyof typeof OrderStatusUpdateAction];
 
 
-export const OrderStatusUpdateStatus = {
-  PREPARING: 'PREPARING',
-  READY_FOR_HANDOFF: 'READY_FOR_HANDOFF',
-  FULFILLED: 'FULFILLED',
-  CANCELLED: 'CANCELLED',
+export const OrderStatusUpdateAction = {
+  START_PREPARING: 'START_PREPARING',
+  MARK_READY: 'MARK_READY',
+  CONFIRM_HANDOFF: 'CONFIRM_HANDOFF',
+  CONFIRM_RECEIPT: 'CONFIRM_RECEIPT',
+  REPORT_ISSUE: 'REPORT_ISSUE',
+  RESOLVE_ISSUE: 'RESOLVE_ISSUE',
+  COMPLETE_DISTRIBUTION: 'COMPLETE_DISTRIBUTION',
+  CANCEL: 'CANCEL',
+} as const;
+
+export type OrderStatusUpdateIssueType = typeof OrderStatusUpdateIssueType[keyof typeof OrderStatusUpdateIssueType];
+
+
+export const OrderStatusUpdateIssueType = {
+  MISSING: 'MISSING',
+  DAMAGED: 'DAMAGED',
+  INCORRECT: 'INCORRECT',
 } as const;
 
 export interface OrderStatusUpdate {
-  status: OrderStatusUpdateStatus;
+  action: OrderStatusUpdateAction;
+  /** Client-generated idempotency key for safe retries. */
+  actionId: string;
+  /**
+     * @minimum 1
+     * @maximum 10000
+     */
+  quantity?: number;
+  issueType?: OrderStatusUpdateIssueType;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  note?: string | null;
+  /**
+     * @maxLength 1000
+     * @nullable
+     */
+  privateNote?: string | null;
   /**
      * @maxLength 120
      * @nullable
@@ -1078,6 +1201,8 @@ export interface OrderStatusUpdate {
      * @nullable
      */
   handoffNotes?: string | null;
+  /** @nullable */
+  scheduledAt?: string | null;
 }
 
 export interface Notification {
@@ -1085,6 +1210,8 @@ export interface Notification {
   type: string;
   title: string;
   body: string;
+  /** @nullable */
+  targetPath: string | null;
   /** @nullable */
   readAt: string | null;
   createdAt: string;

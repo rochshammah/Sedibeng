@@ -7,6 +7,7 @@ export * from "./assistance-requests";
 export * from "./donor-inventory";
 export * from "./sponsorships";
 export * from "./orders";
+export * from "./order-events";
 export * from "./deliveries";
 export * from "./notifications";
 export * from "./reports";

@@ -7,6 +7,8 @@
  */
 
 export interface SponsorshipInput {
+  /** Client-generated idempotency key for safe retries. */
+  actionId: string;
   requestId: string;
   /** Which of your goods you are offering. The category must suit the request. */
   inventoryId: string;

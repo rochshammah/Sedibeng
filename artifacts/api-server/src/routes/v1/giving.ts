@@ -8,6 +8,7 @@ import {
   deliveriesTable,
   donorInventoryTable,
   notificationsTable,
+  orderEventsTable,
   ordersTable,
   requireDb,
   sponsorshipsTable,
@@ -17,6 +18,7 @@ import {
 import { requireAuth, requireRole } from "../../lib/auth-middleware";
 import { HttpError } from "../../lib/errors";
 import { parseBody, responseDate } from "./shared";
+import fulfilmentRouter from "./fulfilment";
 
 const router = Router();
 const mutationLimit = rateLimit({
@@ -109,6 +111,53 @@ router.post(
     await requireApprovedVerification(request.authUser!.id);
     const database = requireDb();
     const result = await database.transaction(async (tx) => {
+      // Serialize this donor's offer submissions so a retried actionId cannot reserve
+      // inventory or create a second offer while its first transaction is in flight.
+      await tx
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.id, request.authUser!.id))
+        .for("update")
+        .limit(1);
+      const [existing] = await tx
+        .select({
+          sponsorship: sponsorshipsTable,
+          requestTitle: assistanceRequestsTable.title,
+          inventoryTitle: donorInventoryTable.title,
+        })
+        .from(sponsorshipsTable)
+        .innerJoin(
+          assistanceRequestsTable,
+          eq(sponsorshipsTable.requestId, assistanceRequestsTable.id),
+        )
+        .leftJoin(
+          donorInventoryTable,
+          eq(sponsorshipsTable.inventoryId, donorInventoryTable.id),
+        )
+        .where(
+          and(
+            eq(sponsorshipsTable.donorUserId, request.authUser!.id),
+            eq(sponsorshipsTable.clientActionId, input.actionId),
+          ),
+        )
+        .limit(1);
+      if (existing) {
+        if (
+          existing.sponsorship.requestId !== input.requestId ||
+          existing.sponsorship.inventoryId !== input.inventoryId ||
+          existing.sponsorship.quantity !== input.quantity ||
+          (existing.sponsorship.donorMessage ?? null) !==
+            (input.donorMessage?.trim() || null)
+        ) {
+          throw new HttpError(409, "This offer retry does not match the original action.");
+        }
+        return {
+          sponsorship: existing.sponsorship,
+          requestTitle: existing.requestTitle,
+          inventoryTitle: existing.inventoryTitle ?? "Goods",
+          created: false,
+        };
+      }
       const [schoolRequest] = await tx
         .select()
         .from(assistanceRequestsTable)
@@ -166,6 +215,7 @@ router.post(
           requestId: schoolRequest.id,
           donorUserId: request.authUser!.id,
           inventoryId: input.inventoryId,
+          clientActionId: input.actionId,
           quantity: input.quantity,
           donorMessage: input.donorMessage?.trim() || null,
           status: "PENDING_TEACHER_REVIEW",
@@ -174,9 +224,11 @@ router.post(
       await tx.insert(notificationsTable).values({
         userId: schoolRequest.teacherUserId,
         type: "SPONSORSHIP_OFFER",
-        title: "A donor offered goods",
-        body: `A donor offered ${input.quantity} ${input.quantity === 1 ? "unit" : "units"} for ${schoolRequest.title}.`,
-      });
+        title: "A new goods offer",
+        body: "A donor has offered goods for a school request.",
+        targetPath: "/teacher/offers",
+        dedupeKey: `sponsorship:${sponsorship.id}:offer:${schoolRequest.teacherUserId}`,
+      }).onConflictDoNothing();
       await tx.insert(auditLogsTable).values({
         actorUserId: request.authUser!.id,
         action: "SPONSORSHIP_CREATED",
@@ -184,10 +236,15 @@ router.post(
         targetId: sponsorship.id,
         metadata: { requestId: schoolRequest.id, quantity: input.quantity },
       });
-      return { sponsorship, requestTitle: schoolRequest.title, inventoryTitle: item.title };
+      return {
+        sponsorship,
+        requestTitle: schoolRequest.title,
+        inventoryTitle: item.title,
+        created: true,
+      };
     });
 
-    response.status(201).json(
+    response.status(result.created ? 201 : 200).json(
       Contract.CreateSponsorshipResponse.parse({
         id: result.sponsorship.id,
         requestId: result.sponsorship.requestId,
@@ -249,6 +306,7 @@ router.post(
         .update(sponsorshipsTable)
         .set({
           status: nextStatus,
+          acceptedQuantity: approved ? offer.sponsorship.quantity : null,
           reviewedBy: request.authUser!.id,
           reviewedAt: new Date(),
           updatedAt: new Date(),
@@ -264,6 +322,15 @@ router.post(
             status: "PREPARING",
           })
           .returning();
+        await tx.insert(orderEventsTable).values({
+          orderId: order.id,
+          actionId: crypto.randomUUID(),
+          actorUserId: request.authUser!.id,
+          actorRole: "TEACHER",
+          eventType: "OFFER_ACCEPTED",
+          statusAfter: "PREPARING",
+          quantity: offer.sponsorship.quantity,
+        });
         await tx.insert(deliveriesTable).values({
           orderId: order.id,
           status: "PLANNED",
@@ -291,9 +358,11 @@ router.post(
         await tx.insert(notificationsTable).values({
           userId: offer.sponsorship.donorUserId,
           type: "SPONSORSHIP_APPROVED",
-          title: "Your goods offer was accepted",
-          body: `Your offer for ${offer.request.title} is approved. You can now coordinate the handoff.`,
-        });
+          title: "Your offer was accepted",
+          body: "A school has accepted your goods offer. You can now prepare the handoff.",
+          targetPath: "/donor/activity",
+          dedupeKey: `sponsorship:${updated.id}:accepted:${offer.sponsorship.donorUserId}`,
+        }).onConflictDoNothing();
       } else {
         if (offer.sponsorship.inventoryId) {
           const [item] = await tx
@@ -318,9 +387,11 @@ router.post(
         await tx.insert(notificationsTable).values({
           userId: offer.sponsorship.donorUserId,
           type: "SPONSORSHIP_REJECTED",
-          title: "Your goods offer was declined",
-          body: `The school did not accept the offer for ${offer.request.title}.`,
-        });
+          title: "Your offer was declined",
+          body: "The school could not accept this goods offer.",
+          targetPath: "/donor/activity",
+          dedupeKey: `sponsorship:${updated.id}:declined:${offer.sponsorship.donorUserId}`,
+        }).onConflictDoNothing();
       }
       await tx.insert(auditLogsTable).values({
         actorUserId: request.authUser!.id,
@@ -354,276 +425,6 @@ router.post(
   },
 );
 
-router.get(
-  "/orders",
-  requireAuth,
-  requireRole("DONOR", "TEACHER"),
-  async (request, response) => {
-    const query = requireDb()
-      .select({
-        order: ordersTable,
-        sponsorship: sponsorshipsTable,
-        schoolRequest: assistanceRequestsTable,
-        delivery: deliveriesTable,
-      })
-      .from(ordersTable)
-      .innerJoin(
-        sponsorshipsTable,
-        eq(ordersTable.sponsorshipId, sponsorshipsTable.id),
-      )
-      .innerJoin(
-        assistanceRequestsTable,
-        eq(sponsorshipsTable.requestId, assistanceRequestsTable.id),
-      )
-      .leftJoin(deliveriesTable, eq(deliveriesTable.orderId, ordersTable.id));
-    const rows =
-      request.authUser!.role === "DONOR"
-        ? await query
-            .where(eq(sponsorshipsTable.donorUserId, request.authUser!.id))
-            .orderBy(desc(ordersTable.createdAt))
-        : await query
-            .where(eq(assistanceRequestsTable.teacherUserId, request.authUser!.id))
-            .orderBy(desc(ordersTable.createdAt));
-    response.json(
-      Contract.GetOrdersResponse.parse(
-        rows.map(({ order, sponsorship, schoolRequest, delivery }) => ({
-          id: order.id,
-          sponsorshipId: sponsorship.id,
-          requestTitle: schoolRequest.title,
-          quantity: sponsorship.quantity,
-          status: order.status,
-          generalArea: delivery?.generalArea ?? null,
-          scheduledAt: responseDate(delivery?.scheduledAt),
-        })),
-      ),
-    );
-  },
-);
-
-router.patch(
-  "/orders/:id/status",
-  requireAuth,
-  requireRole("DONOR", "TEACHER"),
-  async (request, response) => {
-    const params = Contract.UpdateOrderStatusParams.safeParse(request.params);
-    const input = parseBody(
-      Contract.UpdateOrderStatusBody,
-      request.body,
-      response,
-    );
-    if (!params.success) {
-      response.status(400).json({ error: "The order id is not valid." });
-      return;
-    }
-    if (!input) return;
-    const database = requireDb();
-    const result = await database.transaction(async (tx) => {
-      const [record] = await tx
-        .select({
-          order: ordersTable,
-          sponsorship: sponsorshipsTable,
-          schoolRequest: assistanceRequestsTable,
-          delivery: deliveriesTable,
-        })
-        .from(ordersTable)
-        .innerJoin(
-          sponsorshipsTable,
-          eq(ordersTable.sponsorshipId, sponsorshipsTable.id),
-        )
-        .innerJoin(
-          assistanceRequestsTable,
-          eq(sponsorshipsTable.requestId, assistanceRequestsTable.id),
-        )
-        .leftJoin(deliveriesTable, eq(deliveriesTable.orderId, ordersTable.id))
-        .where(
-          and(
-            eq(ordersTable.id, params.data.id),
-            request.authUser!.role === "DONOR"
-              ? eq(sponsorshipsTable.donorUserId, request.authUser!.id)
-              : eq(assistanceRequestsTable.teacherUserId, request.authUser!.id),
-          ),
-        )
-        .for("update", { of: ordersTable })
-        .limit(1);
-      if (!record) throw new HttpError(404, "The order could not be updated.");
-
-      const nextStatus = input.status;
-      if (
-        request.authUser!.role === "DONOR" &&
-        !["PREPARING", "READY_FOR_HANDOFF", "CANCELLED"].includes(nextStatus)
-      ) {
-        throw new HttpError(403, "Only the school can confirm a completed handoff.");
-      }
-      if (
-        request.authUser!.role === "TEACHER" &&
-        !["FULFILLED", "CANCELLED"].includes(nextStatus)
-      ) {
-        throw new HttpError(403, "Only the donor can update preparation progress.");
-      }
-      if (
-        nextStatus === "READY_FOR_HANDOFF" &&
-        record.order.status !== "PREPARING"
-      ) {
-        throw new HttpError(409, "This order is not ready for a handoff update.");
-      }
-      if (
-        nextStatus === "FULFILLED" &&
-        record.order.status !== "READY_FOR_HANDOFF"
-      ) {
-        throw new HttpError(409, "The donor must mark the goods ready before the school confirms receipt.");
-      }
-      if (
-        nextStatus === "CANCELLED" &&
-        !["PREPARING", "READY_FOR_HANDOFF"].includes(record.order.status)
-      ) {
-        throw new HttpError(409, "This order can no longer be cancelled.");
-      }
-
-      const [updatedOrder] = await tx
-        .update(ordersTable)
-        .set({ status: nextStatus, updatedAt: new Date() })
-        .where(eq(ordersTable.id, record.order.id))
-        .returning();
-      const deliveryStatus: "COMPLETED" | "CANCELLED" | "READY" | "PLANNED" =
-        nextStatus === "FULFILLED"
-          ? "COMPLETED"
-          : nextStatus === "CANCELLED"
-            ? "CANCELLED"
-            : nextStatus === "READY_FOR_HANDOFF"
-              ? "READY"
-              : "PLANNED";
-      const deliveryValues = {
-        status: deliveryStatus,
-        generalArea: input.generalArea?.trim() || record.delivery?.generalArea || null,
-        handoffNotes: input.handoffNotes?.trim() || record.delivery?.handoffNotes || null,
-        scheduledAt: record.delivery?.scheduledAt ?? null,
-        completedAt: nextStatus === "FULFILLED" ? new Date() : null,
-        updatedAt: new Date(),
-      };
-      if (record.delivery) {
-        await tx
-          .update(deliveriesTable)
-          .set(deliveryValues)
-          .where(eq(deliveriesTable.id, record.delivery.id));
-      } else {
-        await tx.insert(deliveriesTable).values({
-          orderId: record.order.id,
-          ...deliveryValues,
-        });
-      }
-
-      if (nextStatus === "FULFILLED") {
-        await tx
-          .update(sponsorshipsTable)
-          .set({ status: "FULFILLED", updatedAt: new Date() })
-          .where(eq(sponsorshipsTable.id, record.sponsorship.id));
-      } else if (nextStatus === "CANCELLED") {
-        await tx
-          .update(sponsorshipsTable)
-          .set({ status: "CANCELLED", updatedAt: new Date() })
-          .where(eq(sponsorshipsTable.id, record.sponsorship.id));
-        if (record.sponsorship.inventoryId) {
-          const [inventory] = await tx
-            .select()
-            .from(donorInventoryTable)
-            .where(eq(donorInventoryTable.id, record.sponsorship.inventoryId))
-            .for("update")
-            .limit(1);
-          if (inventory) {
-            await tx
-              .update(donorInventoryTable)
-              .set({
-                quantityAvailable:
-                  inventory.quantityAvailable + record.sponsorship.quantity,
-                status: inventory.status === "WITHDRAWN" ? "WITHDRAWN" : "AVAILABLE",
-                updatedAt: new Date(),
-              })
-              .where(eq(donorInventoryTable.id, inventory.id));
-          }
-        }
-      }
-
-      if (nextStatus === "FULFILLED" || nextStatus === "CANCELLED") {
-        const [{ activeQuantity }] = await tx
-          .select({
-            activeQuantity: sql<number>`coalesce(sum(${sponsorshipsTable.quantity}), 0)::int`,
-          })
-          .from(sponsorshipsTable)
-          .where(
-            and(
-              eq(sponsorshipsTable.requestId, record.schoolRequest.id),
-              or(
-                eq(sponsorshipsTable.status, "APPROVED"),
-                eq(sponsorshipsTable.status, "FULFILLED"),
-              ),
-            ),
-          );
-        const [{ fulfilledQuantity }] = await tx
-          .select({
-            fulfilledQuantity: sql<number>`coalesce(sum(${sponsorshipsTable.quantity}), 0)::int`,
-          })
-          .from(ordersTable)
-          .innerJoin(
-            sponsorshipsTable,
-            eq(ordersTable.sponsorshipId, sponsorshipsTable.id),
-          )
-          .where(
-            and(
-              eq(sponsorshipsTable.requestId, record.schoolRequest.id),
-              eq(ordersTable.status, "FULFILLED"),
-            ),
-          );
-        const requestStatus =
-          fulfilledQuantity >= record.schoolRequest.quantity
-            ? "FULFILLED"
-            : activeQuantity >= record.schoolRequest.quantity
-              ? "MATCHED"
-              : activeQuantity > 0
-                ? "PARTIALLY_MATCHED"
-                : "OPEN";
-        await tx
-          .update(assistanceRequestsTable)
-          .set({ status: requestStatus, updatedAt: new Date() })
-          .where(eq(assistanceRequestsTable.id, record.schoolRequest.id));
-      }
-
-      const otherUserId =
-        request.authUser!.role === "DONOR"
-          ? record.schoolRequest.teacherUserId
-          : record.sponsorship.donorUserId;
-      await tx.insert(notificationsTable).values({
-        userId: otherUserId,
-        type: "ORDER_STATUS",
-        title: "A goods handoff was updated",
-        body: `${record.schoolRequest.title} is now marked ${nextStatus.toLowerCase().replaceAll("_", " ")}.`,
-      });
-      await tx.insert(auditLogsTable).values({
-        actorUserId: request.authUser!.id,
-        action: "ORDER_STATUS_UPDATED",
-        targetType: "ORDER",
-        targetId: record.order.id,
-        metadata: { status: nextStatus },
-      });
-      return {
-        order: updatedOrder,
-        sponsorship: record.sponsorship,
-        request: record.schoolRequest,
-        deliveryValues,
-      };
-    });
-
-    response.json(
-      Contract.UpdateOrderStatusResponse.parse({
-        id: result.order.id,
-        sponsorshipId: result.sponsorship.id,
-        requestTitle: result.request.title,
-        quantity: result.sponsorship.quantity,
-        status: result.order.status,
-        generalArea: result.deliveryValues.generalArea,
-        scheduledAt: responseDate(result.deliveryValues.scheduledAt),
-      }),
-    );
-  },
-);
+router.use(fulfilmentRouter);
 
 export default router;

@@ -1000,6 +1000,12 @@ paths:
             schema:
               $ref: "#/components/schemas/SponsorshipInput"
       responses:
+        "200":
+          description: Existing offer returned for a retried action
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sponsorship"
         "201":
           description: Sponsorship offer submitted
           content:
@@ -2644,6 +2650,10 @@ components:
     SponsorshipInput:
       type: object
       properties:
+        actionId:
+          type: string
+          format: uuid
+          description: Client-generated idempotency key for safe retries.
         requestId:
           type: string
           format: uuid
@@ -2658,7 +2668,7 @@ components:
         donorMessage:
           type: [string, "null"]
           maxLength: 500
-      required: [requestId, inventoryId, quantity]
+      required: [actionId, requestId, inventoryId, quantity]
     Sponsorship:
       type: object
       properties:
@@ -2699,32 +2709,104 @@ components:
         sponsorshipId:
           type: string
           format: uuid
+        requestId:
+          type: string
+          format: uuid
         requestTitle:
           type: string
         quantity:
           type: integer
+        unit:
+          type: string
+        acceptedQuantity:
+          type: integer
+        handedOverQuantity:
+          type: integer
+        receivedQuantity:
+          type: integer
+        distributedQuantity:
+          type: integer
         status:
           type: string
-          enum: [AWAITING_TEACHER_APPROVAL, PREPARING, READY_FOR_HANDOFF, FULFILLED, CANCELLED]
+          enum: [AWAITING_TEACHER_APPROVAL, PREPARING, READY_FOR_HANDOFF, PARTIALLY_HANDED_OVER, HANDED_OVER, PARTIALLY_RECEIVED, RECEIVED, RESOLUTION_REQUIRED, FULFILLED, CANCELLED]
         generalArea:
+          type: [string, "null"]
+        handoffNotes:
+          type: [string, "null"]
+        donorLocationName:
+          type: [string, "null"]
+        schoolLocationName:
           type: [string, "null"]
         scheduledAt:
           type: [string, "null"]
           format: date-time
-      required: [id, sponsorshipId, requestTitle, quantity, status, generalArea, scheduledAt]
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderEvent"
+      required: [id, sponsorshipId, requestId, requestTitle, quantity, unit, acceptedQuantity, handedOverQuantity, receivedQuantity, distributedQuantity, status, generalArea, handoffNotes, donorLocationName, schoolLocationName, scheduledAt, events]
+    OrderEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum: [OFFER_ACCEPTED, PREPARATION_STARTED, GOODS_READY, HANDOFF_CONFIRMED, GOODS_RECEIVED, ISSUE_REPORTED, ISSUE_RESOLVED, GOODS_DISTRIBUTED, OFFER_CANCELLED]
+        statusAfter:
+          type: string
+          enum: [AWAITING_TEACHER_APPROVAL, PREPARING, READY_FOR_HANDOFF, PARTIALLY_HANDED_OVER, HANDED_OVER, PARTIALLY_RECEIVED, RECEIVED, RESOLUTION_REQUIRED, FULFILLED, CANCELLED]
+        actorRole:
+          type: string
+          enum: [DONOR, TEACHER, ADMIN, SCHOOL_REPRESENTATIVE]
+        quantity:
+          type: [integer, "null"]
+        issueType:
+          type: [string, "null"]
+          enum: [MISSING, DAMAGED, INCORRECT, null]
+        note:
+          type: [string, "null"]
+        privateNote:
+          type: [string, "null"]
+          description: Only returned to authorized school personnel.
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, eventType, statusAfter, actorRole, quantity, issueType, note, privateNote, createdAt]
     OrderStatusUpdate:
       type: object
       properties:
-        status:
+        action:
           type: string
-          enum: [PREPARING, READY_FOR_HANDOFF, FULFILLED, CANCELLED]
+          enum: [START_PREPARING, MARK_READY, CONFIRM_HANDOFF, CONFIRM_RECEIPT, REPORT_ISSUE, RESOLVE_ISSUE, COMPLETE_DISTRIBUTION, CANCEL]
+        actionId:
+          type: string
+          format: uuid
+          description: Client-generated idempotency key for safe retries.
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        issueType:
+          type: string
+          enum: [MISSING, DAMAGED, INCORRECT]
+        note:
+          type: [string, "null"]
+          maxLength: 500
+        privateNote:
+          type: [string, "null"]
+          maxLength: 1000
         generalArea:
           type: [string, "null"]
           maxLength: 120
         handoffNotes:
           type: [string, "null"]
           maxLength: 500
-      required: [status]
+        scheduledAt:
+          type: [string, "null"]
+          format: date-time
+      required: [action, actionId]
     Notification:
       type: object
       properties:
@@ -2737,13 +2819,15 @@ components:
           type: string
         body:
           type: string
+        targetPath:
+          type: [string, "null"]
         readAt:
           type: [string, "null"]
           format: date-time
         createdAt:
           type: string
           format: date-time
-      required: [id, type, title, body, readAt, createdAt]
+      required: [id, type, title, body, targetPath, readAt, createdAt]
     ReportInput:
       type: object
       properties:

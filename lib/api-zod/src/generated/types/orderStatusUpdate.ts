@@ -5,10 +5,29 @@
  * Secure, role-based school assistance API for Sedibeng
  * OpenAPI spec version: 0.1.0
  */
-import type { OrderStatusUpdateStatus } from './orderStatusUpdateStatus';
+import type { OrderStatusUpdateAction } from './orderStatusUpdateAction';
+import type { OrderStatusUpdateIssueType } from './orderStatusUpdateIssueType';
 
 export interface OrderStatusUpdate {
-  status: OrderStatusUpdateStatus;
+  action: OrderStatusUpdateAction;
+  /** Client-generated idempotency key for safe retries. */
+  actionId: string;
+  /**
+     * @minimum 1
+     * @maximum 10000
+     */
+  quantity?: number;
+  issueType?: OrderStatusUpdateIssueType;
+  /**
+     * @maxLength 500
+     * @nullable
+     */
+  note?: string | null;
+  /**
+     * @maxLength 1000
+     * @nullable
+     */
+  privateNote?: string | null;
   /**
      * @maxLength 120
      * @nullable
@@ -19,4 +38,6 @@ export interface OrderStatusUpdate {
      * @nullable
      */
   handoffNotes?: string | null;
+  /** @nullable */
+  scheduledAt?: Date | null;
 }
