@@ -52,6 +52,8 @@ import type {
   GoodsListing,
   GoodsPhotoDecision,
   GoodsPhotoReviewItem,
+  HandoffMessage,
+  HandoffMessageInput,
   HealthStatus,
   InventoryInput,
   InventoryItem,
@@ -5025,6 +5027,196 @@ export const useUpdateOrderStatus = <TError = ErrorType<ApiErrorResponse>,
         TContext
       > => {
       return useMutation(getUpdateOrderStatusMutationOptions(options), queryClient);
+    }
+
+export const getGetOrderMessagesUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/orders/${id}/messages`
+}
+
+/**
+ * @summary List messages for a handoff visible to the signed-in participant
+ */
+export const getOrderMessages = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<HandoffMessage[]> => {
+
+  return customFetch<HandoffMessage[]>(getGetOrderMessagesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOrderMessagesQueryKey = (id: string,) => {
+    return [
+    `/api/v1/orders/${id}/messages`
+    ] as const;
+    }
+
+
+export const getGetOrderMessagesQueryOptions = <TData = Awaited<ReturnType<typeof getOrderMessages>>, TError = ErrorType<ApiErrorResponse>>(id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrderMessages>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOrderMessagesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOrderMessages>>> = ({ signal }) => getOrderMessages(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOrderMessages>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetOrderMessagesQueryResult = NonNullable<Awaited<ReturnType<typeof getOrderMessages>>>
+export type GetOrderMessagesQueryError = ErrorType<ApiErrorResponse>
+
+
+export function useGetOrderMessages<TData = Awaited<ReturnType<typeof getOrderMessages>>, TError = ErrorType<ApiErrorResponse>>(
+ id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrderMessages>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOrderMessages>>,
+          TError,
+          Awaited<ReturnType<typeof getOrderMessages>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOrderMessages<TData = Awaited<ReturnType<typeof getOrderMessages>>, TError = ErrorType<ApiErrorResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrderMessages>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOrderMessages>>,
+          TError,
+          Awaited<ReturnType<typeof getOrderMessages>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOrderMessages<TData = Awaited<ReturnType<typeof getOrderMessages>>, TError = ErrorType<ApiErrorResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrderMessages>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List messages for a handoff visible to the signed-in participant
+ */
+
+export function useGetOrderMessages<TData = Awaited<ReturnType<typeof getOrderMessages>>, TError = ErrorType<ApiErrorResponse>>(
+ id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOrderMessages>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetOrderMessagesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateOrderMessageUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/orders/${id}/messages`
+}
+
+/**
+ * @summary Send a private handoff message
+ */
+export const createOrderMessage = async (id: string,
+    handoffMessageInput: HandoffMessageInput, options?: Parameters<typeof customFetch>[1]): Promise<HandoffMessage> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<HandoffMessage>(getCreateOrderMessageUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(handoffMessageInput)
+  }
+);}
+
+
+
+
+
+export const getCreateOrderMessageMutationKey = () => ['createOrderMessage'] as const;
+
+export const getCreateOrderMessageMutationOptions = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOrderMessage>>, TError,CreateOrderMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createOrderMessage>>, TError,CreateOrderMessageMutationVariables, TContext> => {
+
+const mutationKey = getCreateOrderMessageMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOrderMessage>>, CreateOrderMessageMutationVariables> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createOrderMessage(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateOrderMessageMutationResult = NonNullable<Awaited<ReturnType<typeof createOrderMessage>>>
+    export type CreateOrderMessageMutationBody = BodyType<HandoffMessageInput>
+    export type CreateOrderMessageMutationError = ErrorType<ApiErrorResponse>
+    export type CreateOrderMessageMutationVariables = {id: string;data: BodyType<HandoffMessageInput>}
+
+    /**
+ * @summary Send a private handoff message
+ */
+export const useCreateOrderMessage = <TError = ErrorType<ApiErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOrderMessage>>, TError,CreateOrderMessageMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createOrderMessage>>,
+        TError,
+        CreateOrderMessageMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateOrderMessageMutationOptions(options), queryClient);
     }
 
 export const getGetNotificationsUrl = () => {

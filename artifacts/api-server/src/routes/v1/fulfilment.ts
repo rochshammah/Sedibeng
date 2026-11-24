@@ -8,6 +8,7 @@ import {
   auditLogsTable,
   deliveriesTable,
   donorInventoryTable,
+  handoffMessagesTable,
   locationsTable,
   notificationsTable,
   orderEventsTable,
@@ -29,6 +30,14 @@ const workflowMutationLimit = rateLimit({
   legacyHeaders: false,
   handler: (_request, response) =>
     response.status(429).json({ error: "Too many handoff updates. Try again later." }),
+});
+const messageMutationLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_request, response) =>
+    response.status(429).json({ error: "Please slow down before sending another message." }),
 });
 
 type WorkflowAction = ReturnType<typeof Contract.UpdateOrderStatusBody.parse>["action"];
@@ -74,8 +83,8 @@ function actionCopy(action: WorkflowAction) {
       body: "A donor recorded goods handed over to the school.",
     },
     CONFIRM_RECEIPT: {
-      title: "Goods receipt was recorded",
-      body: "The school recorded goods received.",
+      title: "Goods received",
+      body: "The school recorded the goods received.",
     },
     REPORT_ISSUE: {
       title: "A goods issue needs attention",
@@ -215,6 +224,288 @@ router.get(
         request.authUser!.id,
         request.authUser!.role as WorkflowRole,
       ),
+    );
+  },
+);
+
+router.get(
+  "/orders/:id/messages",
+  requireAuth,
+  requireRole("DONOR", "TEACHER", "SCHOOL_REPRESENTATIVE"),
+  async (request, response): Promise<void> => {
+    const params = Contract.GetOrderMessagesParams.safeParse(request.params);
+    if (!params.success) {
+      response.status(400).json({ error: "The order id is not valid." });
+      return;
+    }
+    const actor = request.authUser!;
+    const actorRole = actor.role as WorkflowRole;
+    const [record] = await requireDb()
+      .select({
+        status: ordersTable.status,
+        donorUserId: sponsorshipsTable.donorUserId,
+        teacherUserId: assistanceRequestsTable.teacherUserId,
+        representativeUserId: teacherProfilesTable.userId,
+      })
+      .from(ordersTable)
+      .innerJoin(
+        sponsorshipsTable,
+        eq(ordersTable.sponsorshipId, sponsorshipsTable.id),
+      )
+      .innerJoin(
+        assistanceRequestsTable,
+        eq(sponsorshipsTable.requestId, assistanceRequestsTable.id),
+      )
+      .leftJoin(
+        teacherProfilesTable,
+        and(
+          eq(teacherProfilesTable.schoolId, assistanceRequestsTable.schoolId),
+          eq(teacherProfilesTable.userId, actor.id),
+        ),
+      )
+      .where(eq(ordersTable.id, params.data.id))
+      .limit(1);
+    const authorized =
+      record &&
+      (actorRole === "DONOR"
+        ? record.donorUserId === actor.id
+        : actorRole === "TEACHER"
+          ? record.teacherUserId === actor.id
+          : record.representativeUserId === actor.id);
+    if (!record || !authorized) {
+      response.status(404).json({ error: "The handoff conversation was not found." });
+      return;
+    }
+    const openedStatuses = [
+      "READY_FOR_HANDOFF",
+      "HANDED_OVER",
+      "PARTIALLY_HANDED_OVER",
+      "PARTIALLY_RECEIVED",
+      "RECEIVED",
+      "RESOLUTION_REQUIRED",
+      "FULFILLED",
+    ];
+    const messages = await requireDb()
+      .select({
+        id: handoffMessagesTable.id,
+        body: handoffMessagesTable.body,
+        senderUserId: handoffMessagesTable.senderUserId,
+        createdAt: handoffMessagesTable.createdAt,
+      })
+      .from(handoffMessagesTable)
+      .where(eq(handoffMessagesTable.orderId, params.data.id))
+      .orderBy(desc(handoffMessagesTable.createdAt))
+      .limit(100);
+    const [readyEvent] =
+      record.status === "CANCELLED" && messages.length === 0
+        ? await requireDb()
+            .select({ id: orderEventsTable.id })
+            .from(orderEventsTable)
+            .where(
+              and(
+                eq(orderEventsTable.orderId, params.data.id),
+                eq(orderEventsTable.eventType, "GOODS_READY"),
+              ),
+            )
+            .limit(1)
+        : [];
+    if (
+      !openedStatuses.includes(record.status) &&
+      !(record.status === "CANCELLED" && (messages.length > 0 || readyEvent))
+    ) {
+      response.status(409).json({ error: "Messaging opens when the donor marks goods ready." });
+      return;
+    }
+    response.json(
+      Contract.GetOrderMessagesResponse.parse(
+        messages
+          .reverse()
+          .map((message) => ({
+            id: message.id,
+            body: message.body,
+            senderLabel: message.senderUserId === record.donorUserId ? "Donor" : "School",
+            createdAt: message.createdAt.toISOString(),
+          })),
+      ),
+    );
+  },
+);
+
+router.post(
+  "/orders/:id/messages",
+  requireAuth,
+  requireRole("DONOR", "TEACHER", "SCHOOL_REPRESENTATIVE"),
+  messageMutationLimit,
+  async (request, response): Promise<void> => {
+    const params = Contract.CreateOrderMessageParams.safeParse(request.params);
+    const input = parseBody(
+      Contract.CreateOrderMessageBody,
+      request.body,
+      response,
+    );
+    if (!params.success) {
+      response.status(400).json({ error: "The order id is not valid." });
+      return;
+    }
+    if (!input) return;
+    const body = input.body.trim();
+    if (!body) {
+      response.status(400).json({ error: "Write a message before sending it." });
+      return;
+    }
+    const actor = request.authUser!;
+    const actorRole = actor.role as WorkflowRole;
+    const database = requireDb();
+    const result = await database.transaction(async (tx) => {
+      const [record] = await tx
+        .select({
+          order: ordersTable,
+          donorUserId: sponsorshipsTable.donorUserId,
+          teacherUserId: assistanceRequestsTable.teacherUserId,
+          schoolId: assistanceRequestsTable.schoolId,
+          representativeUserId: teacherProfilesTable.userId,
+        })
+        .from(ordersTable)
+        .innerJoin(
+          sponsorshipsTable,
+          eq(ordersTable.sponsorshipId, sponsorshipsTable.id),
+        )
+        .innerJoin(
+          assistanceRequestsTable,
+          eq(sponsorshipsTable.requestId, assistanceRequestsTable.id),
+        )
+        .leftJoin(
+          teacherProfilesTable,
+          and(
+            eq(teacherProfilesTable.schoolId, assistanceRequestsTable.schoolId),
+            eq(teacherProfilesTable.userId, actor.id),
+          ),
+        )
+        .where(eq(ordersTable.id, params.data.id))
+        .for("update", { of: ordersTable })
+        .limit(1);
+      const authorized =
+        record &&
+        (actorRole === "DONOR"
+          ? record.donorUserId === actor.id
+          : actorRole === "TEACHER"
+            ? record.teacherUserId === actor.id
+            : record.representativeUserId === actor.id);
+      if (!record || !authorized) {
+        throw new HttpError(404, "The handoff conversation was not found.");
+      }
+      if (
+        ![
+          "READY_FOR_HANDOFF",
+          "HANDED_OVER",
+          "PARTIALLY_HANDED_OVER",
+          "PARTIALLY_RECEIVED",
+          "RECEIVED",
+          "RESOLUTION_REQUIRED",
+        ].includes(record.order.status)
+      ) {
+        throw new HttpError(409, "Messaging is available after the donor marks goods ready.");
+      }
+
+      const [prior] = await tx
+        .select()
+        .from(handoffMessagesTable)
+        .where(
+          and(
+            eq(handoffMessagesTable.senderUserId, actor.id),
+            eq(handoffMessagesTable.actionId, input.actionId),
+          ),
+        )
+        .limit(1);
+      if (prior) {
+        if (prior.orderId !== params.data.id || prior.body !== body) {
+          throw new HttpError(409, "This message retry does not match the original.");
+        }
+        return { message: prior, donorUserId: record.donorUserId, schoolId: record.schoolId, created: false };
+      }
+
+      const [message] = await tx
+        .insert(handoffMessagesTable)
+        .values({
+          orderId: record.order.id,
+          senderUserId: actor.id,
+          actionId: input.actionId,
+          body,
+        })
+        .onConflictDoNothing({
+          target: [handoffMessagesTable.senderUserId, handoffMessagesTable.actionId],
+        })
+        .returning();
+      if (!message) {
+        const [racedMessage] = await tx
+          .select()
+          .from(handoffMessagesTable)
+          .where(
+            and(
+              eq(handoffMessagesTable.senderUserId, actor.id),
+              eq(handoffMessagesTable.actionId, input.actionId),
+            ),
+          )
+          .limit(1);
+        if (
+          !racedMessage ||
+          racedMessage.orderId !== params.data.id ||
+          racedMessage.body !== body
+        ) {
+          throw new HttpError(409, "This message retry does not match the original.");
+        }
+        return { message: racedMessage, donorUserId: record.donorUserId, schoolId: record.schoolId, created: false };
+      }
+
+      const targets =
+        actorRole === "DONOR"
+          ? await tx
+              .select({ id: usersTable.id })
+              .from(teacherProfilesTable)
+              .innerJoin(usersTable, eq(usersTable.id, teacherProfilesTable.userId))
+              .where(
+                and(
+                  eq(teacherProfilesTable.schoolId, record.schoolId),
+                  eq(usersTable.role, "SCHOOL_REPRESENTATIVE"),
+                ),
+              )
+          : [];
+      const recipientIds = new Set(
+        actorRole === "DONOR"
+          ? [record.teacherUserId, ...targets.map(({ id }) => id)]
+          : [record.donorUserId],
+      );
+      const path = actorRole === "DONOR" ? "/teacher/handoffs" : "/donor/activity";
+      for (const recipientId of recipientIds) {
+        if (recipientId === actor.id) continue;
+        await tx
+          .insert(notificationsTable)
+          .values({
+            userId: recipientId,
+            type: "ORDER_MESSAGE",
+            title: "A new handoff message",
+            body: "The other participant sent a message about arranging the handoff.",
+            targetPath: `${path}?order=${record.order.id}`,
+            dedupeKey: `order:${record.order.id}:message:${message.id}:${recipientId}`,
+          })
+          .onConflictDoNothing();
+      }
+      await tx.insert(auditLogsTable).values({
+        actorUserId: actor.id,
+        action: "ORDER_MESSAGE_SENT",
+        targetType: "ORDER",
+        targetId: record.order.id,
+        metadata: { actorRole },
+      });
+      return { message, donorUserId: record.donorUserId, schoolId: record.schoolId, created: true };
+    });
+    response.status(result.created ? 201 : 200).json(
+      Contract.CreateOrderMessageResponse.parse({
+        id: result.message.id,
+        body: result.message.body,
+        senderLabel: result.message.senderUserId === result.donorUserId ? "Donor" : "School",
+        createdAt: result.message.createdAt.toISOString(),
+      }),
     );
   },
 );
@@ -418,14 +709,26 @@ router.patch(
         nextHandedOver += input.quantity;
         status = nextHandedOver >= accepted ? "HANDED_OVER" : "PARTIALLY_HANDED_OVER";
       } else if (input.action === "CONFIRM_RECEIPT") {
-        if (!input.quantity || handedOver <= received) {
-          throw new HttpError(409, "There are no unconfirmed handed-over goods to receive.");
+        const directFromReady = status === "READY_FOR_HANDOFF";
+        if (
+          !input.quantity ||
+          (!directFromReady && handedOver <= received)
+        ) {
+          throw new HttpError(409, "Mark goods ready before recording what the school received.");
         }
-        if (received + input.quantity > handedOver || received + input.quantity > accepted) {
-          throw new HttpError(400, "Received goods cannot exceed the quantity handed over or accepted.");
+        if (
+          received + input.quantity > accepted ||
+          (!directFromReady && received + input.quantity > handedOver)
+        ) {
+          throw new HttpError(400, "Received goods cannot exceed the accepted offer quantity.");
         }
         nextReceived += input.quantity;
-        status = nextReceived >= accepted ? "RECEIVED" : "PARTIALLY_RECEIVED";
+        if (directFromReady) {
+          nextHandedOver = Math.max(nextHandedOver, nextReceived);
+        }
+        // One receipt confirmation closes this donor's offer, even when fewer
+        // goods arrived than accepted. Request coverage is calculated separately.
+        status = "FULFILLED";
       } else if (input.action === "REPORT_ISSUE") {
         if (
           !input.quantity ||
@@ -527,6 +830,25 @@ router.patch(
           .update(sponsorshipsTable)
           .set({ status: "FULFILLED", updatedAt: new Date() })
           .where(eq(sponsorshipsTable.id, record.sponsorship.id));
+        if (input.action === "CONFIRM_RECEIPT" && record.sponsorship.inventoryId) {
+          const [inventory] = await tx
+            .select()
+            .from(donorInventoryTable)
+            .where(eq(donorInventoryTable.id, record.sponsorship.inventoryId))
+            .for("update")
+            .limit(1);
+          const unusedReservation = Math.max(0, accepted - nextReceived);
+          if (inventory && unusedReservation > 0) {
+            await tx
+              .update(donorInventoryTable)
+              .set({
+                quantityAvailable: inventory.quantityAvailable + unusedReservation,
+                status: inventory.status === "WITHDRAWN" ? "WITHDRAWN" : "AVAILABLE",
+                updatedAt: new Date(),
+              })
+              .where(eq(donorInventoryTable.id, inventory.id));
+          }
+        }
       } else if (status === "CANCELLED") {
         await tx
           .update(sponsorshipsTable)
@@ -578,10 +900,7 @@ router.patch(
         .where(
           and(
             eq(sponsorshipsTable.requestId, schoolRequest.id),
-            or(
-              eq(sponsorshipsTable.status, "APPROVED"),
-              eq(sponsorshipsTable.status, "FULFILLED"),
-            ),
+            eq(sponsorshipsTable.status, "APPROVED"),
           ),
         );
       const [{ totalReceived }] = await tx
@@ -594,12 +913,13 @@ router.patch(
           eq(ordersTable.sponsorshipId, sponsorshipsTable.id),
         )
         .where(eq(sponsorshipsTable.requestId, schoolRequest.id));
+      const totalCovered = acceptedQuantity + totalReceived;
       const requestStatus =
         totalReceived >= schoolRequest.quantity
           ? "FULFILLED"
-          : acceptedQuantity >= schoolRequest.quantity
+          : totalCovered >= schoolRequest.quantity
             ? "MATCHED"
-            : acceptedQuantity > 0 || totalReceived > 0
+            : totalCovered > 0
               ? "PARTIALLY_MATCHED"
               : "OPEN";
       const oldRequestStatus = schoolRequest.status;
@@ -634,25 +954,23 @@ router.patch(
         });
       }
       const copy = actionCopy(input.action);
-      for (const target of notificationTargets) {
-        if (target.id === actor.id) continue;
-        await tx
-          .insert(notificationsTable)
-          .values({
-            userId: target.id,
-            type: `ORDER_${input.action}`,
-            title: copy.title,
-            body: copy.body,
-            targetPath: rolePath(target.role),
-            dedupeKey: `order:${record.order.id}:action:${input.actionId}:${target.id}`,
-          })
-          .onConflictDoNothing();
+      if (input.action !== "CONFIRM_RECEIPT") {
+        for (const target of notificationTargets) {
+          if (target.id === actor.id) continue;
+          await tx
+            .insert(notificationsTable)
+            .values({
+              userId: target.id,
+              type: `ORDER_${input.action}`,
+              title: copy.title,
+              body: copy.body,
+              targetPath: rolePath(target.role),
+              dedupeKey: `order:${record.order.id}:action:${input.actionId}:${target.id}`,
+            })
+            .onConflictDoNothing();
+        }
       }
       if (input.action === "CONFIRM_RECEIPT" && totalReceived > 0) {
-        const progressText =
-          requestStatus === "FULFILLED"
-            ? "A school request has now received the quantity it needs."
-            : "A school has recorded progress receiving goods.";
         const progressTargets = new Map<string, WorkflowRole>([
           [schoolRequest.teacherUserId, "TEACHER"],
           [record.sponsorship.donorUserId, "DONOR"],
@@ -662,9 +980,24 @@ router.patch(
             .insert(notificationsTable)
             .values({
               userId,
-              type: requestStatus === "FULFILLED" ? "REQUEST_FULFILLED" : "REQUEST_RECEIPT_PROGRESS",
-              title: requestStatus === "FULFILLED" ? "Request quantity received" : "Goods receipt updated",
-              body: progressText,
+              type:
+                role === "DONOR"
+                  ? "DONATION_THANK_YOU"
+                  : requestStatus === "FULFILLED"
+                    ? "REQUEST_FULFILLED"
+                    : "REQUEST_RECEIPT_PROGRESS",
+              title:
+                role === "DONOR"
+                  ? "Thank you for your generosity"
+                  : requestStatus === "FULFILLED"
+                    ? "Request quantity received"
+                    : "Goods receipt updated",
+              body:
+                role === "DONOR"
+                  ? "Thank you for sharing these school essentials. Your generosity helps a school prepare for learning."
+                  : requestStatus === "FULFILLED"
+                    ? "The request has received the quantity the school needs."
+                    : "The received quantity has been recorded.",
               targetPath: rolePath(role),
               dedupeKey: `order:${record.order.id}:action:${input.actionId}:request:${userId}`,
             })

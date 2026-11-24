@@ -1,8 +1,8 @@
 import { Redirect, Route, Switch } from 'wouter';
 import { AppShell, RoleGuard, type Area } from './shell';
 import { NotificationsPage } from './common';
-import { DonorActivity, DonorGoods, DonorHome, DonorMe, DonorRequest, DonorSaved } from './donor';
-import { TeacherGoods, TeacherHandoffs, TeacherHome, TeacherMe, TeacherOffers, TeacherRequestForm, TeacherRequests } from './teacher';
+import { DonorActivity, DonorGoods, DonorHome, DonorMe, DonorOfferDetail, DonorRequest, DonorSaved } from './donor';
+import { TeacherGoods, TeacherHandoffs, TeacherHome, TeacherMe, TeacherOffers, TeacherRequestDetail, TeacherRequestForm, TeacherRequests, TeacherOfferDetail } from './teacher';
 import { AdminHome, AdminModeration, AdminReports, AdminUsers, AdminVerifications } from './admin';
 
 // Which workspace (if any) a URL belongs to.
@@ -26,6 +26,7 @@ export function Workspace({ area }: { area: Area }) {
             <Route path="/donor/request/:id" component={DonorRequest} />
             <Route path="/donor/goods" component={DonorGoods} />
             <Route path="/donor/activity" component={DonorActivity} />
+            <Route path="/donor/activity/:id" component={DonorOfferDetail} />
             <Route path="/donor/notifications" component={NotificationsPage} />
             <Route path="/donor/me" component={DonorMe} />
             <Route>{() => <Missing home="/donor" />}</Route>
@@ -37,8 +38,10 @@ export function Workspace({ area }: { area: Area }) {
             <Route path="/teacher/requests" component={TeacherRequests} />
             <Route path="/teacher/requests/new" component={TeacherRequestForm} />
             <Route path="/teacher/requests/:id/edit" component={TeacherRequestForm} />
+            <Route path="/teacher/requests/:id" component={TeacherRequestDetail} />
             <Route path="/teacher/goods" component={TeacherGoods} />
             <Route path="/teacher/offers" component={TeacherOffers} />
+            <Route path="/teacher/offers/:id" component={TeacherOfferDetail} />
             <Route path="/teacher/handoffs" component={TeacherHandoffs} />
             <Route path="/teacher/notifications" component={NotificationsPage} />
             <Route path="/teacher/me" component={TeacherMe} />

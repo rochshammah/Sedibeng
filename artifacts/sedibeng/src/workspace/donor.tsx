@@ -13,6 +13,7 @@ import { ErrorState } from '../components/site';
 import { RequestDetailPage } from '../pages/pages';
 import { VerificationCard } from './common';
 import { FulfilmentOrderCard } from './fulfilment';
+import { OfferDetail } from './record-details';
 import { FeedPostCard, OfferDialog, useFeed, useIsVerified, useToggleSave, type FeedFilters } from './feed';
 import { AreaPicker, GoodsPhoto, LocationSelect, goodsCategories, goodsConditionLabels, useServiceAreaFilter } from './places';
 import { Avatar, Card, EmptyState, Feedback, ListRows, Notice, PageHeader, Segmented, SkeletonPosts, StatCards, StatusPill, greet } from './ui';
@@ -64,7 +65,7 @@ export function DonorHome() {
         <section className="ws-card ws-hello">
           <Avatar name={user?.name || 'Sedibeng'} size={48} />
           <div>
-            <h1>{greet(user?.name)} 👋</h1>
+            <h1>{greet(user?.name)}</h1>
             <p>{open > 0 ? `${open}${hasNextPage ? '+' : ''} school ${open === 1 && !hasNextPage ? 'need is' : 'needs are'} waiting for a helping hand.` : 'Here’s what schools need this week.'}</p>
           </div>
           <Link href="/donor/goods" className="ws-btn ws-btn-soft ws-btn-sm">List goods</Link>
@@ -97,7 +98,7 @@ export function DonorHome() {
               <div ref={sentinel} />
               {isFetchingNextPage && <SkeletonPosts count={1} />}
               {hasNextPage && !isFetchingNextPage && <button className="ws-btn ws-btn-soft ws-center" onClick={() => void fetchNextPage()}>Load more</button>}
-              {!hasNextPage && <p className="ws-end">You’re all caught up 🌱</p>}
+              {!hasNextPage && <p className="ws-end">You’re all caught up.</p>}
             </>}
       </div>
 
@@ -317,7 +318,8 @@ export function DonorActivity() {
       <PageHeader title="Activity" subtitle="Your offers and where each handoff stands." />
       <Segmented value={tab} onChange={setTab} options={[{ value: 'offers', label: 'My offers', count: offers.data?.length }, { value: 'handoffs', label: 'Handoffs', count: orders.data?.length }]} />
       {tab === 'offers' ? (
-        <Card><ListRows empty="When you offer help on a request, it shows up here." items={(offers.data ?? []).map((s) => ({ id: s.id, title: s.requestTitle, status: s.status, detail: `${s.quantity} offered${s.inventoryTitle ? ` from “${s.inventoryTitle}”` : ' · you plan to source the goods'} · ${new Date(s.createdAt).toLocaleDateString()}` }))} /></Card>
+        offers.isError ? <ErrorState onRetry={() => void offers.refetch()} />
+          : <Card><ListRows empty={offers.isLoading ? 'Loading your offers…' : 'When you offer help on a request, it shows up here.'} items={(offers.data ?? []).map((s) => ({ id: s.id, title: s.requestTitle, status: s.status, detail: `${s.quantity} offered${s.inventoryTitle ? ` from “${s.inventoryTitle}”` : ' · you plan to source the goods'} · ${new Date(s.createdAt).toLocaleDateString()}`, right: <Link href={`/donor/activity/${s.id}`} className="ws-btn ws-btn-ghost ws-btn-sm" data-testid={`link-offer-details-${s.id}`}>View details</Link> }))} /></Card>
       ) : (
         <Card>
           {orders.isLoading ? <p className="ws-muted ws-empty-line">Loading handoffs…</p>
@@ -347,3 +349,5 @@ export function DonorMe() {
     </div>
   );
 }
+
+export function DonorOfferDetail() { return <OfferDetail role="donor" />; }

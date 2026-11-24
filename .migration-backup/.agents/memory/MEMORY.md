@@ -1,0 +1,1 @@
+- [Drizzle migration paths](drizzle-migration-paths.md) — Drizzle Kit config paths must stay package-relative for migration snapshots.

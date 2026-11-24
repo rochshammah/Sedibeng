@@ -1376,7 +1376,10 @@ export const GetSponsorshipsResponseItem = zod.object({
   "requestTitle": zod.string(),
   "donorName": zod.string(),
   "inventoryTitle": zod.string().nullable(),
+  "donorMessage": zod.string().nullable(),
   "quantity": zod.number().int(),
+  "acceptedQuantity": zod.number().int().nullable(),
+  "donorWillSource": zod.boolean(),
   "status": zod.enum(['PENDING_TEACHER_REVIEW', 'APPROVED', 'REJECTED', 'CANCELLED', 'FULFILLED']),
   "createdAt": zod.coerce.date()
 })
@@ -1406,7 +1409,10 @@ export const CreateSponsorshipResponse = zod.object({
   "requestTitle": zod.string(),
   "donorName": zod.string(),
   "inventoryTitle": zod.string().nullable(),
+  "donorMessage": zod.string().nullable(),
   "quantity": zod.number().int(),
+  "acceptedQuantity": zod.number().int().nullable(),
+  "donorWillSource": zod.boolean(),
   "status": zod.enum(['PENDING_TEACHER_REVIEW', 'APPROVED', 'REJECTED', 'CANCELLED', 'FULFILLED']),
   "createdAt": zod.coerce.date()
 })
@@ -1429,7 +1435,10 @@ export const DecideSponsorshipResponse = zod.object({
   "requestTitle": zod.string(),
   "donorName": zod.string(),
   "inventoryTitle": zod.string().nullable(),
+  "donorMessage": zod.string().nullable(),
   "quantity": zod.number().int(),
+  "acceptedQuantity": zod.number().int().nullable(),
+  "donorWillSource": zod.boolean(),
   "status": zod.enum(['PENDING_TEACHER_REVIEW', 'APPROVED', 'REJECTED', 'CANCELLED', 'FULFILLED']),
   "createdAt": zod.coerce.date()
 })
@@ -1531,6 +1540,46 @@ export const UpdateOrderStatusResponse = zod.object({
   "privateNote": zod.string().nullable().describe('Only returned to authorized school personnel.'),
   "createdAt": zod.coerce.date()
 }))
+})
+
+
+/**
+ * @summary List messages for a handoff visible to the signed-in participant
+ */
+export const GetOrderMessagesParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const GetOrderMessagesResponseItem = zod.object({
+  "id": zod.string().uuid(),
+  "body": zod.string(),
+  "senderLabel": zod.enum(['Donor', 'School']),
+  "createdAt": zod.coerce.date()
+})
+export const GetOrderMessagesResponse = zod.array(GetOrderMessagesResponseItem)
+
+
+/**
+ * @summary Send a private handoff message
+ */
+export const CreateOrderMessageParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const createOrderMessageBodyBodyMax = 1200;
+
+
+
+export const CreateOrderMessageBody = zod.object({
+  "actionId": zod.string().uuid().describe('Client-generated idempotency key for safe retries.'),
+  "body": zod.string().min(1).max(createOrderMessageBodyBodyMax)
+})
+
+export const CreateOrderMessageResponse = zod.object({
+  "id": zod.string().uuid(),
+  "body": zod.string(),
+  "senderLabel": zod.enum(['Donor', 'School']),
+  "createdAt": zod.coerce.date()
 })
 
 

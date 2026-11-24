@@ -1,0 +1,2939 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: Secure, role-based school assistance API for Sedibeng
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: assistance
+    description: School-essential requests and matching
+  - name: authentication
+    description: Account registration, sessions, and recovery
+  - name: accounts
+    description: Profiles, schools, and verification
+  - name: giving
+    description: Donor inventory, sponsorship, and fulfilment
+  - name: notifications
+    description: Personal notifications and reports
+  - name: administration
+    description: Restricted administration operations
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /v1/requests:
+    get:
+      operationId: getRequests
+      tags: [assistance]
+      summary: Browse approved assistance requests
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: priority
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching published requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssistanceRequest"
+    post:
+      operationId: createRequest
+      tags: [assistance]
+      summary: Create a school assistance request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestInput"
+      responses:
+        "201":
+          description: Request submitted for moderation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistanceRequest"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/feed:
+    get:
+      operationId: getFeed
+      tags: [assistance]
+      summary: Newsfeed of published school requests, newest first, loaded in pages
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: priority
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: serviceAreaId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: categoryGroup
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [SHOES, UNIFORMS, BAGS, BOOKS_STATIONERY, LEARNING_MATERIALS, OTHER]
+      responses:
+        "200":
+          description: One page of feed posts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedPage"
+  /v1/saved:
+    get:
+      operationId: getSavedRequests
+      tags: [assistance]
+      summary: Requests the signed-in donor has saved
+      responses:
+        "200":
+          description: Saved requests, most recently saved first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FeedPost"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/requests/{id}/save:
+    put:
+      operationId: saveRequest
+      tags: [assistance]
+      summary: Save a request for later
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveState"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+    delete:
+      operationId: unsaveRequest
+      tags: [assistance]
+      summary: Remove a request from saved
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveState"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/requests/{id}:
+    get:
+      operationId: getRequest
+      tags: [assistance]
+      summary: Get a published assistance request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Published request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistanceRequest"
+        "404":
+          description: Request not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updateRequest
+      tags: [assistance]
+      summary: Update an owned assistance request
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestInput"
+      responses:
+        "200":
+          description: Updated assistance request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistanceRequest"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+    delete:
+      operationId: deleteRequest
+      tags: [assistance]
+      summary: Cancel an owned assistance request
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "204":
+          description: Request cancelled
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/dashboard/donor:
+    get:
+      operationId: getDonorDashboard
+      tags: [accounts]
+      summary: Get the signed-in donor dashboard
+      responses:
+        "200":
+          description: Donor dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonorDashboard"
+  /v1/dashboard/teacher:
+    get:
+      operationId: getTeacherDashboard
+      tags: [accounts]
+      summary: Get the signed-in teacher dashboard
+      responses:
+        "200":
+          description: Teacher dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherDashboard"
+  /v1/dashboard/admin:
+    get:
+      operationId: getAdminDashboard
+      tags: [administration]
+      summary: Get the administrator dashboard
+      responses:
+        "200":
+          description: Administrator dashboard
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminDashboard"
+  /v1/auth/csrf:
+    get:
+      operationId: getCsrfToken
+      tags: [authentication]
+      summary: Get a CSRF token for browser requests
+      responses:
+        "200":
+          description: CSRF token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CsrfToken"
+  /v1/auth/session:
+    get:
+      operationId: getAuthSession
+      tags: [authentication]
+      summary: Get the current session
+      responses:
+        "200":
+          description: Current signed-in user or an anonymous session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+  /v1/auth/register/donor:
+    post:
+      operationId: registerDonor
+      tags: [authentication]
+      summary: Register a donor account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DonorRegistration"
+      responses:
+        "201":
+          description: Account created and email verification requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/auth/register/teacher:
+    post:
+      operationId: registerTeacher
+      tags: [authentication]
+      summary: Register a teacher account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherRegistration"
+      responses:
+        "201":
+          description: Account created and email verification requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/auth/login:
+    post:
+      operationId: login
+      tags: [authentication]
+      summary: Sign in with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Signed-in account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/auth/logout:
+    post:
+      operationId: logout
+      tags: [authentication]
+      summary: End the current session
+      responses:
+        "200":
+          description: Signed out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+  /v1/auth/password/forgot:
+    post:
+      operationId: requestPasswordReset
+      tags: [authentication]
+      summary: Request a password reset email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRequest"
+      responses:
+        "202":
+          description: Request accepted without revealing account existence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+        "429":
+          $ref: "#/components/responses/ApiError"
+  /v1/auth/password/reset:
+    post:
+      operationId: resetPassword
+      tags: [authentication]
+      summary: Set a new password using a reset token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordReset"
+      responses:
+        "200":
+          description: Password updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+        "400":
+          $ref: "#/components/responses/ApiError"
+  /v1/auth/email/verify:
+    post:
+      operationId: verifyEmail
+      tags: [authentication]
+      summary: Verify an email address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TokenRequest"
+      responses:
+        "200":
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+        "400":
+          $ref: "#/components/responses/ApiError"
+  /v1/auth/email/resend:
+    post:
+      operationId: resendVerificationEmail
+      tags: [authentication]
+      summary: Resend an email verification link
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRequest"
+      responses:
+        "202":
+          description: Request accepted without revealing account existence
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+  /v1/users/me:
+    get:
+      operationId: getCurrentUser
+      tags: [accounts]
+      summary: Get the signed-in account profile
+      responses:
+        "200":
+          description: Current account profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          $ref: "#/components/responses/ApiError"
+    patch:
+      operationId: updateCurrentUser
+      tags: [accounts]
+      summary: Update the signed-in account name
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated account profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /v1/teacher-profile:
+    get:
+      operationId: getTeacherProfile
+      tags: [accounts]
+      summary: Get the signed-in teacher profile
+      responses:
+        "200":
+          description: Teacher profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherProfile"
+        "403":
+          $ref: "#/components/responses/ApiError"
+    patch:
+      operationId: updateTeacherProfile
+      tags: [accounts]
+      summary: Update the signed-in teacher profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherProfileUpdate"
+      responses:
+        "200":
+          description: Updated teacher profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherProfile"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/schools:
+    get:
+      operationId: listSchools
+      tags: [accounts]
+      summary: Search active schools
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+        - name: district
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 100
+      responses:
+        "200":
+          description: Matching active schools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/School"
+  /v1/verification:
+    get:
+      operationId: getMyVerification
+      tags: [accounts]
+      summary: Get the signed-in account verification status
+      responses:
+        "200":
+          description: Current account verification records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VerificationRecord"
+        "401":
+          $ref: "#/components/responses/ApiError"
+    post:
+      operationId: submitVerification
+      tags: [accounts]
+      summary: Submit verification document metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationSubmission"
+      responses:
+        "201":
+          description: Verification request submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationRecord"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /v1/inventory:
+    get:
+      operationId: getInventory
+      tags: [giving]
+      summary: List the signed-in donor's goods
+      responses:
+        "200":
+          description: Donor inventory
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+        "401":
+          $ref: "#/components/responses/ApiError"
+    post:
+      operationId: createInventory
+      tags: [giving]
+      summary: Add goods to donor inventory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryInput"
+      responses:
+        "201":
+          description: Inventory item created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/locations:
+    get:
+      operationId: getLocations
+      tags: [accounts]
+      summary: Active service areas with their locations
+      responses:
+        "200":
+          description: Service areas and locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ServiceAreaOption"
+  /v1/admin/locations:
+    get:
+      operationId: listAdminLocations
+      tags: [administration]
+      summary: All service areas and locations, including inactive ones
+      responses:
+        "200":
+          description: Service areas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminServiceArea"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/service-areas:
+    post:
+      operationId: createServiceArea
+      tags: [administration]
+      summary: Add a service area
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceAreaInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminServiceArea"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/service-areas/{id}:
+    patch:
+      operationId: updateServiceArea
+      tags: [administration]
+      summary: Rename or activate/deactivate a service area
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceAreaInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminServiceArea"
+        "404":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/locations/create:
+    post:
+      operationId: createLocation
+      tags: [administration]
+      summary: Add a location to a service area
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationOption"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/locations/{id}:
+    patch:
+      operationId: updateLocation
+      tags: [administration]
+      summary: Rename, move or activate/deactivate a location
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LocationInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocationOption"
+        "404":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/me/service-area:
+    get:
+      operationId: getMyServiceArea
+      tags: [accounts]
+      summary: The service area used by default when browsing
+      responses:
+        "200":
+          description: Chosen or derived service area
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceAreaPreference"
+    put:
+      operationId: setMyServiceArea
+      tags: [accounts]
+      summary: Choose the service area to browse by default (null clears it)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceAreaPreferenceInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceAreaPreference"
+  /v1/inventory/bulk:
+    post:
+      operationId: createInventoryBulk
+      tags: [giving]
+      summary: Add several goods at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkInventoryInput"
+      responses:
+        "201":
+          description: Items created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+  /v1/inventory/{id}/photo:
+    post:
+      operationId: uploadInventoryPhoto
+      tags: [giving]
+      summary: Upload or replace an item photo (raw JPEG or PNG body, max 5 MB)
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Photo stored privately and waiting for approval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "404":
+          $ref: "#/components/responses/ApiError"
+        "413":
+          $ref: "#/components/responses/ApiError"
+        "415":
+          $ref: "#/components/responses/ApiError"
+    delete:
+      operationId: deleteInventoryPhoto
+      tags: [giving]
+      summary: Remove an item photo
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/goods:
+    get:
+      operationId: getGoods
+      tags: [giving]
+      summary: Goods donors have available (teachers), filtered by service area and category
+      parameters:
+        - name: serviceAreaId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: locationId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: categoryGroup
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [SHOES, UNIFORMS, BAGS, BOOKS_STATIONERY, LEARNING_MATERIALS, OTHER]
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: Newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GoodsListing"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/goods-photos:
+    get:
+      operationId: listGoodsPhotosForReview
+      tags: [administration]
+      summary: Item photos waiting for approval
+      responses:
+        "200":
+          description: Pending photos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GoodsPhotoReviewItem"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/goods-photos/{id}/decision:
+    post:
+      operationId: decideGoodsPhoto
+      tags: [administration]
+      summary: Approve or reject an item photo
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoodsPhotoDecision"
+      responses:
+        "200":
+          description: Decided
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoodsPhotoReviewItem"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/inventory/{id}:
+    patch:
+      operationId: updateInventory
+      tags: [giving]
+      summary: Update an owned inventory item
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryInput"
+      responses:
+        "200":
+          description: Updated inventory item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+    delete:
+      operationId: deleteInventory
+      tags: [giving]
+      summary: Withdraw an owned inventory item
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "204":
+          description: Inventory item withdrawn
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/sponsorships:
+    get:
+      operationId: getSponsorships
+      tags: [giving]
+      summary: List sponsorships visible to the signed-in account
+      responses:
+        "200":
+          description: Sponsorships
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sponsorship"
+        "401":
+          $ref: "#/components/responses/ApiError"
+    post:
+      operationId: createSponsorship
+      tags: [giving]
+      summary: Offer goods for an assistance request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SponsorshipInput"
+      responses:
+        "200":
+          description: Existing offer returned for a retried action
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sponsorship"
+        "201":
+          description: Sponsorship offer submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sponsorship"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/sponsorships/{id}/decision:
+    post:
+      operationId: decideSponsorship
+      tags: [giving]
+      summary: Accept or decline an offer for an owned request
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SponsorshipDecision"
+      responses:
+        "200":
+          description: Updated sponsorship
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sponsorship"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/orders:
+    get:
+      operationId: getOrders
+      tags: [giving]
+      summary: List fulfilment orders visible to the signed-in account
+      responses:
+        "200":
+          description: Fulfilment orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FulfilmentOrder"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /v1/orders/{id}/status:
+    patch:
+      operationId: updateOrderStatus
+      tags: [giving]
+      summary: Update fulfilment progress for an owned order
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderStatusUpdate"
+      responses:
+        "200":
+          description: Updated fulfilment order
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FulfilmentOrder"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/notifications:
+    get:
+      operationId: getNotifications
+      tags: [notifications]
+      summary: List the signed-in account's notifications
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+        "401":
+          $ref: "#/components/responses/ApiError"
+  /v1/notifications/{id}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark an owned notification as read
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Notification"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/reports:
+    get:
+      operationId: getMyReports
+      tags: [notifications]
+      summary: List reports submitted by the signed-in account
+      responses:
+        "200":
+          description: Submitted reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Report"
+    post:
+      operationId: createReport
+      tags: [notifications]
+      summary: Report a request or account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportInput"
+      responses:
+        "201":
+          description: Report submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+  /v1/admin/bootstrap:
+    post:
+      operationId: bootstrapAdmin
+      tags: [administration]
+      summary: Provision the first administrator account
+      parameters:
+        - name: x-bootstrap-secret
+          in: header
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminBootstrap"
+      responses:
+        "201":
+          description: Administrator account provisioned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthMessage"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [administration]
+      summary: List accounts for administration
+      responses:
+        "200":
+          description: Account list without credential fields
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuthUser"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/users/{id}/status:
+    patch:
+      operationId: adminUpdateUserStatus
+      tags: [administration]
+      summary: Change an account's status
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserStatusUpdate"
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/requests/{id}/moderation:
+    patch:
+      operationId: moderateRequest
+      tags: [administration]
+      summary: Approve or reject a school request
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestModeration"
+      responses:
+        "200":
+          description: Moderated request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssistanceRequest"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/verification:
+    get:
+      operationId: listVerificationQueue
+      tags: [administration]
+      summary: List verification submissions (pending by default)
+      parameters:
+        - name: scope
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, all]
+      responses:
+        "200":
+          description: Pending verification metadata
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VerificationRecord"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/verification/{id}:
+    get:
+      operationId: getAdminVerificationDetail
+      tags: [administration]
+      summary: Full review context for one verification submission
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Submission, documents, history and audit trail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminVerificationDetail"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/teacher/verification:
+    get:
+      operationId: getTeacherVerification
+      tags: [verification]
+      summary: Two-stage verification progress for the signed-in teacher
+      responses:
+        "200":
+          description: Stage statuses, feedback, documents and publishing eligibility
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherVerification"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/teacher/verification/{stage}/submit:
+    post:
+      operationId: submitTeacherVerificationStage
+      tags: [verification]
+      summary: Submit one verification stage for review
+      parameters:
+        - name: stage
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [IDENTITY, PROFESSIONAL]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherStageSubmission"
+      responses:
+        "201":
+          description: The stage is now pending review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeacherVerificationStage"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/teacher/verification/documents:
+    post:
+      operationId: uploadVerificationDocument
+      tags: [verification]
+      summary: Upload one evidence file (raw PDF, JPEG or PNG body, max 5 MB)
+      parameters:
+        - name: stage
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [IDENTITY, PROFESSIONAL]
+        - name: documentType
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: filename
+          in: query
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/pdf:
+            schema:
+              type: string
+              format: binary
+          image/jpeg:
+            schema:
+              type: string
+              format: binary
+          image/png:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "201":
+          description: Stored privately as an unsubmitted attachment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationDocumentInfo"
+        "413":
+          $ref: "#/components/responses/ApiError"
+        "415":
+          $ref: "#/components/responses/ApiError"
+        "503":
+          $ref: "#/components/responses/ApiError"
+  /v1/teacher/verification/documents/{id}:
+    delete:
+      operationId: deleteVerificationDocument
+      tags: [verification]
+      summary: Remove an unsubmitted attachment
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Removed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletedDocument"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/verification/documents/{id}/access:
+    post:
+      operationId: accessVerificationDocument
+      tags: [verification]
+      summary: Get a short-lived signed link to open a document (audit-logged)
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Signed link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentAccess"
+        "404":
+          $ref: "#/components/responses/ApiError"
+        "503":
+          $ref: "#/components/responses/ApiError"
+  /v1/teacher/requests:
+    get:
+      operationId: getMyRequests
+      tags: [assistance]
+      summary: The signed-in teacher's own requests, including drafts and feedback
+      responses:
+        "200":
+          description: Own requests only
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/OwnRequest"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/requests/{id}/submit:
+    post:
+      operationId: submitRequest
+      tags: [assistance]
+      summary: Send a draft or revised request for moderation (needs full verification)
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Submitted for review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnRequest"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/schools:
+    get:
+      operationId: listAdminSchools
+      tags: [administration]
+      summary: School directory including inactive and unconfirmed schools
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [PENDING_REVIEW, ACTIVE, SUSPENDED]
+      responses:
+        "200":
+          description: Schools
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminSchool"
+        "403":
+          $ref: "#/components/responses/ApiError"
+    post:
+      operationId: createAdminSchool
+      tags: [administration]
+      summary: Add a school to the directory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchoolInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSchool"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/schools/{id}:
+    patch:
+      operationId: updateAdminSchool
+      tags: [administration]
+      summary: Edit a school or change whether it is active
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SchoolInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSchool"
+        "404":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/verification/{id}/decision:
+    patch:
+      operationId: decideVerification
+      tags: [administration]
+      summary: Approve or reject an account verification
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationDecision"
+      responses:
+        "200":
+          description: Updated verification metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationRecord"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/reports:
+    get:
+      operationId: listAdminReports
+      tags: [administration]
+      summary: List reports for administration
+      responses:
+        "200":
+          description: Reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Report"
+        "403":
+          $ref: "#/components/responses/ApiError"
+  /v1/admin/reports/{id}/decision:
+    patch:
+      operationId: decideReport
+      tags: [administration]
+      summary: Resolve or dismiss a report
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportDecision"
+      responses:
+        "200":
+          description: Updated report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Report"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+components:
+  parameters:
+    RecordId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    ApiError:
+      description: Request failed
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiError"
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    FeedPost:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        category:
+          type: string
+        item:
+          type: string
+        description:
+          type: string
+        quantity:
+          type: integer
+        unit:
+          type: string
+        location:
+          type: string
+        schoolName:
+          type: string
+        priority:
+          type: string
+          enum: [Essential, High, Standard]
+        status:
+          type: string
+          enum:
+            - Open
+            - Partially matched
+            - Matched
+            - Fulfilled
+        imageUrl:
+          type: string
+        imageAlt:
+          type: string
+        size:
+          type: [string, "null"]
+        conditionRequirement:
+          type: [string, "null"]
+        requiredBy:
+          type: [string, "null"]
+        teacherVerified:
+          type: boolean
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        locationName:
+          type: [string, "null"]
+        serviceAreaId:
+          type: [string, "null"]
+          format: uuid
+        serviceAreaName:
+          type: [string, "null"]
+        categoryGroup:
+          type: string
+          enum: [SHOES, UNIFORMS, BAGS, BOOKS_STATIONERY, LEARNING_MATERIALS, OTHER]
+        localMatch:
+          type: boolean
+          description: For donors - the donor has goods in this service area in a relevant category.
+        postedAt:
+          type: string
+        quantityCovered:
+          type: integer
+        quantityPending:
+          type: integer
+        myOfferQuantity:
+          type: integer
+        isSaved:
+          type: boolean
+        isSeedData:
+          type: boolean
+      required:
+        - id
+        - title
+        - category
+        - item
+        - description
+        - quantity
+        - unit
+        - location
+        - schoolName
+        - priority
+        - status
+        - imageUrl
+        - imageAlt
+        - size
+        - conditionRequirement
+        - requiredBy
+        - teacherVerified
+        - locationId
+        - locationName
+        - serviceAreaId
+        - serviceAreaName
+        - categoryGroup
+        - localMatch
+        - postedAt
+        - quantityCovered
+        - quantityPending
+        - myOfferQuantity
+        - isSaved
+        - isSeedData
+    FeedPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FeedPost"
+        nextCursor:
+          type: string
+          nullable: true
+      required: [items, nextCursor]
+    SaveState:
+      type: object
+      properties:
+        requestId:
+          type: string
+        isSaved:
+          type: boolean
+      required: [requestId, isSaved]
+    AssistanceRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        category:
+          type: string
+        item:
+          type: string
+        description:
+          type: string
+        specifications:
+          type: string
+        quantity:
+          type: integer
+        unit:
+          type: string
+        location:
+          type: string
+        schoolContext:
+          type: string
+        priority:
+          type: string
+          enum: [Essential, High, Standard]
+        status:
+          type: string
+          enum:
+            - Draft
+            - Pending moderation
+            - Needs changes
+            - Open
+            - Partially matched
+            - Matched
+            - Rejected
+            - Cancelled
+            - Fulfilled
+        size:
+          type: [string, "null"]
+        conditionRequirement:
+          type: [string, "null"]
+        requiredBy:
+          type: [string, "null"]
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        locationName:
+          type: [string, "null"]
+        serviceAreaId:
+          type: [string, "null"]
+          format: uuid
+        serviceAreaName:
+          type: [string, "null"]
+        categoryGroup:
+          type: string
+          enum: [SHOES, UNIFORMS, BAGS, BOOKS_STATIONERY, LEARNING_MATERIALS, OTHER]
+        imageUrl:
+          type: string
+        imageAlt:
+          type: string
+        updatedLabel:
+          type: string
+        isSeedData:
+          type: boolean
+      required:
+        - size
+        - conditionRequirement
+        - requiredBy
+        - locationId
+        - locationName
+        - serviceAreaId
+        - serviceAreaName
+        - categoryGroup
+        - id
+        - title
+        - category
+        - item
+        - description
+        - specifications
+        - quantity
+        - unit
+        - location
+        - schoolContext
+        - priority
+        - status
+        - imageUrl
+        - imageAlt
+        - updatedLabel
+        - isSeedData
+    DashboardCount:
+      type: object
+      properties:
+        label:
+          type: string
+        value:
+          type: integer
+        detail:
+          type: string
+      required: [label, value, detail]
+    DashboardRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        detail:
+          type: string
+        status:
+          type: string
+        imageUrl:
+          type: string
+      required: [id, title, detail, status, imageUrl]
+    DashboardModule:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        detail:
+          type: string
+        status:
+          type: string
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardRecord"
+      required: [id, title, detail, status, records]
+    DashboardPayload:
+      type: object
+      properties:
+        counts:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardCount"
+        records:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardRecord"
+        modules:
+          type: array
+          items:
+            $ref: "#/components/schemas/DashboardModule"
+      required: [counts, records, modules]
+    DonorDashboard:
+      allOf:
+        - $ref: "#/components/schemas/DashboardPayload"
+    TeacherDashboard:
+      allOf:
+        - $ref: "#/components/schemas/DashboardPayload"
+    AdminDashboard:
+      allOf:
+        - $ref: "#/components/schemas/DashboardPayload"
+    CsrfToken:
+      type: object
+      properties:
+        csrfToken:
+          type: string
+      required: [csrfToken]
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [DONOR, TEACHER, ADMIN, SCHOOL_REPRESENTATIVE]
+        status:
+          type: string
+          enum: [PENDING_VERIFICATION, ACTIVE, SUSPENDED]
+        emailVerifiedAt:
+          type: [string, "null"]
+          format: date-time
+      required: [id, name, email, role, status, emailVerifiedAt]
+    AuthSession:
+      type: object
+      properties:
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/AuthUser"
+            - type: "null"
+      required: [user]
+    AuthMessage:
+      type: object
+      properties:
+        message:
+          type: string
+        user:
+          $ref: "#/components/schemas/AuthUser"
+      required: [message]
+    DonorRegistration:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+      required: [name, email, password]
+    TeacherRegistration:
+      allOf:
+        - $ref: "#/components/schemas/DonorRegistration"
+        - type: object
+          properties:
+            schoolId:
+              type: string
+              format: uuid
+              description: A school chosen from the administrator-managed directory.
+            schoolName:
+              type: string
+              minLength: 2
+              maxLength: 160
+            district:
+              type: string
+              minLength: 2
+              maxLength: 100
+            area:
+              type: string
+              maxLength: 100
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required: [email, password]
+    EmailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+      required: [email]
+    PasswordReset:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 32
+          maxLength: 256
+        newPassword:
+          type: string
+          minLength: 12
+          maxLength: 128
+      required: [token, newPassword]
+    TokenRequest:
+      type: object
+      properties:
+        token:
+          type: string
+          minLength: 32
+          maxLength: 256
+      required: [token]
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+      required: [name]
+    TeacherProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        schoolId:
+          type: string
+          format: uuid
+        schoolName:
+          type: string
+        district:
+          type: string
+        area:
+          type: [string, "null"]
+        position:
+          type: [string, "null"]
+        schoolStatus:
+          type: string
+          enum: [PENDING_REVIEW, ACTIVE, SUSPENDED]
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        locationName:
+          type: [string, "null"]
+      required: [id, schoolId, schoolName, district, area, position, schoolStatus, locationId, locationName]
+    TeacherProfileUpdate:
+      type: object
+      properties:
+        position:
+          type: [string, "null"]
+          maxLength: 100
+      required: [position]
+    VerificationDocumentInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        stage:
+          type: string
+          enum: [IDENTITY, PROFESSIONAL]
+        documentType:
+          type: string
+        originalFilename:
+          type: string
+        contentType:
+          type: string
+        sizeBytes:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        recordId:
+          type: [string, "null"]
+          format: uuid
+        submitted:
+          type: boolean
+      required: [id, stage, documentType, originalFilename, contentType, sizeBytes, createdAt, recordId, submitted]
+    TeacherVerificationStage:
+      type: object
+      properties:
+        stage:
+          type: string
+          enum: [IDENTITY, PROFESSIONAL]
+        status:
+          type: string
+          enum: [NOT_STARTED, PENDING, NEEDS_MORE_INFORMATION, VERIFIED, REJECTED, EXPIRED]
+        submittedAt:
+          type: [string, "null"]
+          format: date-time
+        reviewedAt:
+          type: [string, "null"]
+          format: date-time
+        feedback:
+          type: [string, "null"]
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+        canSubmit:
+          type: boolean
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationDocumentInfo"
+      required: [stage, status, submittedAt, reviewedAt, feedback, expiresAt, canSubmit, documents]
+    TeacherVerification:
+      type: object
+      properties:
+        eligible:
+          type: boolean
+        reasons:
+          type: array
+          items:
+            type: string
+        school:
+          type: [object, "null"]
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            status:
+              type: string
+          required: [id, name, status]
+        storageConfigured:
+          type: boolean
+        identity:
+          $ref: "#/components/schemas/TeacherVerificationStage"
+        professional:
+          $ref: "#/components/schemas/TeacherVerificationStage"
+      required: [eligible, reasons, school, storageConfigured, identity, professional]
+    TeacherStageSubmission:
+      type: object
+      properties:
+        note:
+          type: [string, "null"]
+          maxLength: 500
+    DeletedDocument:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+      required: [id]
+    DocumentAccess:
+      type: object
+      properties:
+        url:
+          type: string
+        expiresInSeconds:
+          type: integer
+        filename:
+          type: string
+      required: [url, expiresInSeconds, filename]
+    AdminVerificationDetail:
+      type: object
+      properties:
+        record:
+          $ref: "#/components/schemas/VerificationRecord"
+        applicant:
+          type: object
+          properties:
+            name:
+              type: string
+            email:
+              type: string
+          required: [name, email]
+        school:
+          type: [object, "null"]
+          properties:
+            name:
+              type: string
+            district:
+              type: string
+            status:
+              type: string
+          required: [name, district, status]
+        privateNotes:
+          type: [string, "null"]
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/VerificationDocumentInfo"
+        history:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              stage:
+                type: [string, "null"]
+              status:
+                type: string
+              submittedAt:
+                type: string
+                format: date-time
+              reviewedAt:
+                type: [string, "null"]
+                format: date-time
+              reviewerName:
+                type: [string, "null"]
+              feedback:
+                type: [string, "null"]
+            required: [id, stage, status, submittedAt, reviewedAt, reviewerName, feedback]
+        audit:
+          type: array
+          items:
+            type: object
+            properties:
+              action:
+                type: string
+              actorName:
+                type: [string, "null"]
+              createdAt:
+                type: string
+                format: date-time
+            required: [action, actorName, createdAt]
+      required: [record, applicant, school, privateNotes, documents, history, audit]
+    OwnRequest:
+      allOf:
+        - $ref: "#/components/schemas/AssistanceRequest"
+        - type: object
+          properties:
+            moderationFeedback:
+              type: [string, "null"]
+            teacherPrivateNotes:
+              type: [string, "null"]
+          required: [moderationFeedback, teacherPrivateNotes]
+    SchoolInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 160
+        schoolType:
+          type: [string, "null"]
+          enum: [PRIMARY, JUNIOR_SECONDARY, SENIOR_SECONDARY, SPECIAL_NEEDS, OTHER, null]
+        district:
+          type: string
+          minLength: 2
+          maxLength: 100
+        area:
+          type: [string, "null"]
+          maxLength: 100
+        generalLocation:
+          type: [string, "null"]
+          maxLength: 200
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        status:
+          type: string
+          enum: [PENDING_REVIEW, ACTIVE, SUSPENDED]
+      required: [name, district, status]
+    AdminSchool:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        schoolType:
+          type: [string, "null"]
+        district:
+          type: string
+        area:
+          type: [string, "null"]
+        generalLocation:
+          type: [string, "null"]
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        locationName:
+          type: [string, "null"]
+        status:
+          type: string
+          enum: [PENDING_REVIEW, ACTIVE, SUSPENDED]
+        teacherCount:
+          type: integer
+      required: [id, name, schoolType, district, area, generalLocation, locationId, locationName, status, teacherCount]
+    LocationOption:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required: [id, name]
+    ServiceAreaOption:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        locations:
+          type: array
+          items:
+            $ref: "#/components/schemas/LocationOption"
+      required: [id, name, locations]
+    AdminServiceArea:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        isActive:
+          type: boolean
+        locations:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              isActive:
+                type: boolean
+            required: [id, name, isActive]
+      required: [id, name, isActive, locations]
+    ServiceAreaInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        isActive:
+          type: boolean
+      required: [name, isActive]
+    LocationInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        serviceAreaId:
+          type: string
+          format: uuid
+        isActive:
+          type: boolean
+      required: [name, serviceAreaId, isActive]
+    ServiceAreaPreference:
+      type: object
+      properties:
+        serviceAreaId:
+          type: [string, "null"]
+          format: uuid
+        serviceAreaName:
+          type: [string, "null"]
+        source:
+          type: string
+          enum: [CHOSEN, SCHOOL, YOUR_GOODS, NONE]
+      required: [serviceAreaId, serviceAreaName, source]
+    ServiceAreaPreferenceInput:
+      type: object
+      properties:
+        serviceAreaId:
+          type: [string, "null"]
+          format: uuid
+      required: [serviceAreaId]
+    GoodsPhotoReviewItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        category:
+          type: string
+        donorName:
+          type: string
+        locationName:
+          type: [string, "null"]
+        photoVersion:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, title, category, donorName, locationName, photoVersion, createdAt]
+    GoodsPhotoDecision:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [APPROVE, REJECT]
+      required: [decision]
+    School:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        district:
+          type: string
+        area:
+          type: [string, "null"]
+      required: [id, name, district, area]
+    VerificationRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        userName:
+          type: string
+        type:
+          type: string
+          enum: [TEACHER, DONOR]
+        status:
+          type: string
+          enum: [PENDING, VERIFIED, REJECTED, NEEDS_MORE_INFORMATION, EXPIRED]
+        stage:
+          type: [string, "null"]
+          enum: [IDENTITY, PROFESSIONAL, null]
+        schoolName:
+          type: [string, "null"]
+        documentCount:
+          type: integer
+        feedback:
+          type: [string, "null"]
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+        applicantNote:
+          type: [string, "null"]
+        documentProvided:
+          type: boolean
+        submittedAt:
+          type: string
+          format: date-time
+        reviewedAt:
+          type: [string, "null"]
+          format: date-time
+      required: [id, userId, userName, type, status, stage, schoolName, documentCount, feedback, expiresAt, applicantNote, documentProvided, submittedAt, reviewedAt]
+    VerificationSubmission:
+      type: object
+      properties:
+        note:
+          type: string
+          maxLength: 500
+      required: [note]
+    RequestInput:
+      type: object
+      properties:
+        schoolId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          minLength: 4
+          maxLength: 160
+        category:
+          type: string
+          minLength: 2
+          maxLength: 60
+        item:
+          type: string
+          minLength: 2
+          maxLength: 160
+        description:
+          type: string
+          minLength: 10
+          maxLength: 2000
+        specifications:
+          type: [string, "null"]
+          maxLength: 1000
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 40
+        priority:
+          type: string
+          enum: [STANDARD, HIGH, ESSENTIAL]
+        schoolContext:
+          type: string
+          minLength: 4
+          maxLength: 500
+        size:
+          type: [string, "null"]
+          maxLength: 60
+        conditionRequirement:
+          type: [string, "null"]
+          enum: [NEW, GENTLY_USED, ANY, null]
+        requiredBy:
+          type: [string, "null"]
+          format: date
+        teacherPrivateNotes:
+          type: [string, "null"]
+          maxLength: 1000
+          description: Visible only to the teacher and administrators.
+        locationId:
+          type: [string, "null"]
+          format: uuid
+          description: Where the goods are needed. Defaults to the school's location.
+        submit:
+          type: boolean
+          description: Send for review (needs full verification). False saves a draft.
+      required: [schoolId, title, category, item, description, quantity, unit, priority, schoolContext]
+    InventoryInput:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 160
+          description: The item name donors and teachers see.
+        category:
+          type: string
+          minLength: 2
+          maxLength: 60
+        description:
+          type: string
+          minLength: 4
+          maxLength: 1000
+          description: Include useful details such as sizes. Sizes are not matched automatically.
+        specifications:
+          type: [string, "null"]
+          maxLength: 1000
+        quantityAvailable:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 40
+        condition:
+          type: string
+          enum: [NEW, GOOD, FAIR]
+        locationId:
+          type: string
+          format: uuid
+          description: Where the goods are available. Must be an active location.
+      required: [title, category, description, quantityAvailable, unit, condition, locationId]
+    BulkInventoryInput:
+      type: object
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/InventoryInput"
+      required: [items]
+    InventoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        category:
+          type: string
+        categoryGroup:
+          type: string
+          enum: [SHOES, UNIFORMS, BAGS, BOOKS_STATIONERY, LEARNING_MATERIALS, OTHER]
+        item:
+          type: string
+        description:
+          type: string
+        specifications:
+          type: [string, "null"]
+        quantityAvailable:
+          type: integer
+        unit:
+          type: string
+        condition:
+          type: [string, "null"]
+        district:
+          type: string
+        area:
+          type: [string, "null"]
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        locationName:
+          type: [string, "null"]
+        serviceAreaName:
+          type: [string, "null"]
+        photoStatus:
+          type: string
+          enum: [NONE, PENDING, APPROVED, REJECTED]
+        photoVersion:
+          type: [string, "null"]
+          description: Changes when the photo is replaced (use as a cache key).
+        offerCount:
+          type: integer
+        pendingOfferCount:
+          type: integer
+        status:
+          type: string
+          enum: [DRAFT, AVAILABLE, RESERVED, WITHDRAWN]
+        isSeedData:
+          type: boolean
+      required: [id, title, category, categoryGroup, item, description, specifications, quantityAvailable, unit, condition, district, area, locationId, locationName, serviceAreaName, photoStatus, photoVersion, offerCount, pendingOfferCount, status, isSeedData]
+    GoodsListing:
+      type: object
+      description: Goods a donor has available, as shown to teachers. No donor details.
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        category:
+          type: string
+        categoryGroup:
+          type: string
+          enum: [SHOES, UNIFORMS, BAGS, BOOKS_STATIONERY, LEARNING_MATERIALS, OTHER]
+        description:
+          type: string
+        quantityAvailable:
+          type: integer
+        unit:
+          type: string
+        condition:
+          type: [string, "null"]
+        locationId:
+          type: [string, "null"]
+          format: uuid
+        locationName:
+          type: string
+        serviceAreaId:
+          type: [string, "null"]
+          format: uuid
+        serviceAreaName:
+          type: [string, "null"]
+        photoVersion:
+          type: [string, "null"]
+          description: Set only when an approved photo exists.
+        postedAt:
+          type: string
+          format: date-time
+        inMyServiceArea:
+          type: boolean
+        localMatch:
+          type: boolean
+          description: Same service area as one of the teacher's live requests, in a relevant category.
+      required: [id, title, category, categoryGroup, description, quantityAvailable, unit, condition, locationId, locationName, serviceAreaId, serviceAreaName, photoVersion, postedAt, inMyServiceArea, localMatch]
+    SponsorshipInput:
+      type: object
+      properties:
+        actionId:
+          type: string
+          format: uuid
+          description: Client-generated idempotency key for safe retries.
+        requestId:
+          type: string
+          format: uuid
+        inventoryId:
+          type: [string, "null"]
+          format: uuid
+          description: Your listed goods, or null when you plan to source them before handoff.
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        donorMessage:
+          type: [string, "null"]
+          maxLength: 500
+      required: [actionId, requestId, inventoryId, quantity]
+    Sponsorship:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+          format: uuid
+        requestTitle:
+          type: string
+        donorName:
+          type: string
+        inventoryTitle:
+          type: [string, "null"]
+        quantity:
+          type: integer
+        status:
+          type: string
+          enum: [PENDING_TEACHER_REVIEW, APPROVED, REJECTED, CANCELLED, FULFILLED]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, requestId, requestTitle, donorName, inventoryTitle, quantity, status, createdAt]
+    SponsorshipDecision:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [APPROVE, REJECT]
+      required: [decision]
+    FulfilmentOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sponsorshipId:
+          type: string
+          format: uuid
+        requestId:
+          type: string
+          format: uuid
+        requestTitle:
+          type: string
+        quantity:
+          type: integer
+        unit:
+          type: string
+        donorWillSource:
+          type: boolean
+        acceptedQuantity:
+          type: integer
+        handedOverQuantity:
+          type: integer
+        receivedQuantity:
+          type: integer
+        distributedQuantity:
+          type: integer
+        status:
+          type: string
+          enum: [AWAITING_TEACHER_APPROVAL, PREPARING, READY_FOR_HANDOFF, PARTIALLY_HANDED_OVER, HANDED_OVER, PARTIALLY_RECEIVED, RECEIVED, RESOLUTION_REQUIRED, FULFILLED, CANCELLED]
+        generalArea:
+          type: [string, "null"]
+        handoffNotes:
+          type: [string, "null"]
+        donorLocationName:
+          type: [string, "null"]
+        schoolLocationName:
+          type: [string, "null"]
+        scheduledAt:
+          type: [string, "null"]
+          format: date-time
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderEvent"
+      required: [id, sponsorshipId, requestId, requestTitle, quantity, unit, donorWillSource, acceptedQuantity, handedOverQuantity, receivedQuantity, distributedQuantity, status, generalArea, handoffNotes, donorLocationName, schoolLocationName, scheduledAt, events]
+    OrderEvent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          enum: [OFFER_ACCEPTED, PREPARATION_STARTED, GOODS_READY, HANDOFF_CONFIRMED, GOODS_RECEIVED, ISSUE_REPORTED, ISSUE_RESOLVED, GOODS_DISTRIBUTED, OFFER_CANCELLED]
+        statusAfter:
+          type: string
+          enum: [AWAITING_TEACHER_APPROVAL, PREPARING, READY_FOR_HANDOFF, PARTIALLY_HANDED_OVER, HANDED_OVER, PARTIALLY_RECEIVED, RECEIVED, RESOLUTION_REQUIRED, FULFILLED, CANCELLED]
+        actorRole:
+          type: string
+          enum: [DONOR, TEACHER, ADMIN, SCHOOL_REPRESENTATIVE]
+        quantity:
+          type: [integer, "null"]
+        issueType:
+          type: [string, "null"]
+          enum: [MISSING, DAMAGED, INCORRECT, null]
+        note:
+          type: [string, "null"]
+        privateNote:
+          type: [string, "null"]
+          description: Only returned to authorized school personnel.
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, eventType, statusAfter, actorRole, quantity, issueType, note, privateNote, createdAt]
+    OrderStatusUpdate:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [START_PREPARING, MARK_READY, CONFIRM_HANDOFF, CONFIRM_RECEIPT, REPORT_ISSUE, RESOLVE_ISSUE, COMPLETE_DISTRIBUTION, CANCEL]
+        actionId:
+          type: string
+          format: uuid
+          description: Client-generated idempotency key for safe retries.
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        issueType:
+          type: string
+          enum: [MISSING, DAMAGED, INCORRECT]
+        note:
+          type: [string, "null"]
+          maxLength: 500
+        privateNote:
+          type: [string, "null"]
+          maxLength: 1000
+        generalArea:
+          type: [string, "null"]
+          maxLength: 120
+        handoffNotes:
+          type: [string, "null"]
+          maxLength: 500
+        scheduledAt:
+          type: [string, "null"]
+          format: date-time
+      required: [action, actionId]
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        targetPath:
+          type: [string, "null"]
+        readAt:
+          type: [string, "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, type, title, body, targetPath, readAt, createdAt]
+    ReportInput:
+      type: object
+      properties:
+        targetType:
+          type: string
+          enum: [REQUEST, INVENTORY, SPONSORSHIP, USER]
+        targetId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 120
+        details:
+          type: [string, "null"]
+          maxLength: 1000
+      required: [targetType, targetId, reason]
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        targetType:
+          type: string
+          enum: [REQUEST, INVENTORY, SPONSORSHIP, USER]
+        targetId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        details:
+          type: [string, "null"]
+        status:
+          type: string
+          enum: [OPEN, UNDER_REVIEW, RESOLVED, DISMISSED]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, targetType, targetId, reason, details, status, createdAt]
+    AdminBootstrap:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+      required: [name, email, password]
+    UserStatusUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED]
+      required: [status]
+    RequestModeration:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [APPROVE, REJECT, REQUEST_CHANGES]
+        note:
+          type: [string, "null"]
+          maxLength: 1000
+          description: Private administrator notes.
+        feedback:
+          type: [string, "null"]
+          maxLength: 1000
+          description: Shown to the teacher. Required for REJECT and REQUEST_CHANGES.
+      required: [decision]
+    VerificationDecision:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [APPROVE, REJECT, REQUEST_INFO, EXPIRE]
+        note:
+          type: [string, "null"]
+          maxLength: 1000
+          description: Private administrator notes, never shown to the applicant.
+        feedback:
+          type: [string, "null"]
+          maxLength: 1000
+          description: Shown to the applicant. Required for REJECT and REQUEST_INFO.
+        expiresAt:
+          type: [string, "null"]
+          format: date-time
+          description: Optional expiry when approving (for example licence validity).
+      required: [decision]
+    ReportDecision:
+      type: object
+      properties:
+        decision:
+          type: string
+          enum: [RESOLVED, DISMISSED]
+        note:
+          type: [string, "null"]
+          maxLength: 1000
+      required: [decision]
+

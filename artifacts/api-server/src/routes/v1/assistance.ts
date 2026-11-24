@@ -6,6 +6,7 @@ import {
   assistanceRequestsTable,
   requireDb,
   schoolsTable,
+  sponsorshipsTable,
   teacherProfilesTable,
 } from "@workspace/db";
 import { requireAuth, requireRole } from "../../lib/auth-middleware";
@@ -272,6 +273,20 @@ router.get("/requests/:id", async (request, response) => {
     response.status(400).json({ error: "The request id is not valid." });
     return;
   }
+  const donorOffer =
+    request.authUser?.role === "DONOR"
+      ? await requireDb()
+          .select({ id: sponsorshipsTable.id })
+          .from(sponsorshipsTable)
+          .where(
+            and(
+              eq(sponsorshipsTable.requestId, params.data.id),
+              eq(sponsorshipsTable.donorUserId, request.authUser.id),
+            ),
+          )
+          .limit(1)
+      : [];
+  const ownsOffer = donorOffer.length > 0;
   const publicVisibility = or(
     eq(assistanceRequestsTable.status, "OPEN"),
     eq(assistanceRequestsTable.status, "PARTIALLY_MATCHED"),
@@ -286,7 +301,9 @@ router.get("/requests/:id", async (request, response) => {
             publicVisibility,
             eq(assistanceRequestsTable.teacherUserId, request.authUser.id),
           )
-        : publicVisibility;
+        : ownsOffer
+          ? undefined
+          : publicVisibility;
   const [row] = await requireDb()
     .select()
     .from(assistanceRequestsTable)
@@ -294,15 +311,6 @@ router.get("/requests/:id", async (request, response) => {
       and(
         eq(assistanceRequestsTable.id, params.data.id),
         visibility,
-        request.authUser?.role === "ADMIN" ||
-          request.authUser?.role === "TEACHER"
-          ? undefined
-          : or(
-              eq(assistanceRequestsTable.status, "OPEN"),
-              eq(assistanceRequestsTable.status, "PARTIALLY_MATCHED"),
-              eq(assistanceRequestsTable.status, "MATCHED"),
-              eq(assistanceRequestsTable.status, "FULFILLED"),
-            ),
         process.env.NODE_ENV === "production"
           ? eq(assistanceRequestsTable.isSeedData, false)
           : undefined,

@@ -50,6 +50,13 @@
       "when": 1795020621739,
       "tag": "0006_wooden_glorian",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795445450301,
+      "tag": "0007_stormy_toad",
+      "breakpoints": true
     }
   ]
 }

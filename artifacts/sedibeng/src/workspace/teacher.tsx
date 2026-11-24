@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { ArrowLeft, ClipboardList, MapPin, Package, Pencil, Plus, Send, ShieldCheck, Trash2 } from 'lucide-react';
 import {
   type OwnRequest, type RequestInput,
-  getGetMyRequestsQueryKey, getGetNotificationsQueryKey, getGetOrdersQueryKey, getGetRequestsQueryKey, getGetSponsorshipsQueryKey, getGetTeacherDashboardQueryKey,
+  getGetMyRequestsQueryKey, getGetNotificationsQueryKey, getGetOrdersQueryKey, getGetRequestQueryKey, getGetRequestsQueryKey, getGetSponsorshipsQueryKey, getGetTeacherDashboardQueryKey,
   useCreateRequest, useDecideSponsorship, useDeleteRequest, useGetAuthSession, useGetGoods, useGetMyRequests, useGetOrders, useGetSponsorships,
   useGetTeacherDashboard, useGetTeacherProfile, useGetTeacherVerification, useSubmitRequest, useUpdateOrderStatus, useUpdateRequest,
 } from '@workspace/api-client-react';
@@ -14,6 +14,7 @@ import { ErrorState } from '../components/site';
 import { AreaPicker, GoodsPhoto, LocationSelect, goodsConditionLabels, groupLabels, useServiceAreaFilter } from './places';
 import { TeacherVerificationPanel } from './teacher-verification';
 import { FulfilmentOrderCard } from './fulfilment';
+import { OfferDetail, TeacherRequestDetail as RequestDetail } from './record-details';
 import { Avatar, Card, EmptyState, Feedback, ListRows, Notice, PageHeader, Segmented, StatCards, greet } from './ui';
 
 function NearbyGoods() {
@@ -58,7 +59,7 @@ export function TeacherHome() {
       <section className="ws-card ws-hello">
         <Avatar name={user?.name || 'Sedibeng'} size={48} />
         <div>
-          <h1>{greet(user?.name)} 👋</h1>
+          <h1>{greet(user?.name)}</h1>
           <p>{profile.data ? `${profile.data.schoolName} · ${profile.data.district}` : 'Here’s how your school’s requests are doing.'}</p>
         </div>
       </section>
@@ -72,7 +73,7 @@ export function TeacherHome() {
       <NearbyGoods />
 
       <Card title="Needs your attention" hint="The quickest things to do next.">
-        {nothing ? <p className="ws-muted ws-empty-line">You’re all caught up ☕ Nothing is waiting on you right now.</p> : (
+        {nothing ? <p className="ws-muted ws-empty-line">You’re all caught up. Nothing is waiting on you right now.</p> : (
           <ListRows empty=""
             items={[
               ...pending.map((o) => ({
@@ -142,11 +143,12 @@ export function TeacherRequests() {
           items={shown.map((r) => ({
             id: r.id, title: r.title, status: r.status,
             detail: `${r.quantity} ${r.unit}${r.size ? ` · ${r.size}` : ''} · ${r.location}${r.moderationFeedback && ['Needs changes', 'Rejected', 'Draft'].includes(r.status) ? ` — Reviewer: “${r.moderationFeedback}”` : ''}`,
-            right: <>
+             right: <>
+               <Link className="ws-btn ws-btn-ghost ws-btn-sm" href={`/teacher/requests/${r.id}`} data-testid={`link-request-details-${r.id}`}>View details</Link>
               {canSendForReview(r.status) && <button className="ws-btn ws-btn-primary ws-btn-sm" disabled={!eligible || submit.isPending} title={eligible ? undefined : 'Finish both verification steps first'}
                 onClick={() => submit.mutate({ id: r.id }, { onSuccess: () => { toast({ title: 'Sent for review', description: 'We’ll publish it once it’s approved.' }); refresh(); }, onError: (e) => toast({ title: 'Couldn’t send it yet', description: e instanceof Error ? e.message : undefined, variant: 'destructive' }) })} data-testid={`button-send-${r.id}`}><Send size={14} />Send for review</button>}
               {canEdit(r.status) && <Link href={`/teacher/requests/${r.id}/edit`} className="ws-btn ws-btn-ghost ws-btn-sm"><Pencil size={14} />Edit</Link>}
-              {canCancel(r.status) && <button className="ws-btn ws-btn-danger ws-btn-sm" onClick={() => { if (confirm(`Cancel “${r.title}”?`)) remove.mutate({ id: r.id }, { onSuccess: () => { toast({ title: 'Request cancelled' }); refresh(); } }); }}><Trash2 size={14} />Cancel</button>}
+             {canCancel(r.status) && <button className="ws-btn ws-btn-danger ws-btn-sm" onClick={() => { if (confirm(`Cancel “${r.title}”?`)) remove.mutate({ id: r.id }, { onSuccess: () => { toast({ title: 'Request cancelled' }); refresh(); void client.invalidateQueries({ queryKey: getGetRequestQueryKey(r.id) }); } }); }}><Trash2 size={14} />Cancel</button>}
             </>,
           }))} /></Card>
       )}
@@ -181,11 +183,12 @@ export function TeacherRequestForm() {
 
   useEffect(() => { if (existing && schoolId) form.reset(fromOwn(existing, schoolId)); }, [existing, schoolId, form]);
 
-  const finish = (sent: boolean) => {
-    toast({ title: sent ? 'Sent for review 🎉' : 'Draft saved', description: sent ? 'We’ll publish it to donors once it’s approved.' : 'You can send it for review any time.' });
+  const finish = (sent: boolean, savedId?: string) => {
+    toast({ title: sent ? 'Sent for review' : 'Draft saved', description: sent ? 'We’ll publish it to donors once it’s approved.' : 'You can send it for review any time.' });
     void client.invalidateQueries({ queryKey: getGetMyRequestsQueryKey() });
     void client.invalidateQueries({ queryKey: getGetRequestsQueryKey() });
     void client.invalidateQueries({ queryKey: getGetTeacherDashboardQueryKey() });
+    if (savedId) void client.invalidateQueries({ queryKey: getGetRequestQueryKey(savedId) });
     navigate('/teacher/requests');
   };
   const save = (sendForReview: boolean) => form.handleSubmit((values) => {
@@ -199,7 +202,7 @@ export function TeacherRequestForm() {
       conditionRequirement: values.conditionRequirement || null,
       schoolContext: values.schoolContext?.trim() || `${profile.data?.schoolName ?? 'School'} · ${profile.data?.district ?? ''}`,
     };
-    const options = { onSuccess: () => finish(sendForReview), onError: setError };
+    const options = { onSuccess: (saved: { id: string }) => finish(sendForReview, saved.id), onError: setError };
     if (editing) update.mutate({ id: id!, data }, options);
     else create.mutate({ data }, options);
   });
@@ -306,6 +309,7 @@ export function TeacherGoods() {
 
 export function TeacherOffers() {
   const client = useQueryClient();
+  const { toast } = useToast();
   const offers = useGetSponsorships();
   const decide = useDecideSponsorship();
   const [tab, setTab] = useState<'review' | 'all'>('review');
@@ -317,14 +321,19 @@ export function TeacherOffers() {
     <div className="ws-col ws-col-wide">
       <PageHeader title="Offers" subtitle="Donors who want to help with your requests." />
       <Segmented value={tab} onChange={setTab} options={[{ value: 'review', label: 'Needs review', count: review.length }, { value: 'all', label: 'All offers', count: all.length }]} />
-      <Card><ListRows empty={tab === 'review' ? 'No offers are waiting for your decision.' : 'No offers yet. They’ll appear when donors respond to your requests.'}
+      {offers.isError ? <ErrorState onRetry={() => void offers.refetch()} /> : (
+      <Card><ListRows empty={offers.isLoading ? 'Loading offers…' : tab === 'review' ? 'No offers are waiting for your decision.' : 'No offers yet. They’ll appear when donors respond to your requests.'}
         items={shown.map((o) => ({
           id: o.id, title: `${o.donorName} offered ${o.quantity}`, detail: `${o.inventoryTitle ? `From ${o.inventoryTitle} · ` : 'Donor will source the goods · '}For “${o.requestTitle}” · ${new Date(o.createdAt).toLocaleDateString()}`, status: o.status,
-          right: o.status === 'PENDING_TEACHER_REVIEW' ? <>
-            <button className="ws-btn ws-btn-primary ws-btn-sm" onClick={() => decide.mutate({ id: o.id, data: { decision: 'APPROVE' } }, { onSuccess: refresh })}>Approve</button>
-            <button className="ws-btn ws-btn-ghost ws-btn-sm" onClick={() => decide.mutate({ id: o.id, data: { decision: 'REJECT' } }, { onSuccess: refresh })}>Decline</button>
-          </> : undefined,
+           right: <>
+             <Link className="ws-btn ws-btn-ghost ws-btn-sm" href={`/teacher/offers/${o.id}`} data-testid={`link-offer-details-${o.id}`}>View details</Link>
+             {o.status === 'PENDING_TEACHER_REVIEW' && <>
+               <button className="ws-btn ws-btn-primary ws-btn-sm" disabled={decide.isPending} onClick={() => decide.mutate({ id: o.id, data: { decision: 'APPROVE' } }, { onSuccess: () => { refresh(); toast({ title: 'Offer accepted', description: 'You can coordinate the handoff in Handoffs.' }); }, onError: (error) => toast({ title: 'Couldn’t accept this offer', description: error instanceof Error ? error.message : undefined, variant: 'destructive' }) })}>Accept</button>
+               <button className="ws-btn ws-btn-ghost ws-btn-sm" disabled={decide.isPending} onClick={() => decide.mutate({ id: o.id, data: { decision: 'REJECT' } }, { onSuccess: () => { refresh(); toast({ title: 'Offer declined' }); }, onError: (error) => toast({ title: 'Couldn’t decline this offer', description: error instanceof Error ? error.message : undefined, variant: 'destructive' }) })}>Decline</button>
+             </> }
+           </>,
         }))} /></Card>
+      )}
     </div>
   );
 }
@@ -365,3 +374,6 @@ export function TeacherMe() {
     </div>
   );
 }
+
+export function TeacherRequestDetail() { return <RequestDetail />; }
+export function TeacherOfferDetail() { return <OfferDetail role="teacher" />; }

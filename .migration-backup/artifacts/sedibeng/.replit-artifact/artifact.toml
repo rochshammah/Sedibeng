@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Sedibeng"
+description = "A mobile-first platform connecting verified teachers in Gaborone with donors providing physical school essentials, with learner privacy and safeguarding at its core."
+version = "1.0.0"
+id = "artifacts/sedibeng"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19835
+
+[services.development]
+run = "pnpm --filter @workspace/sedibeng run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/sedibeng", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/sedibeng/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19835"
+BASE_PATH = "/"

@@ -1,0 +1,55 @@
+import { sql } from "drizzle-orm";
+import {
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+import { schoolStatusEnum, schoolTypeEnum } from "./enums";
+import { locationsTable } from "./locations";
+
+export const schoolsTable = pgTable(
+  "schools",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    district: text("district").notNull().default("Gaborone"),
+    area: text("area"),
+    schoolType: schoolTypeEnum("school_type"),
+    // General location only (e.g. "Near Broadhurst mall"), never exact addresses.
+    generalLocation: text("general_location"),
+    // Structured location used for discovery (the free-text district/area stay for display).
+    locationId: uuid("location_id").references(() => locationsTable.id, { onDelete: "set null" }),
+    countryCode: text("country_code").notNull().default("BW"),
+    status: schoolStatusEnum("status").notNull().default("PENDING_REVIEW"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("schools_name_district_area_uidx").on(
+      sql`lower(${table.name})`,
+      sql`lower(${table.district})`,
+      sql`lower(coalesce(${table.area}, ''))`,
+    ),
+    index("schools_district_area_idx").on(table.district, table.area),
+    index("schools_status_idx").on(table.status),
+  ],
+);
+
+export const insertSchoolSchema = createInsertSchema(schoolsTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSchool = z.infer<typeof insertSchoolSchema>;
+export type School = typeof schoolsTable.$inferSelect;

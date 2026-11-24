@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "1vrne655T2nTAT71R61sL"
+uri = "file://database/phase5-neon-migration.sql"
+type = "unspecified"
+title = "Sedibeng Phase 5 Neon migration"
+description = "SQL script to apply the handoff-tracking migrations and reconcile Drizzle migration history in the matching Neon database."
+logical_id = "1add2fa2-da78-4ea7-9b73-f6873ba1119a"
+content_hash = "sha256:437c93539f4b242588dd40d3d8afb3e122b3066a420b2e57bd2572b6c80cf2c8"
+size = 17722
+mtime_ms = 1795189680673
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:20507fab-c95a-4281-8356-8dbc78a0560f/1add2fa2-da78-4ea7-9b73-f6873ba1119a/f3f2f8b1-eeb9-4ef0-aab8-2d2663edf14a"
+storage_version_token = "1795189724112557"
+content_type = "application/octet-stream"

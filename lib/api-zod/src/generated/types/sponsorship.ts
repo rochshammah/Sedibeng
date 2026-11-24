@@ -14,7 +14,12 @@ export interface Sponsorship {
   donorName: string;
   /** @nullable */
   inventoryTitle: string | null;
+  /** @nullable */
+  donorMessage: string | null;
   quantity: number;
+  /** @nullable */
+  acceptedQuantity: number | null;
+  donorWillSource: boolean;
   status: SponsorshipStatus;
   createdAt: Date;
 }

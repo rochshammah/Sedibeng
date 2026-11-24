@@ -1021,7 +1021,12 @@ export interface Sponsorship {
   donorName: string;
   /** @nullable */
   inventoryTitle: string | null;
+  /** @nullable */
+  donorMessage: string | null;
   quantity: number;
+  /** @nullable */
+  acceptedQuantity: number | null;
+  donorWillSource: boolean;
   status: SponsorshipStatus;
   createdAt: string;
 }
@@ -1207,6 +1212,31 @@ export interface OrderStatusUpdate {
   handoffNotes?: string | null;
   /** @nullable */
   scheduledAt?: string | null;
+}
+
+export interface HandoffMessageInput {
+  /** Client-generated idempotency key for safe retries. */
+  actionId: string;
+  /**
+     * @minLength 1
+     * @maxLength 1200
+     */
+  body: string;
+}
+
+export type HandoffMessageSenderLabel = typeof HandoffMessageSenderLabel[keyof typeof HandoffMessageSenderLabel];
+
+
+export const HandoffMessageSenderLabel = {
+  Donor: 'Donor',
+  School: 'School',
+} as const;
+
+export interface HandoffMessage {
+  id: string;
+  body: string;
+  senderLabel: HandoffMessageSenderLabel;
+  createdAt: string;
 }
 
 export interface Notification {

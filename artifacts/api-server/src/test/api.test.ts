@@ -84,11 +84,24 @@ describe("API authentication boundaries", () => {
       assert.deepEqual(await response.json(), { error: "Sign in to continue." });
     }
     assert.equal((await fetch(`${baseUrl}/api/v1/orders`)).status, 401);
+    assert.equal(
+      (await fetch(`${baseUrl}/api/v1/orders/00000000-0000-4000-8000-000000000000/messages`)).status,
+      401,
+    );
     const update = await apiRequest(
       "/api/v1/orders/00000000-0000-4000-8000-000000000000/status",
       { method: "PATCH", headers: { "content-type": "application/json" }, body: "{}" },
     );
     assert.equal(update.status, 401);
+    const message = await apiRequest(
+      "/api/v1/orders/00000000-0000-4000-8000-000000000000/messages",
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      },
+    );
+    assert.equal(message.status, 401);
   });
 
   it("rejects state-changing requests without a CSRF token", async () => {

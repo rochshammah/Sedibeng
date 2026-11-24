@@ -1078,6 +1078,67 @@ paths:
           $ref: "#/components/responses/ApiError"
         "404":
           $ref: "#/components/responses/ApiError"
+  /v1/orders/{id}/messages:
+    get:
+      operationId: getOrderMessages
+      tags: [giving]
+      summary: List messages for a handoff visible to the signed-in participant
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      responses:
+        "200":
+          description: Handoff messages, in chronological order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HandoffMessage"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+    post:
+      operationId: createOrderMessage
+      tags: [giving]
+      summary: Send a private handoff message
+      parameters:
+        - $ref: "#/components/parameters/RecordId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HandoffMessageInput"
+      responses:
+        "200":
+          description: Existing message returned after a safe retry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HandoffMessage"
+        "201":
+          description: Handoff message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HandoffMessage"
+        "400":
+          $ref: "#/components/responses/ApiError"
+        "401":
+          $ref: "#/components/responses/ApiError"
+        "403":
+          $ref: "#/components/responses/ApiError"
+        "404":
+          $ref: "#/components/responses/ApiError"
+        "409":
+          $ref: "#/components/responses/ApiError"
+        "429":
+          $ref: "#/components/responses/ApiError"
   /v1/notifications:
     get:
       operationId: getNotifications
@@ -2684,15 +2745,21 @@ components:
           type: string
         inventoryTitle:
           type: [string, "null"]
+        donorMessage:
+          type: [string, "null"]
         quantity:
           type: integer
+        acceptedQuantity:
+          type: [integer, "null"]
+        donorWillSource:
+          type: boolean
         status:
           type: string
           enum: [PENDING_TEACHER_REVIEW, APPROVED, REJECTED, CANCELLED, FULFILLED]
         createdAt:
           type: string
           format: date-time
-      required: [id, requestId, requestTitle, donorName, inventoryTitle, quantity, status, createdAt]
+      required: [id, requestId, requestTitle, donorName, inventoryTitle, donorMessage, quantity, acceptedQuantity, donorWillSource, status, createdAt]
     SponsorshipDecision:
       type: object
       properties:
@@ -2809,6 +2876,33 @@ components:
           type: [string, "null"]
           format: date-time
       required: [action, actionId]
+    HandoffMessageInput:
+      type: object
+      properties:
+        actionId:
+          type: string
+          format: uuid
+          description: Client-generated idempotency key for safe retries.
+        body:
+          type: string
+          minLength: 1
+          maxLength: 1200
+      required: [actionId, body]
+    HandoffMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        body:
+          type: string
+        senderLabel:
+          type: string
+          enum: [Donor, School]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, body, senderLabel, createdAt]
     Notification:
       type: object
       properties:

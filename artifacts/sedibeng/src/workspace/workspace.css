@@ -297,3 +297,79 @@
 @media (max-width: 560px) { .ws-goods-thumb { width: 64px; height: 64px; } .ws-goods-grid { grid-template-columns: 1fr; } }
 
 .ws-goods-meta svg, .ws-note-inline svg { display: inline; vertical-align: -1px; }
+
+/* Offer and request detail surfaces */
+.ws-back { width: fit-content; padding: 5px 0; color: var(--ws-brand-dark); }
+.ws-back:focus-visible, .ws-btn:focus-visible, .ws-link-btn:focus-visible, .ws-rows a:focus-visible {
+  outline: 3px solid #bf8b49; outline-offset: 3px;
+}
+.ws-rows .ws-row { align-items: center; }
+.ws-detail-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 0; }
+.ws-detail-list > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 12px 0; border-top: 1px solid var(--ws-line); }
+.ws-detail-list dt { flex: none; color: var(--ws-muted); font-size: 13px; }
+.ws-detail-list dd { margin: 0; text-align: right; font-weight: 650; overflow-wrap: anywhere; }
+.ws-detail-list .ws-detail-full { grid-column: 1 / -1; display: block; }
+.ws-detail-list .ws-detail-full dd { text-align: left; margin-top: 5px; white-space: pre-wrap; line-height: 1.7; font-weight: 400; }
+.ws-request-detail-photo { display: block; width: 100%; max-height: 320px; margin: 0 0 16px; border-radius: 14px; object-fit: cover; background: #f4f3eb; }
+.ws-offer-summary { display: flex; align-items: center; gap: 13px; padding: 15px; border: 1px solid #dce8dd; border-radius: 15px; background: #f5f8f2; margin-bottom: 18px; }
+.ws-offer-summary > div { min-width: 0; flex: 1; }
+.ws-offer-summary strong { font-size: 18px; }
+.ws-offer-summary p { color: var(--ws-muted); font-size: 13px; }
+.ws-offer-icon { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 14px; color: var(--ws-brand); background: #e2eee3; }
+
+/* One clear receipt and a private, role-labelled conversation */
+.ws-receipt-amounts { display: flex; flex-wrap: wrap; gap: 9px; margin: 17px 0; }
+.ws-receipt-amounts > div { display: flex; align-items: center; gap: 9px; padding: 8px 12px; border-radius: 11px; background: #f5f5ef; border: 1px solid var(--ws-line); }
+.ws-receipt-amounts span { color: var(--ws-muted); font-size: 12px; }
+.ws-receipt-amounts strong { font-size: 13px; }
+.ws-ready-panel { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 14px; margin: 14px 0; border: 1px solid #dce8dd; border-radius: 14px; background: #f7f9f5; }
+.ws-ready-panel p { max-width: 440px; color: var(--ws-muted); font-size: 13px; }
+.ws-ready-panel .ws-btn { flex: none; }
+.ws-receipt-panel { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; padding: 16px; margin: 14px 0; border: 1px solid #dce8dd; border-radius: 15px; background: #f7f9f5; }
+.ws-receipt-panel > div:first-child { flex: 1 1 100%; }
+.ws-receipt-panel h4, .ws-conversation h4 { margin: 0; color: var(--ws-ink); font-size: 16px; }
+.ws-receipt-panel p { max-width: 600px; margin-top: 3px; color: var(--ws-muted); font-size: 13px; }
+.ws-receipt-field { display: grid; gap: 5px; color: var(--ws-muted); font-size: 12px; font-weight: 650; }
+.ws-receipt-input-wrap { display: flex; align-items: center; gap: 8px; }
+.ws-receipt-input-wrap .ws-input { width: 112px; }
+.ws-receipt-input-wrap span { color: var(--ws-ink); }
+.ws-receipt-result { display: flex; align-items: flex-start; gap: 11px; padding: 14px; border-radius: 14px; margin: 14px 0; background: #edf5ed; color: #28563f; }
+.ws-receipt-check { display: grid; place-items: center; flex: none; width: 34px; height: 34px; border-radius: 50%; background: #d9ebdd; }
+.ws-receipt-result strong { font-size: 14px; }
+.ws-receipt-result p { margin-top: 3px; color: #496654; font-size: 13px; line-height: 1.55; }
+.ws-receipt-result .ws-thanks { margin-top: 8px; font-weight: 650; }
+.ws-conversation { border-top: 1px solid var(--ws-line); margin-top: 18px; padding-top: 16px; }
+.ws-conversation-head { display: flex; align-items: center; gap: 10px; }
+.ws-conversation-icon { display: grid; place-items: center; flex: none; width: 36px; height: 36px; border-radius: 12px; background: var(--ws-soft); color: var(--ws-brand); }
+.ws-conversation-head > div { flex: 1; }
+.ws-conversation-head p { color: var(--ws-muted); font-size: 12px; }
+.ws-live-label { display: inline-flex; align-items: center; gap: 6px; color: var(--ws-muted); font-size: 11px; white-space: nowrap; }
+.ws-live-label i { width: 7px; height: 7px; border-radius: 50%; background: #4a9a71; }
+.ws-privacy-reminder { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0; padding: 10px 12px; border-radius: 12px; background: #f7f4e9; color: #665832; }
+.ws-privacy-reminder svg { flex: none; margin-top: 2px; }
+.ws-privacy-reminder p { font-size: 12px; line-height: 1.5; }
+.ws-message-list { display: flex; flex-direction: column; gap: 9px; min-height: 56px; max-height: 340px; overflow: auto; padding: 8px 2px; }
+.ws-message { align-self: flex-start; width: min(88%, 520px); border: 1px solid var(--ws-line); border-radius: 13px 13px 13px 4px; padding: 10px 12px; background: #fff; }
+.ws-message-school { align-self: flex-end; border-radius: 13px 13px 4px 13px; background: #f0f6f0; border-color: #dce8dd; }
+.ws-message > div { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.ws-message strong { color: var(--ws-brand-dark); font-size: 12px; }
+.ws-message time { color: var(--ws-muted); font-size: 10px; }
+.ws-message > p { margin-top: 5px; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.ws-message-empty, .ws-message-error { color: var(--ws-muted); font-size: 13px; padding: 8px 0; }
+.ws-message-error p { margin-bottom: 3px; }
+.ws-message-form { display: grid; gap: 7px; border-top: 1px solid var(--ws-line); padding-top: 12px; }
+.ws-message-form label { font-weight: 650; font-size: 12px; }
+.ws-message-form textarea { resize: vertical; min-height: 65px; }
+.ws-message-form-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--ws-muted); font-size: 11px; }
+.ws-conversation-closed { padding: 10px 0; color: var(--ws-muted); font-size: 12px; }
+
+@media (max-width: 600px) {
+  .ws-detail-list { grid-template-columns: 1fr; }
+  .ws-detail-list .ws-detail-full { grid-column: auto; }
+  .ws-ready-panel { align-items: stretch; flex-direction: column; }
+  .ws-ready-panel .ws-btn { align-self: flex-start; }
+  .ws-receipt-panel > .ws-btn { width: 100%; }
+  .ws-live-label { font-size: 0; gap: 0; }
+  .ws-live-label i { width: 8px; height: 8px; }
+  .ws-message { width: 94%; }
+}

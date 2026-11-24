@@ -8,6 +8,7 @@ export * from "./donor-inventory";
 export * from "./sponsorships";
 export * from "./orders";
 export * from "./order-events";
+export * from "./handoff-messages";
 export * from "./deliveries";
 export * from "./notifications";
 export * from "./reports";

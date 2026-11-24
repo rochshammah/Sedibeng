@@ -58,6 +58,9 @@ router.get(
         requestTitle: assistanceRequestsTable.title,
         inventoryTitle: donorInventoryTable.title,
         donorName: usersTable.name,
+        donorMessage: sponsorshipsTable.donorMessage,
+        acceptedQuantity: sponsorshipsTable.acceptedQuantity,
+        inventoryId: sponsorshipsTable.inventoryId,
         donorUserId: sponsorshipsTable.donorUserId,
         teacherUserId: assistanceRequestsTable.teacherUserId,
         quantity: sponsorshipsTable.quantity,
@@ -87,7 +90,10 @@ router.get(
           requestTitle: row.requestTitle,
           donorName: row.donorName,
           inventoryTitle: row.inventoryTitle,
+          donorMessage: row.donorMessage,
           quantity: row.quantity,
+          acceptedQuantity: row.acceptedQuantity,
+          donorWillSource: row.inventoryId === null,
           status: row.status,
           createdAt: row.createdAt.toISOString(),
         })),
@@ -259,7 +265,10 @@ router.post(
         requestTitle: result.requestTitle,
         donorName: request.authUser!.name,
         inventoryTitle: result.inventoryTitle,
+        donorMessage: result.sponsorship.donorMessage,
         quantity: result.sponsorship.quantity,
+        acceptedQuantity: result.sponsorship.acceptedQuantity,
+        donorWillSource: result.sponsorship.inventoryId === null,
         status: result.sponsorship.status,
         createdAt: result.sponsorship.createdAt.toISOString(),
       }),
@@ -309,6 +318,9 @@ router.post(
       if (!offer) throw new HttpError(404, "The offer could not be reviewed.");
 
       const approved = input.decision === "APPROVE";
+      if (approved && offer.request.status === "FULFILLED") {
+        throw new HttpError(409, "This request has already received the quantity it needs.");
+      }
       const nextStatus = approved ? "APPROVED" : "REJECTED";
       const [updated] = await tx
         .update(sponsorshipsTable)
@@ -345,20 +357,34 @@ router.post(
         });
         const [{ approvedQuantity }] = await tx
           .select({
-            approvedQuantity: sql<number>`coalesce(sum(${sponsorshipsTable.quantity}), 0)::int`,
+            approvedQuantity: sql<number>`coalesce(sum(coalesce(${sponsorshipsTable.acceptedQuantity}, ${sponsorshipsTable.quantity})), 0)::int`,
           })
           .from(sponsorshipsTable)
           .where(
             and(
               eq(sponsorshipsTable.requestId, offer.request.id),
-              or(
-                eq(sponsorshipsTable.status, "APPROVED"),
-                eq(sponsorshipsTable.status, "FULFILLED"),
-              ),
+              eq(sponsorshipsTable.status, "APPROVED"),
             ),
           );
+        const [{ totalReceived }] = await tx
+          .select({
+            totalReceived: sql<number>`coalesce(sum(${ordersTable.receivedQuantity}), 0)::int`,
+          })
+          .from(ordersTable)
+          .innerJoin(
+            sponsorshipsTable,
+            eq(ordersTable.sponsorshipId, sponsorshipsTable.id),
+          )
+          .where(eq(sponsorshipsTable.requestId, offer.request.id));
+        const totalCovered = approvedQuantity + totalReceived;
         const requestStatus =
-          approvedQuantity >= offer.request.quantity ? "MATCHED" : "PARTIALLY_MATCHED";
+          totalReceived >= offer.request.quantity
+            ? "FULFILLED"
+            : totalCovered >= offer.request.quantity
+              ? "MATCHED"
+              : totalCovered > 0
+                ? "PARTIALLY_MATCHED"
+                : "OPEN";
         await tx
           .update(assistanceRequestsTable)
           .set({ status: requestStatus, updatedAt: new Date() })
@@ -425,7 +451,10 @@ router.post(
         requestTitle: result.request.title,
         donorName: result.donorName,
         inventoryTitle: result.inventoryTitle,
+        donorMessage: result.updated.donorMessage,
         quantity: result.updated.quantity,
+        acceptedQuantity: result.updated.acceptedQuantity,
+        donorWillSource: result.updated.inventoryId === null,
         status: result.updated.status,
         createdAt: result.updated.createdAt.toISOString(),
       }),

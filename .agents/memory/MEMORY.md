@@ -1,1 +1,2 @@
-- [Drizzle migration paths](drizzle-migration-paths.md) — Drizzle Kit config paths must stay package-relative for migration snapshots.
+- [Neon migration tracking](neon-migration-tracking.md) — compare the live schema and Drizzle journal before scripting manual database migrations.
+- [Vite package firewall](vite-package-firewall.md) — when Vite 7.3.7 downloads fail, the compatible 7.3.8 patch installed successfully.

@@ -1,7 +1,7 @@
 kind = "web"
 previewPath = "/"
 title = "Sedibeng"
-description = "A mobile-first platform connecting verified teachers in Gaborone with donors providing physical school essentials, with learner privacy and safeguarding at its core."
+description = "Sedibeng connects teachers with donors providing physical school essentials while protecting learner privacy and dignity. Includes school needs, donations, teacher verification and role-based workspaces."
 version = "1.0.0"
 id = "artifacts/sedibeng"
 router = "path"
